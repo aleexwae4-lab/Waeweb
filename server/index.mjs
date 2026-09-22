@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
-import { readAndIndex, searchIndex, indexSize, getIndexedDocument, ReaderError } from "./reader.mjs";
+import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
+import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError } from "./vault.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const files = new Map([
@@ -42,47 +43,66 @@ function limited(req) {
   return entry.count > 60;
 }
 export async function handler(req, res) {
-  if (req.method !== "GET" && req.method !== "HEAD") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+  if (!["GET", "HEAD", "POST"].includes(req.method)) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD, POST" });
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
-  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.3.0" });
+  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.4.0" });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
-    readerEnabled: process.env.WAE_READER_ENABLED === "true",
-    indexSize: indexSize(),
-    indexPersistence: "memory_only",
+    readerEnabled: process.env.WAE_READER_ENABLED === "true" && Boolean(vaultConfig()),
+    vaultRequired: true,
+    indexPersistence: "local_disk_per_vault",
     deploymentConnected: false
   });
+  if (req.method === "POST" && u.pathname !== "/api/read") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (u.pathname.startsWith("/api/")) {
     if (limited(req)) return write(res, 429, { error: "Demasiadas consultas. Intenta de nuevo en un minuto." }, { "retry-after": "60" });
     try {
-      if (u.pathname === "/api/index/search") {
-        const q = u.searchParams.get("q") || "";
-        if (q.length > 180) return write(res, 400, { error: "La consulta supera 180 caracteres." });
-        const data = searchIndex(q);
-        return write(res, data.error ? 400 : 200, data);
-      }
-      if (u.pathname === "/api/read") {
-        if (process.env.WAE_READER_ENABLED !== "true") {
-          return write(res, 503, { error: "Lector desactivado. Configura WAE_READER_ENABLED=true solo en un entorno de desarrollo controlado." });
+      if (u.pathname === "/api/index/search" || u.pathname === "/api/index/document" || u.pathname === "/api/read") {
+        if (process.env.WAE_READER_ENABLED !== "true" || !vaultConfig()) {
+          return write(res, 503, { error: "Bóvedas no configuradas o lector desactivado." });
         }
-        const target = u.searchParams.get("url") || "";
-        if (!target || target.length > 1800) return write(res, 400, { error: "Proporciona una URL HTTPS de máximo 1800 caracteres." });
-        try {
-          const data = await readAndIndex(target);
-          return write(res, 200, data);
-        } catch (error) {
-          if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
-          throw error;
+        const vault = authenticateVault(req.headers.authorization);
+        if (!vault) return write(res, 401, { error: "Credencial de investigación ausente o incorrecta." },
+          { "www-authenticate": "Bearer realm=\"WAE WEB Vault\"" });
+        if (u.pathname === "/api/read") {
+          if (req.method !== "POST") return write(res, 405, { error: "Utiliza POST para leer una página." }, { allow: "POST" });
+          let raw = "";
+          try {
+            for await (const chunk of req) {
+              raw += chunk.toString("utf8");
+              if (Buffer.byteLength(raw, "utf8") > 2200) {
+                return write(res, 413, { error: "Petición demasiado grande." });
+              }
+            }
+          } catch { return write(res, 400, { error: "Cuerpo de petición inválido." }); }
+          let payload;
+          try { payload = JSON.parse(raw); } catch { return write(res, 400, { error: "JSON inválido." }); }
+          const target = payload?.url;
+          if (typeof target !== "string" || !target || target.length > 1800) {
+            return write(res, 400, { error: "Se requiere URL HTTPS de hasta 1800 caracteres." });
+          }
+          const page = await readPage(target);
+          const saved = await storeDocument(vault, page);
+          return write(res, 200, { ...saved.record, indexSize: saved.records.size, persistence: "local_disk_per_vault" });
         }
-      }
-      if (u.pathname === "/api/index/document") {
-        const data = getIndexedDocument(u.searchParams.get("id") || "");
-        return data ? write(res, 200, data) : write(res, 404, { error: "Documento no disponible en el índice temporal." });
+        if (req.method !== "GET") return write(res, 405, { error: "Método no permitido." }, { allow: "GET" });
+        const records = await loadVault(vault);
+        if (u.pathname === "/api/index/search") {
+          const q = u.searchParams.get("q") || "";
+          if (q.length > 180) return write(res, 400, { error: "La consulta supera 180 caracteres." });
+          const data = searchIndex(q, records);
+          return write(res, data.error ? 400 : 200, {
+            ...data, persistence: "local_disk_per_vault",
+            warning: "Búsqueda en el espacio autorizado. No representa un índice global de Internet."
+          });
+        }
+        const data = getIndexedDocument(u.searchParams.get("id") || "", records);
+        return data ? write(res, 200, data) : write(res, 404, { error: "Documento no encontrado en tu espacio." });
       }
       if (u.pathname === "/api/search") {
         const q = u.searchParams.get("q") || "";
@@ -97,10 +117,13 @@ export async function handler(req, res) {
         return write(res, data.error ? 404 : 200, data);
       }
       return write(res, 404, { error: "Ruta no encontrada." });
-    } catch {
+    } catch (error) {
+      if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
+      if (error instanceof VaultError) return write(res, 503, { error: error.message, code: error.code });
       return write(res, 502, { error: "La fuente externa no respondió. Prueba nuevamente." });
     }
   }
+  if (req.method === "POST") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (!files.has(u.pathname)) return write(res, 404, { error: "Página no encontrada." });
   const [file, mime] = files.get(u.pathname);
   try {
