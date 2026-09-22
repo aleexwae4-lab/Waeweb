@@ -1,6 +1,6 @@
 {
   "name": "waeweb",
-  "version": "0.9.0",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
   "description": "WAEWEB — federated search, encrypted business profiles, web fallback and optional native Chromium desktop engine",
@@ -16,7 +16,8 @@
     "vault:restore": "node scripts/vault-ops.mjs restore",
     "vault:rotate": "node scripts/vault-maintenance.mjs rotate",
     "vault:migrate": "node scripts/vault-maintenance.mjs migrate-v1",
-    "desktop": "electron desktop/main.cjs"
+    "desktop": "electron desktop/main.cjs",
+    "desktop:smoke": "electron desktop/main.cjs --smoke"
   },
   "license": "UNLICENSED",
   "devDependencies": {
