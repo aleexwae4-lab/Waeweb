@@ -1,4 +1,4 @@
-import { createBrowserState, normalizeBrowserUrl } from "/browser-core.js";
+import { createBrowserState, normalizeBrowserUrl, browserInputTarget } from "/browser-core.js";
 
 const $ = id => document.getElementById(id);
 const state = createBrowserState();
@@ -46,6 +46,13 @@ function leaveBrowser() {
     $("hero").hidden = false;
     $("hero-input").focus();
   } else $("results-input").focus();
+}
+function searchFromBrowser(query) {
+  hideBrowser();
+  const input = $("results-input");
+  input.value = query;
+  input.focus();
+  input.form?.requestSubmit();
 }
 function displayError(error) {
   status.textContent = error?.message || "La dirección no se pudo abrir.";
@@ -164,9 +171,20 @@ export function openBrowser(value = "", { newTab = false } = {}) {
 }
 $("browser-form").addEventListener("submit", event => {
   event.preventDefault();
-  const value = address.value;
-  if (!value.trim()) { displayError(new TypeError("Introduce una dirección HTTPS.")); return; }
-  openBrowser(value);
+  const target = browserInputTarget(address.value, location.origin);
+  if (target.kind === "empty") {
+    displayError(new TypeError("Escribe una búsqueda o dirección web."));
+    return;
+  }
+  if (target.kind === "search") {
+    searchFromBrowser(target.value);
+    return;
+  }
+  if (target.kind === "invalid") {
+    displayError(new TypeError("Ese protocolo no está permitido. Busca por palabras o usa una dirección HTTPS."));
+    return;
+  }
+  openBrowser(target.value);
 });
 $("browser-back").addEventListener("click", () => {
   if (native) { void native.back().catch(displayError); return; }
