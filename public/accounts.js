@@ -97,6 +97,8 @@ function businessCard(business) {
   const heading = make("div", "business-entry-heading");
   heading.append(make("h3", "", business.name), make("span", "tag", "Declarado por el usuario"));
   article.append(heading, make("p", "business-meta", business.category + " · " + business.city));
+  article.append(make("p", "business-meta", business.visibility === "public"
+    ? "Visible públicamente · No verificado" : "Ficha privada · Solo tú"));
   if (business.description) article.append(make("p", "business-desc", business.description));
   if (business.website) {
     const a = make("a", "link-button", "↗ Sitio del negocio");
@@ -105,6 +107,22 @@ function businessCard(business) {
     a.rel = "noopener noreferrer";
     article.append(a);
   }
+  const visibility = make("button", "small-action",
+    business.visibility === "public" ? "Ocultar de la búsqueda" : "Publicar en WAE WEB");
+  visibility.type = "button";
+  visibility.addEventListener("click", async () => {
+    const published = business.visibility !== "public";
+    if (published && !window.confirm("¿Publicar esta ficha en la búsqueda pública de WAE WEB como negocio NO verificado?")) return;
+    visibility.disabled = true;
+    try {
+      await api("/api/businesses/" + encodeURIComponent(business.id), {
+        method: "PATCH", auth: true, payload: { published }
+      });
+      await refreshBusinesses();
+      say(published ? "Negocio visible públicamente como no verificado." : "La ficha vuelve a ser privada.", true);
+    } catch (error) { say(error.message); visibility.disabled = false; }
+  });
+  article.append(visibility);
   const remove = make("button", "small-action", "Eliminar ficha");
   remove.type = "button";
   remove.addEventListener("click", async () => {
@@ -159,6 +177,7 @@ $("business-form").addEventListener("submit", async event => {
   const form = event.currentTarget;
   if (!form.reportValidity()) return;
   const body = Object.fromEntries(new FormData(form).entries());
+  body.publish = body.publish === "on";
   busy(form, true);
   try {
     await api("/api/businesses", { method: "POST", payload: body, auth: true });
