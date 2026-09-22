@@ -90,7 +90,7 @@ function extractSentence(text) {
   if (!normalized) return "";
   const fragments = normalized.match(/[^.!?]+[.!?]?/g) || [];
   const first = fragments[0]?.trim() || "";
-  return (first.length >= 30 ? first : normalized).slice(0, 330);
+  return (first.length >= 8 ? first : normalized).slice(0, 330);
 }
 export function researchBrief(items, limit = 4) {
   const notes = [], domains = new Set();
