@@ -444,3 +444,33 @@
   .wae-native-map-controls{top:10px;right:10px}
   .wae-native-map-controls button{min-height:47px;min-width:47px}
 }
+
+/* Premium media discovery: accessible previews, source provenance, mobile cards. */
+.image-gallery{grid-template-columns:repeat(auto-fill,minmax(min(160px,22vw),1fr));align-items:stretch}
+.image-gallery-tile{padding:0;text-align:left;color:inherit;cursor:zoom-in;position:relative}
+.image-gallery-tile img{width:100%;height:clamp(150px,20vw,220px);object-fit:cover;background:#17233b}
+.image-gallery-caption{font-weight:650;line-height:1.35;min-height:38px;display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.image-gallery-source{display:block;padding:0 12px 12px;color:#91aed2;font-size:11px;overflow-wrap:anywhere}
+.image-gallery-tile:hover,.image-gallery-tile:focus-visible{border-color:#90b9ff;box-shadow:0 5px 30px #3969aa32}
+.image-lightbox{position:fixed;inset:0;width:min(1000px,calc(100vw - 24px));max-height:calc(100dvh - 24px);border:1px solid #6984ad;border-radius:18px;background:#0a1323;color:#f0f5ff;padding:14px;box-shadow:0 20px 80px #000b}
+.image-lightbox::backdrop{background:#000e}
+.image-lightbox-close{display:block;margin:0 0 8px auto;background:#233954;color:white;border:1px solid #6684aa;border-radius:11px;min-height:44px;padding:8px 14px}
+.image-lightbox-figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:7px}
+.image-lightbox-picture{display:block;object-fit:contain;max-width:100%;width:auto;max-height:calc(100dvh - 230px);min-height:80px}
+.image-lightbox-title{margin:0;font-size:clamp(15px,2.4vw,22px);text-align:center;overflow-wrap:anywhere}
+.image-lightbox-source{margin:0;color:#aabdd9;text-align:center;font-size:12px}
+.image-lightbox-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:12px 0 0}
+.image-lightbox-actions>*{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.media-context{display:inline-block;margin:10px 0 0}
+.video-result .book-cover{width:clamp(132px,29%,220px);max-width:42%;aspect-ratio:16/9;object-fit:cover}
+.book-result .book-cover{max-width:26%;aspect-ratio:2/3;object-fit:cover}
+@media(max-width:550px){
+ .image-gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .image-gallery-tile img{height:clamp(120px,32vw,180px)}
+ .image-gallery-caption{font-size:12px;min-height:48px}
+ .image-lightbox{width:calc(100vw - 12px);max-height:calc(100dvh - 12px);padding:10px}
+ .image-lightbox-picture{max-height:calc(100dvh - 235px)}
+ .video-result .book-cover{float:none;width:100%;max-width:100%;height:auto;max-height:250px;aspect-ratio:16/9;margin:0 0 12px}
+ .book-result .book-cover{max-width:32%}
+ .image-lightbox-actions .small-action,.image-lightbox-actions .link-button{flex:1 1 105px}
+}
