@@ -200,10 +200,24 @@ export async function verifyMarketImageBytes(config,key,{expectedSha256,expected
     if(!Number.isSafeInteger(length)||length<8||length>MAX_MEDIA_BYTES)
       return {state:"invalid_size"};
   }
-  let bytes;
-  try { bytes=Buffer.from(await response.arrayBuffer()); }
-  catch { return {state:"unavailable"}; }
+  // Never call unbounded arrayBuffer(): malicious providers may omit Content-Length.
+  if(!response.body)return {state:"unavailable"};
+  const chunks=[];
+  let received=0;
+  try{
+    for await(const chunk of response.body){
+      if(!(chunk instanceof Uint8Array))return {state:"unavailable"};
+      received+=chunk.byteLength;
+      if(received>MAX_MEDIA_BYTES)return {state:"invalid_size"};
+      chunks.push(Buffer.from(chunk));
+    }
+  }catch{return {state:"unavailable"};}
+  const bytes=Buffer.concat(chunks,received);
   if(bytes.length<8||bytes.length>MAX_MEDIA_BYTES)return {state:"invalid_size"};
+  if(advertised!==null&&advertised!==undefined&&advertised!==""&&
+      Number(advertised)!==received)return {state:"invalid_size"};
+  if(bytes[0]!==255||bytes[1]!==216||bytes[2]!==255||
+      bytes.at(-2)!==255||bytes.at(-1)!==217)return {state:"invalid_format"};
   if(bytes.length!==expectedBytes)return {state:"size_mismatch"};
   const digest=hex(bytes);
   if(!timingSafeDigest(digest,expectedSha256))return {state:"checksum_mismatch"};
