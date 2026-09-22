@@ -441,7 +441,7 @@ function renderMapPlaces(data) {
     const card = stateCard("No se encontró el lugar",data.message ||
       "La geocodificación no encontró localidades con ese nombre. Prueba con una ciudad o coordenadas.");
     card.append(external("https://www.openstreetmap.org/search?query=" + encodeURIComponent(state.query),
-      "↗ Buscar direcciones y lugares en OpenStreetMap","link-button"));
+      "↗ Ver más ubicaciones en el mapa original","link-button"));
     resultsContainer.append(card);
     stats.textContent = "Sin coincidencias geográficas · " + data.source;
     return;
@@ -450,7 +450,7 @@ function renderMapPlaces(data) {
   const section = element("section","map-explorer");
   const heading = element("div","map-heading");
   const headText = element("div");
-  append(headText,element("span","tag","MAPAS · UBICACIONES REALES"),
+  append(headText,element("span","tag","WAEWEB · MAPAS"),
     element("h2","","Explorar " + data.query),
     element("p","map-description",data.precision === "coordinate"
       ? "Punto indicado por coordenadas. No equivale a una dirección postal verificada."
@@ -467,21 +467,25 @@ function renderMapPlaces(data) {
   const zoomIn = button("+ Acercar",()=>changeZoom(1),"map-action");
   const copy = button("⧉ Copiar coordenadas",()=>copyText(
     places[selected].latitude.toFixed(6) + ", " + places[selected].longitude.toFixed(6)),"map-action");
-  const visit = external("https://www.openstreetmap.org/","↗ Mapa original","map-action map-original");
+  const visit = external("https://www.openstreetmap.org/","↗ Abrir mapa completo","map-action map-original");
   toolbar.append(zoomOut,zoomIn,copy,visit);
 
   const stage = element("div","map-stage");
   const frame = element("iframe","map-iframe");
-  frame.title = "Mapa interactivo de OpenStreetMap";
+  frame.title = "Mapa interactivo integrado en WAEWEB";
   frame.loading = "lazy";
   frame.referrerPolicy = "no-referrer";
   // A fixed, third-party HTTPS origin may run its own map scripts; no host
   // origin, top navigation, forms, microphone or geolocation are delegated.
   frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-popups");
   stage.append(frame);
-  const footnote = element("p","map-attribution",
-    "Cartografía © colaboradores de OpenStreetMap · Geocodificación: " + data.source +
-    ". Si el mapa no carga, abre el mapa original.");
+  // OSM's copyright acknowledgement remains readable and directly beside
+  // the embedded map. Branding is WAEWEB; provenance is not removed or hidden.
+  const footnote = element("p","map-attribution");
+  append(footnote,
+    external("https://www.openstreetmap.org/copyright",
+      "© OpenStreetMap contributors","map-credit-link"),
+    element("span","map-license"," · ODbL · Localidades: " + data.source));
   const picks = element("div","map-picks");
   picks.setAttribute("aria-label","Ubicaciones encontradas");
   let selected = 0, zoom = data.precision === "coordinate" ? 3 : 2;
@@ -498,7 +502,7 @@ function renderMapPlaces(data) {
     placeDetail.textContent=place.detail || "Ubicación geográfica";
     coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
     frame.src=osmEmbedUrl(place,zoom);
-    frame.title="Mapa interactivo de " + place.name + " · OpenStreetMap";
+    frame.title="Mapa de " + place.name + " en WAEWEB";
     visit.href=osmPlaceUrl(place);
     zoomIn.disabled=zoom>=4; zoomOut.disabled=zoom<=0;
     options.forEach((option,i)=>{
@@ -533,7 +537,7 @@ async function renderMap(query,signal,sequence) {
     stats.textContent="Mapa no disponible";
     const card=stateCard("No se pudo mostrar el mapa",error.message);
     card.append(external("https://www.openstreetmap.org/search?query="+encodeURIComponent(query),
-      "↗ Continuar en OpenStreetMap","link-button"));
+      "↗ Abrir búsqueda en el mapa original","link-button"));
     resultsContainer.replaceChildren(card);
   }
 }
@@ -576,7 +580,7 @@ async function performSearch(query, type = "all", push = true) {
       state.data=null;state.results=[];state.selectedSource="";
       sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
       resultsContainer.replaceChildren(stateCard("Explorar mapas",
-        "Escribe una ciudad, localidad o latitud y longitud separadas por coma. Para direcciones exactas, consulta OpenStreetMap."));
+        "Escribe una ciudad, localidad o latitud y longitud separadas por coma. Las direcciones exactas se consultan en el mapa original."));
       stats.textContent = "Mapas · Escribe un lugar para comenzar.";
       resultsInput.focus();
     } else {

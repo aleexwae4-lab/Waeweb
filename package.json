@@ -1,9 +1,9 @@
 {
   "name": "waeweb",
-  "version": "1.0.0-rc.26",
+  "version": "1.0.0-rc.27",
   "private": true,
   "type": "module",
-  "description": "WAEWEB — unified research, public geographic lookup and interactive inline maps",
+  "description": "WAEWEB — unified search and branded maps with visible compliant attribution",
   "engines": {
     "node": ">=20"
   },

@@ -290,3 +290,10 @@
 .map-pick{display:block;text-align:left;min-height:43px;padding:11px 13px;border-radius:12px;border:1px solid rgba(148,170,222,.22);background:#111c31;color:#d3e3f9;font-size:12px;overflow-wrap:anywhere}
 .map-pick.is-active{border-color:#94b8ff;background:#243a60;color:#fff}
 @media(max-width:550px){.map-explorer{padding:12px}.map-heading .small-action{min-height:42px}.map-toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.map-action{min-width:0;padding:9px 5px}.map-iframe{height:clamp(310px,48dvh,470px)}.map-picks{grid-template-columns:minmax(0,1fr)}}
+
+/* RC27 · WAEWEB identity with unobstructed, accessible map-data credit. */
+.map-attribution{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:3px;margin:8px 2px 15px;color:#aabbd6;font-size:11px;line-height:1.45;text-align:right}
+.map-credit-link{color:#c3d3ed;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
+.map-credit-link:hover{color:#fff}
+.map-license{overflow-wrap:anywhere}
+@media(max-width:550px){.map-attribution{font-size:10px;line-height:1.6;justify-content:flex-end}.map-credit-link{min-height:24px;display:inline-flex;align-items:center}}

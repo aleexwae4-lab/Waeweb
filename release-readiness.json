@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC26 adds public geo lookup and interactive OSM embedded mapping with verified coordinate handling, no synthetic addresses and preview-safe API route. Real mobile E2E, external provider and deployed routing/auth still require verification; Vercel untouched directly. HOLD.",
+      "reason": "RC27 brands first-party WAEWEB map UI while keeping visible OpenStreetMap contributors/ODbL credit adjacent to map. Does not hide cross-origin embed content. Deployed routing/auth and mobile E2E remain unverified; Vercel untouched directly. HOLD.",
       "evidence": ""
     },
     {

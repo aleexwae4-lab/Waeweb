@@ -16,3 +16,10 @@
 Open-Meteo es geocodificación de localidades, no catálogo de empresas ni direcciones postales precisas. OpenStreetMap es cartografía externa embebida; su disponibilidad depende del servicio y la red. No hay GPS porque la política CSP/permisos del sitio lo deshabilita. Ningún dato sintético es presentado como ubicación real.
 
 El error HTTP 401 del deployment requiere pruebas reales de `/api/maps`, `/api/search` y Vercel; código y CI por sí solos no certifican producción. No se fusionó `main`, no se habilitaron cuentas, pagos ni despliegue productivo.
+
+## RC27 — marca WAEWEB en Mapas
+
+- La cabecera y los controles muestran la identidad WAEWEB; se retiraron menciones promocionales redundantes a OpenStreetMap de títulos y acciones, conservando la URL de destino original cuando el usuario abre el proveedor.
+- Se conserva junto al mapa un enlace visible, legible y clicable `© OpenStreetMap contributors` a `https://www.openstreetmap.org/copyright`, además de `ODbL` y la fuente de localidades cuando corresponde. No se ocultan ni recortan los avisos que OpenStreetMap dibuje dentro de su iframe.
+- No se intenta alterar el contenido de un origen cruzado. Si se requiere cartografía completamente rediseñada y marca blanca, el paso posterior es un renderizador propio con teselas y atribuciones autorizadas, no manipular el iframe externo.
+- Sin cambios directos en Vercel, cuentas, cobros o estado HOLD.

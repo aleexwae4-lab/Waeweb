@@ -90,6 +90,12 @@ test("WAEWEB map frontend remains integrated, attributable and isolated",async()
   assert.match(app,/osmEmbedUrl/);
   assert.match(app,/map-iframe/);
   assert.match(app,/allow-scripts allow-same-origin/);
-  assert.match(app,/© colaboradores de OpenStreetMap/);
+  assert.match(app,/WAEWEB · MAPAS/);
+  assert.match(app,/© OpenStreetMap contributors/);
+  assert.match(app,/https:\/\/www\.openstreetmap\.org\/copyright/);
+  assert.match(app,/map-credit-link/);
+  assert.doesNotMatch(app,/Mapa interactivo de OpenStreetMap/);
+  assert.doesNotMatch(app,/↗ Mapa original/);
+  assert.doesNotMatch(app,/© colaboradores de OpenStreetMap/);
   assert.match(html,/data-type="maps"/);
 });
