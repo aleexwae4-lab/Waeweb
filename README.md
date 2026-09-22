@@ -4,6 +4,17 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js con c
 
 **Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
 
+## Fase 13 — WAEWEB Connect v1 (v1.0.0-rc.4)
+
+API **servidor-a-servidor** para integrar la búsqueda WAEWEB en dos despliegues Universal Core y WAE OS Green, con tres credenciales independientes. Endpoints autenticados `/api/connect/v1/status`, `/search`, `/stream` (SSE: `ready → results/error → done`) y `/retrieve` (Reader seguro, opt-in). El parámetro `fresh:true` evita la caché interna de resultados, pero no convierte WAEWEB en un crawler de Internet ni en un Chromium remoto.
+
+- [Contrato, configuración y límites](docs/WAEWEB_CONNECT_V1.md)
+- [Contrato OpenAPI](docs/openapi-connect-v1.yaml)
+- QA: `tests/connect.test.mjs`, `npm test` y `npm run check`.
+
+Todos los conectores están **apagados por defecto**; no hay secretos reales en GitHub y ninguno de los tres Render está conectado a esta rama. Antes de producción hacen falta backend WAEWEB desplegado bajo HTTPS, credenciales de servidor configuradas por destino, prueba en los tres entornos, protección antiabuso distribuida y **aprobación del manifiesto de lanzamiento**. Vercel se mantiene en HOLD.
+
+
 
 
 ## Fase 12 — WAEWEB v1.0.0-rc.3: backend compartido y bóvedas duraderas
