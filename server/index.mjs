@@ -88,6 +88,9 @@ export async function handler(req, res) {
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
+  if (u.pathname === "/api/health" || u.pathname === "/api/capabilities") {
+    if (!["GET", "HEAD"].includes(req.method)) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+  }
   if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: VERSION });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
