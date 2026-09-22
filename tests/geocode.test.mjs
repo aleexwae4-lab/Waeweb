@@ -143,7 +143,7 @@ test("WAEWEB map remains accessible for address query without locality result",a
   assert.match(app,/showDirectionsWithoutLocality\(\)/);
   assert.match(app,/onDestinationSelect/);
   assert.match(ui,/\/api\/places\?q=/);
-  assert.match(ui,/No se selecciona automáticamente la primera/);
+  assert.match(ui,/no se selecciona automáticamente la primera/);
   assert.match(ui,/lookups\[side\]\?\.abort/);
   assert.match(ui,/chosen\[side\]/);
   assert.match(server,/\/api\/places/);
