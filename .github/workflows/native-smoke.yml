@@ -1,0 +1,33 @@
+name: WAEWEB Native Chromium Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feat/**"]
+    paths:
+      - "desktop/**"
+      - ".github/workflows/native-smoke.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-smoke:
+    name: Real Electron startup + preload + IPC
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install optional desktop engine
+        run: npm install --no-audit --no-fund
+      - name: Verify sources and unit security checks
+        run: npm run check && npm test
+      - name: Launch actual Chromium in a virtual display
+        run: xvfb-run -a timeout 90s npm run desktop:smoke
