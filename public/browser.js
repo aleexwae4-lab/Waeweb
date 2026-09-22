@@ -184,7 +184,11 @@ $("browser-reload").addEventListener("click", () => {
 });
 $("browser-new").addEventListener("click", () => openBrowser("", { newTab: true }));
 $("browser-close").addEventListener("click", leaveBrowser);
-$("browser-open").addEventListener("click", () => openBrowser());
+// Header entry uses the unified omnibox, never opens a second empty page.
+$("browser-open").addEventListener("click", () => {
+  const input=$("hero").hidden ? $("results-input") : $("hero-input");
+  input.focus();input.scrollIntoView({behavior:"smooth",block:"center"});
+});
 $("browser-reader").addEventListener("click", () => {
   const tab = native ? nativeState?.tabs.find(item => item.id === nativeState.activeId) : state.active();
   if (!tab?.url) return;
