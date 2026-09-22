@@ -12,6 +12,8 @@ import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAcc
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+const readerAvailable = () => process.env.VERCEL !== "1" && process.env.WAE_READER_ENABLED === "true" &&
+  encryptionReady(vaultConfig(), vaultKeysConfig());
 const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
@@ -92,7 +94,7 @@ export async function handler(req, res) {
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
-    readerEnabled: process.env.WAE_READER_ENABLED === "true" && encryptionReady(vaultConfig(), vaultKeysConfig()),
+    readerEnabled: readerAvailable(),
     vaultRequired: true,
     indexPersistence: "encrypted_local_disk_per_vault",
     encryption: "AES-256-GCM",
@@ -232,7 +234,7 @@ export async function handler(req, res) {
         return write(res, 405, { error: "Método no permitido." }, { allow: "GET, POST, DELETE, PATCH" });
       }
       if (u.pathname === "/api/index/search" || u.pathname === "/api/index/document" || u.pathname === "/api/read") {
-        if (process.env.WAE_READER_ENABLED !== "true" || !encryptionReady(vaultConfig(), vaultKeysConfig())) {
+        if (!readerAvailable()) {
           return write(res, 503, { error: "Bóvedas no configuradas o lector desactivado." });
         }
         const vault = authenticateVault(req.headers.authorization);
