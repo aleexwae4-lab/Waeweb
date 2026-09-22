@@ -21,7 +21,7 @@ test("per-vault encryption config requires valid distinct 256-bit keys matching 
   assert.equal(vaultKeysConfig("{"), null);
   assert.equal(vaultKeysConfig(JSON.stringify({ org_alpha: "short" })), null);
   assert.equal(vaultKeysConfig(JSON.stringify({ org_alpha: "a".repeat(64), org_beta: "a".repeat(64) })), null);
-  assert.equal(vaultKeysConfig(JSON.stringify({ bad: "ab".repeat(32) })), null);
+  assert.equal(vaultKeysConfig(JSON.stringify({ "../bad": "ab".repeat(32) })), null);
   const config = vaultKeysConfig(keys);
   assert.equal(config.get("org_alpha").length, 32);
   assert.equal(encryptionReady(vaultConfig(tokens), config), true);
