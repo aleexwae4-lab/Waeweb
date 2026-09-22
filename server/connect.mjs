@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { search } from "./search.mjs";
-import { readPage, ReaderError } from "./reader.mjs";
+import { readPage, ReaderError, safeReaderUrl } from "./reader.mjs";
 
 export const CONNECT_VERSION = "waeweb-connect/v1";
 export const CONNECT_CLIENT_IDS = Object.freeze([
@@ -46,7 +46,8 @@ export function connectRequest(body, kind="search") {
   if (kind === "retrieve") {
     if (typeof body.url !== "string" || body.url.length < 12 || body.url.length > 1800)
       throw new TypeError("invalid_url");
-    return { url:body.url };
+    try { return { url:safeReaderUrl(body.url).href }; }
+    catch { throw new TypeError("invalid_url"); }
   }
   if (typeof body.query !== "string" || body.query !== body.query.trim() ||
     body.query.length < 2 || body.query.length > 180 ||
