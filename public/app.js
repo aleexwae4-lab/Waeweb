@@ -5,6 +5,7 @@ import { osmEmbedUrl, osmPlaceUrl, validMapPlace, localMapCoordinates } from "/m
 import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
+import { createYoutubeFrame } from "/youtube-player.js";
 "use strict";
 const byId = id => document.getElementById(id);
 const hero = byId("hero");
@@ -270,13 +271,7 @@ function renderResult(item, index) {
         return;
       }
       stopInlineVideo();
-      const frame=element("iframe","youtube-inline-frame");
-      frame.src="https://www.youtube-nocookie.com/embed/"+item.videoId;
-      frame.title="Reproductor de YouTube: "+item.title;
-      frame.loading="lazy";
-      frame.referrerPolicy="strict-origin-when-cross-origin";
-      frame.allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share";
-      frame.allowFullscreen=true;
+      const frame=createYoutubeFrame(item.videoId,item.title);
       player.replaceChildren(frame);
       activeVideoFrame=frame;
       play.textContent="Ⅱ Cerrar reproductor";
