@@ -35,3 +35,17 @@
 
 .book-cover{float:left;width:85px;max-width:25%;aspect-ratio:2/3;object-fit:cover;border:1px solid rgba(150,175,240,.25);border-radius:9px;margin:5px 17px 12px 0;background:#152036}
 .result-card:after{content:"";display:block;clear:both}
+
+/* WAE Web Reader v0.3 */
+.reader-panel{border:1px solid rgba(99,158,245,.2);background:linear-gradient(135deg,rgba(19,37,66,.76),rgba(17,17,39,.78));border-radius:22px;padding:21px;margin-bottom:18px;scroll-margin-top:155px}
+.reader-heading{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.reader-heading h2{font-size:17px;margin:0;color:#e8eeff}
+.reader-panel>p{font-size:12px;color:#b7c4d9}
+.reader-form{display:flex;gap:9px;flex-wrap:wrap;margin:13px 0}
+.reader-form input{flex:1;min-width:200px;border:1px solid rgba(153,175,224,.25);background:#101b2c;color:#f1f5ff;padding:11px 14px;border-radius:13px;font-size:13px}
+.reader-form button{cursor:pointer}
+#reader-status{color:#b8d3ff;font-size:12px;min-height:1em}
+.reader-document{border-top:1px solid var(--line);padding-top:14px}
+.reader-document h3{font-size:16px;margin:0 0 8px}
+.reader-note{font-size:11px;color:#a5b9d8;overflow-wrap:anywhere}
+.reader-content{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;color:#d3dced;max-height:340px;overflow-y:auto;line-height:1.7;padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.18)}
