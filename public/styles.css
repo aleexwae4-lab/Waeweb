@@ -710,3 +710,27 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .web-coverage-notice{padding:13px}
  .web-results-more{min-height:48px}
 }
+
+/* RC40 · Source-backed short and long video discovery. The YouTube player
+   stays unloaded until the user explicitly requests playback. */
+.video-platform-links{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:2px 0 8px;padding:12px 15px;border:1px solid rgba(139,178,239,.3);border-radius:16px;background:linear-gradient(125deg,#0c2139,#0b1729)}
+.video-platform-links .link-button{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:9px 16px;border:1px solid rgba(148,191,248,.44);border-radius:12px;background:#19385d;color:#eaf3ff;font-size:12px;font-weight:750}
+.video-platform-links .link-button:hover,.video-platform-links .link-button:focus-visible{background:#275281;border-color:#9dc5ff}
+.video-result{border-color:rgba(129,171,240,.34);background:linear-gradient(145deg,#102139,#0a1628)}
+.video-result .source-row{margin-bottom:10px}
+.video-result .result-title{font-size:clamp(18px,2.3vw,23px);line-height:1.36}
+.video-result .book-cover{border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.31);background:#081528}
+.video-result .video-platform{margin:10px 6px 0 0;font-weight:800;background:#183c64;border-color:#537db1;color:#dcebff;letter-spacing:.02em}
+.video-result>.save-button{border-color:rgba(147,189,244,.48);background:#20436e;color:#eff6ff;min-height:44px;padding:10px 15px;margin-top:13px}
+.youtube-player-slot:empty{display:none}
+.youtube-player-slot{margin:15px 0 8px;aspect-ratio:16/9;width:100%;background:#050c18;border:1px solid rgba(149,184,240,.28);border-radius:15px;overflow:hidden}
+.youtube-inline-frame{display:block;width:100%;height:100%;min-height:240px;border:0;background:#050c18}
+.video-result .video-playback-status{font-size:12px;color:#c6d8f3;margin:7px 0 10px}
+.video-result .meta-line .save-button{min-height:42px}
+@media(max-width:600px){
+ .video-platform-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:10px;gap:7px}
+ .video-platform-links .link-button{min-width:0;padding:10px 7px;font-size:11px}
+ .video-result .book-cover{max-height:250px}
+ .youtube-inline-frame{min-height:195px}
+ .video-result .meta-line .save-button{flex:1 1 130px}
+}
