@@ -1,16 +1,16 @@
 {
   "name": "waeweb",
-  "version": "1.0.0-rc.12",
+  "version": "1.0.0-rc.13",
   "private": true,
   "type": "module",
-  "description": "WAEWEB — offline read-only Stripe promotion reconciliation and verified checkout binding",
+  "description": "WAEWEB — business marketplace for owner-managed products and services",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "start": "node server/index.mjs",
     "test": "node --test",
-    "check": "node --check server/index.mjs && node --check server/search.mjs && node --check server/intelligence.mjs && node --check server/reader.mjs && node --check public/app.js && node --check public/browser.js && node --check public/browser-core.js && node --check public/workspace.js && node --check server/vault.mjs && node --check server/crypto.mjs && node --check server/backup.mjs && node --check scripts/vault-ops.mjs && node --check server/accounts.mjs && node --check public/accounts.js && node --check server/maintenance.mjs && node --check scripts/vault-maintenance.mjs && node --check public/business-profile.js && node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check desktop/security.mjs && node --check scripts/release-gate.mjs && node --check server/accounts-postgres.mjs && node --check scripts/accounts-pg-init.mjs && node --check server/vault-postgres.mjs && node --check scripts/vault-pg-init.mjs && node --check 'api/[...path].js' && node --check server/connect.mjs && node --check server/connect-postgres.mjs && node --check scripts/connect-pg-init.mjs && node --check server/hosting.mjs && node --check server/storage-preflight.mjs && node --check scripts/storage-preflight.mjs && node --check server/pg-recovery.mjs && node --check scripts/pg-recovery.mjs && node --check server/promotion-reconciliation.mjs && node --check scripts/promotion-reconcile.mjs",
+    "check": "node --check server/index.mjs && node --check server/search.mjs && node --check server/intelligence.mjs && node --check server/reader.mjs && node --check public/app.js && node --check public/browser.js && node --check public/browser-core.js && node --check public/workspace.js && node --check server/vault.mjs && node --check server/crypto.mjs && node --check server/backup.mjs && node --check scripts/vault-ops.mjs && node --check server/accounts.mjs && node --check public/accounts.js && node --check server/maintenance.mjs && node --check scripts/vault-maintenance.mjs && node --check public/business-profile.js && node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check desktop/security.mjs && node --check scripts/release-gate.mjs && node --check server/accounts-postgres.mjs && node --check scripts/accounts-pg-init.mjs && node --check server/vault-postgres.mjs && node --check scripts/vault-pg-init.mjs && node --check 'api/[...path].js' && node --check server/connect.mjs && node --check server/connect-postgres.mjs && node --check scripts/connect-pg-init.mjs && node --check server/hosting.mjs && node --check server/storage-preflight.mjs && node --check scripts/storage-preflight.mjs && node --check server/pg-recovery.mjs && node --check scripts/pg-recovery.mjs && node --check server/promotion-reconciliation.mjs && node --check scripts/promotion-reconcile.mjs && node --check server/marketplace.mjs && node --check public/marketplace.js",
     "vault:backup": "node scripts/vault-ops.mjs backup",
     "vault:verify": "node scripts/vault-ops.mjs verify",
     "vault:restore": "node scripts/vault-ops.mjs restore",
