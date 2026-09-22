@@ -4,6 +4,7 @@ const alertBox = $("account-alert");
 let enabled = false;
 let session = null; // Deliberately not stored in localStorage, cookies, URLs or HTML.
 let profile = null;
+let editingBusiness = null;
 const text = (node, value) => { node.textContent = String(value ?? ""); return node; };
 function make(tag, className = "", value) {
   const node = document.createElement(tag);
@@ -45,13 +46,22 @@ function setSignedIn(result) {
   text($("business-email"), profile.email);
   say("Sesión iniciada. Tú decides qué negocios permanecen privados y cuáles se muestran públicamente como no verificados.", true);
 }
+function resetBusinessForm() {
+  editingBusiness = null;
+  $("business-form").reset();
+  $("business-form-title").textContent = "Registrar un negocio";
+  $("business-form-hint").textContent = "Será privado a menos que marques la publicación voluntaria. Es una ficha declarada por su propietario, no una verificación oficial.";
+  $("business-save").textContent = "+ Guardar mi negocio";
+  $("business-cancel-edit").hidden = true;
+  $("business-publish").closest("label").hidden = false;
+}
 function signedOut() {
   session = null; profile = null;
   $("account-auth").hidden = false;
   $("business-dashboard").hidden = true;
   $("business-list").replaceChildren();
   text($("business-count"), 0);
-  $("register-form").reset(); $("login-form").reset(); $("business-form").reset();
+  $("register-form").reset(); $("login-form").reset(); resetBusinessForm();
   setAuthMode("login");
 }
 async function api(path, { method = "GET", payload, auth = false } = {}) {
@@ -123,6 +133,39 @@ function businessCard(business) {
     } catch (error) { say(error.message); visibility.disabled = false; }
   });
   article.append(visibility);
+  const edit = make("button", "small-action", "Editar ficha");
+  edit.type = "button";
+  edit.addEventListener("click", () => {
+    editingBusiness = business.id;
+    for (const field of ["name", "category", "city", "description", "website"]) {
+      const input = $("business-" + field);
+      input.value = business[field] || "";
+    }
+    $("business-form-title").textContent = "Editar: " + business.name;
+    $("business-form-hint").textContent =
+      "Editar los datos NO cambiará la visibilidad. Usa Publicar u Ocultar para controlarla.";
+    $("business-save").textContent = "Guardar cambios";
+    $("business-cancel-edit").hidden = false;
+    $("business-publish").closest("label").hidden = true;
+    $("business-form").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  article.append(edit);
+  if (business.visibility === "public") {
+    const link = make("a", "small-action", "↗ Ver perfil público");
+    link.href = "/?business=" + encodeURIComponent(business.id);
+    link.rel = "noopener noreferrer";
+    article.append(link);
+    const copy = make("button", "small-action", "⧉ Copiar enlace");
+    copy.type = "button";
+    copy.addEventListener("click", async () => {
+      const url = new URL(link.href);
+      try {
+        await navigator.clipboard.writeText(url.href);
+        say("Enlace de perfil copiado.", true);
+      } catch { say("No se pudo copiar. Abre el perfil para copiar la dirección."); }
+    });
+    article.append(copy);
+  }
   const remove = make("button", "small-action", "Eliminar ficha");
   remove.type = "button";
   remove.addEventListener("click", async () => {
@@ -130,6 +173,7 @@ function businessCard(business) {
     remove.disabled = true;
     try {
       await api("/api/businesses/" + encodeURIComponent(business.id), { method: "DELETE", auth: true });
+      if (editingBusiness === business.id) resetBusinessForm();
       await refreshBusinesses();
       say("Ficha eliminada de tu cuenta.", true);
     } catch (error) { say(error.message); remove.disabled = false; }
@@ -180,11 +224,21 @@ $("business-form").addEventListener("submit", async event => {
   body.publish = body.publish === "on";
   busy(form, true);
   try {
-    await api("/api/businesses", { method: "POST", payload: body, auth: true });
-    form.reset();
-    await refreshBusinesses();
-    say("Negocio registrado en tu panel privado.", true);
+    if (editingBusiness) {
+      await api("/api/businesses/" + encodeURIComponent(editingBusiness) + "/profile", {
+        method: "PATCH", payload: body, auth: true
+      });
+      resetBusinessForm();
+      await refreshBusinesses();
+      say("Ficha actualizada. La visibilidad del negocio no cambió.", true);
+    } else {
+      await api("/api/businesses", { method: "POST", payload: body, auth: true });
+      resetBusinessForm();
+      await refreshBusinesses();
+      say("Negocio registrado en tu panel. Comparte solo si decides publicarlo.", true);
+    }
   } catch (error) { say(error.message); }
   finally { busy(form, false); }
 });
+$("business-cancel-edit").addEventListener("click", resetBusinessForm);
 loadCapability();
