@@ -9,6 +9,7 @@ import { requiresDurableStorage } from "./hosting.mjs";
 import { createListing, validateListing, publicCatalog, searchMarketplace, validMarketId, MAX_LISTINGS, MAX_OBJECT_LISTINGS, MarketplaceError } from "./marketplace.mjs";
 import { mediaConfig, mediaSelected, decodeMarketPhoto, makeMediaKey, putMarketImage, deleteMarketImage, presignedMarketImage, ownerImageUrl, MarketMediaError } from "./marketplace-media.mjs";
 import { validId, validateInquiry, validateReport, newInquiry, newReport, publicInquiryReceipt, MarketplaceTrustError } from "./marketplace-trust.mjs";
+import { queueMediaDeletion, pendingMedia, referencedMedia, mediaJournalSummary, MediaJournalError } from "./marketplace-lifecycle.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -300,9 +301,10 @@ export async function deleteBusiness(header, id, base) {
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) fail("invalid_business", "Negocio no válido.");
   return mutate(db => {
     const user = userWithSession(db, header);
-    const old = user.businesses.length;
+    const business=user.businesses.find(item=>item.id===id);
+    if (!business) fail("business_missing", "Negocio no encontrado en tu cuenta.", 404);
+    for(const item of business.listings||[]) queueMediaDeletion(db,item.imageKey);
     user.businesses = user.businesses.filter(item => item.id !== id);
-    if (user.businesses.length === old) fail("business_missing", "Negocio no encontrado en tu cuenta.", 404);
     return { ok: true };
   }, base);
 }
@@ -545,9 +547,10 @@ export async function deleteMarketListing(header,businessId,listingId,base) {
   if (!validMarketId(listingId)) fail("listing_missing","Publicación no encontrada.",404);
   return mutate(db=>{
     const business=ownedBusiness(db,header,businessId);
-    const before=business.listings?.length||0;
-    business.listings=(business.listings||[]).filter(item=>item.id!==listingId);
-    if (business.listings.length===before) fail("listing_missing","Publicación no encontrada.",404);
+    const listing=business.listings?.find(item=>item.id===listingId);
+    if (!listing) fail("listing_missing","Publicación no encontrada.",404);
+    queueMediaDeletion(db,listing.imageKey);
+    business.listings=business.listings.filter(item=>item.id!==listingId);
     return {ok:true};
   },base);
 }
@@ -706,6 +709,7 @@ export async function uploadMarketPhoto(header, businessId, listingId, data, bas
       const listing=business.listings?.find(entry=>entry.id===listingId);
       if (!listing) fail("listing_missing","Publicación no encontrada.",404);
       previousKey=listing.imageKey;
+      if (previousKey && previousKey !== key) queueMediaDeletion(db,previousKey);
       // The object has been uploaded before committing its reference.
       Object.assign(listing,{imageKey:key,imageType:"image/jpeg",imageDataUrl:null,
         updatedAt:new Date().toISOString()});
@@ -715,10 +719,8 @@ export async function uploadMarketPhoto(header, businessId, listingId, data, bas
     await deleteMarketImage(media,key,transport).catch(()=>{});
     throw error;
   }
-  // Deletion happens only after the new key is durably committed. An object
-  // may remain orphaned if cleanup fails; it must never revoke the new image.
-  if (previousKey && previousKey !== key)
-    await deleteMarketImage(media,previousKey,transport).catch(()=>{});
+  // The superseded key remains in the encrypted journal for a separate
+  // audited deletion after the 5-minute signed-URL grace period.
   return { uploaded:true, item:{...item,
     imageUrl:ownerImageUrl(businessId,listingId)} };
 }
@@ -762,11 +764,50 @@ export async function removeMarketPhoto(header,businessId,listingId,base,
     if (listing.imageKey && !media)
       throw new MarketMediaError("media_unavailable",503);
     oldKey=listing.imageKey;
+    queueMediaDeletion(db,oldKey);
     listing.imageKey=null;listing.imageType=null;listing.imageDataUrl=null;
     listing.updatedAt=new Date().toISOString();
     return listing;
   },base);
-  if (oldKey && media)
-    await deleteMarketImage(media,oldKey,transport).catch(()=>{});
-  return { removed:true, item };
+  return { removed:true, objectQueued:Boolean(oldKey), item };
+}
+
+export async function inspectMarketMediaQueue(base) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  return mediaJournalSummary(await readDb(base));
+}
+export async function drainMarketMediaQueue({
+  base, media=mediaConfig(), transport=fetch, confirm=false,
+  now=Date.now(), limit=30
+}={}) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  if (!media) throw new MarketMediaError("media_unavailable",503);
+  if (process.env.WAE_MARKET_MEDIA_CLEANUP_ACK!=="reviewed-object-deletions" ||
+      confirm!==true || (base!==undefined && process.env.NODE_ENV!=="test") ||
+      (base===undefined && !postgresAccountsSelected()))
+    throw new MediaJournalError("media_cleanup_not_authorized");
+  const db=await readDb(base);
+  const ready=pendingMedia(db,{now,limit});
+  const summary={selected:ready.length,removed:0,failed:0,referenced:0,
+    remaining:0,noKeysExposed:true};
+  for(const entry of ready){
+    // Re-read before each irreversible action. Never delete a referenced key.
+    const current=await readDb(base);
+    if (!(current.mediaDeleteQueue||[]).some(item=>item.key===entry.key)) continue;
+    if (referencedMedia(current,entry.key)){summary.referenced++;continue;}
+    try {
+      await deleteMarketImage(media,entry.key,transport);
+    } catch {summary.failed++;continue;}
+    await mutate(state=>{
+      // A concurrent backup restore can reintroduce a key: never erase its
+      // journal entry if it is referenced again.
+      if(!referencedMedia(state,entry.key))
+        state.mediaDeleteQueue=(state.mediaDeleteQueue||[])
+          .filter(item=>item.key!==entry.key);
+      return null;
+    },base);
+    summary.removed++;
+  }
+  summary.remaining=(await inspectMarketMediaQueue(base)).queued;
+  return summary;
 }
