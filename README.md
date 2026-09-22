@@ -4,6 +4,28 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js con c
 
 **Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
 
+## Fase 17 — RC8: no más datos efímeros en servicios alojados
+
+Una política centralizada en `server/hosting.mjs` impide que los registros
+de cuentas, perfiles de empresas y bóvedas de investigación dependan de
+archivos locales cuando WAEWEB corre en Render, Vercel, producción, Lambda
+o Cloud Run. Sin PostgreSQL cifrado configurado, esas funciones responden
+desactivadas/503 y no crean archivos. La API de capacidades deja de
+anunciar persistencia local cuando Reader no está activo.
+
+El comando **solo lectura** `npm run storage:preflight` revisa que
+las tablas PostgreSQL existan, los sobres cifrados sean autenticables con
+claves configuradas y las tablas compartidas de Connect respondan sin
+consumir cuotas. Su salida no incluye datos ni credenciales y advierte
+`releaseApproval:"not_evaluated"`, incluso con PASS.
+[Manual RC8](docs/RC8_HOSTED_STORAGE.md) ·
+[Prueba PostgreSQL 16 + preflight PASS](https://github.com/aleexwae4-lab/Waeweb/actions/runs/35720429537).
+
+**NO-GO sigue vigente:** la prueba fue sobre PostgreSQL desechable de CI;
+faltan restauración, migración, verificación real de los tres Render,
+identidad/pagos y certificación de Green privado. No se configuró ningún
+servicio productivo, no se usó Vercel y no se fusionó el PR.
+
 ## Fase 16 — RC7: resultados fiables y fuentes atribuidas
 
 Connect v1 distingue respuestas `complete` (incluye cero coincidencias verificadas
