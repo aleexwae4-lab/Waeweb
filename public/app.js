@@ -326,6 +326,11 @@ function renderPublicBusiness(item) {
     element("p", "business-meta", item.category + " · " + item.city));
   if (item.description) card.append(element("p", "snippet", item.description));
   card.append(element("p", "tag", "No verificado por WAE WEB"));
+  if (/^[0-9a-f-]{36}$/i.test(item.id || "")) {
+    const profile = element("a", "link-button", "♙ Ver perfil del negocio");
+    profile.href = "/?business=" + encodeURIComponent(item.id);
+    card.append(profile);
+  }
   const url = safeUrl(item.website);
   if (url?.startsWith("https://")) card.append(external(url, "↗ Sitio web declarado", "link-button"));
   return card;
