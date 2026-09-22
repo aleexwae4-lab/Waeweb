@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "Adaptador Node y contrato real WAEWEB ↔ cliente Universal Core verificados con QA cross-repo PASS; fuentes simuladas, sin Render/Vercel LIVE. Faltan build/ruteo Vercel, pruebas E2E con los tres destinos, y certificar Green privado (jobs GitHub sin runner).",
+      "reason": "WAEWEB Connect RC7 distingue complete/partial/unavailable con evidencia cross-repo contra Universal Core y cache recuperable; NO hay despliegue ni E2E LIVE. Faltan build/ruteo Vercel, pruebas tres Render y certificar Green privado (GitHub Actions sin runner).",
       "evidence": ""
     },
     {
