@@ -175,14 +175,14 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     photos.delete(photoPath);
     process.env.WAE_MARK_MEDIA_RESTORE_ACK="reviewed-offline-missing-objects-only";
     const restored=await restoreMarketMediaForPostgres(
-      objectBackup.filename,pgBackup.filename,{confirm:true});
+      objectBackup.filename,pgBackup.filename,{offlineConfirmed:true});
     assert.equal(restored.restored,1);
     assert.equal(restored.status,"batch_restored_and_verified");
     assert.equal(restored.verified,1);
     assert.equal(restored.restoreCertified,false);
     assert.deepEqual(photos.get(photoPath),originalPhoto);
     const repeat=await restoreMarketMediaForPostgres(
-      objectBackup.filename,pgBackup.filename,{confirm:true});
+      objectBackup.filename,pgBackup.filename,{offlineConfirmed:true});
     assert.equal(repeat.reason,"destination_not_empty");
     assert.equal(repeat.noExistingObjectsOverwritten,true);
     const tamperedPhoto=Buffer.from(originalPhoto);
