@@ -25,7 +25,7 @@ test("catalog HTTP and persistence preserve tenant control and public consent",a
     const b=await registerAccount({name:"Persona Dos",email:"two@example.test",
       password:"Strong-Example-Password-2026-Two"},dir);
     const company=await addBusiness("Bearer "+a.token,{
-      name:"Delia Shop",category:"Moda",city:"Zapopan"},dir);
+      name:"Delia Shop",category:"Moda",city:"Zapopan",whatsapp:"+5213312345678"},dir);
     const mine="Bearer "+a.token,foreign="Bearer "+b.token;
     await assert.rejects(()=>listOwnerListings(foreign,company.id,dir),
       {code:"business_missing"});
@@ -41,6 +41,7 @@ test("catalog HTTP and persistence preserve tenant control and public consent",a
     const publicItem=(await getPublicMarketCatalog(company.id,dir)).items[0];
     assert.equal(publicItem.email,undefined);
     assert.equal(publicItem.ownerId,undefined);
+    assert.equal(publicItem.whatsapp,undefined,"the catalog should not publish contact details");
     await assert.rejects(()=>editMarketListing(foreign,company.id,item.id,listing,dir),
       {code:"business_missing"});
     const modified=await editMarketListing(mine,company.id,item.id,
@@ -72,6 +73,7 @@ test("catalog HTTP and persistence preserve tenant control and public consent",a
       "PATCH",{published:true},mine)).status,200);
     assert.equal((await request("/api/marketplace?q=bolsa")).data.total,1);
     assert.equal((await request("/api/businesses/public/"+company.id+"/listings")).data.items.length,1);
+    assert.equal((await request("/api/businesses/public/"+company.id)).data.business.whatsapp,"+5213312345678");
     assert.equal((await request(path+"/"+created.data.item.id,"DELETE",null,mine)).status,200);
     assert.equal((await request("/api/marketplace?q=bolsa")).data.total,0);
     await deleteMarketListing(mine,company.id,item.id,dir);
