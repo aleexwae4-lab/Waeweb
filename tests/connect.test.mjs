@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { handler } from "../server/index.mjs";
-import { connectConfig, authorizeConnect, connectRequest, handleConnect, CONNECT_VERSION } from "../server/connect.mjs";
+import { connectConfig, authorizeConnect, connectRequest, handleConnect, safeResults, CONNECT_VERSION } from "../server/connect.mjs";
 import { connectAdmissionReady, connectAdmissionConfig } from "../server/connect-postgres.mjs";
 
 const clients={
@@ -131,4 +131,42 @@ test("production, Render and Vercel Connect require verified shared admission ra
   assert.equal(connectAdmissionReady({...base,WAE_CONNECT_ADMISSION_MODE:"unknown"}),false);
   assert.equal(connectAdmissionReady({...base,WAE_CONNECT_ADMISSION_MODE:"postgres"}),false);
   assert.equal(connectAdmissionConfig({...base,WAE_CONNECT_ADMISSION_MODE:"postgres"}),null);
+});
+
+test("Connect distinguishes verified zero hits, partial outages and no available providers",()=>{
+  const params={type:"all",fresh:true};
+  const empty=safeResults({query:"evidencia",results:[],sources:["Wikipedia"],
+    failedSources:[],fetchedAt:"2026-09-22T09:00:00.000Z"},params);
+  assert.equal(empty.ok,true);
+  assert.equal(empty.status,"complete");
+  assert.equal(empty.results.length,0);
+  const partial=safeResults({query:"evidencia",results:[{
+    title:"Registro",url:"https://example.org/registro",source:"Wikipedia",snippet:"Referencia"
+  }],sources:["Wikipedia","Google no configurado"],failedSources:["Crossref"],
+    fetchedAt:"2026-09-22T09:00:00.000Z"},params);
+  assert.equal(partial.ok,true);
+  assert.equal(partial.status,"partial");
+  assert.deepEqual(partial.failedSources,["Crossref"]);
+  assert.equal(partial.results.length,1);
+  const unavailable=safeResults({query:"evidencia",results:[],
+    sources:["Google no configurado"],failedSources:["Wikipedia"]},params);
+  assert.equal(unavailable.ok,false);
+  assert.equal(unavailable.error,"no_sources_available");
+  assert.equal(unavailable.status,"unavailable");
+  assert.equal(safeResults(null,params).error,"invalid_search_response");
+  assert.equal(safeResults({error:"consulta no válida"},params).error,"search_rejected");
+});
+
+test("Connect bounds hostile source metadata and refuses bad URLs",()=>{
+  const result=safeResults({query:"prueba",sources:["Fuente"],failedSources:[],
+    results:[{title:"Válido",url:"https://example.org/fuente",
+      snippet:"z".repeat(10000),source:"S".repeat(1000),
+      image:"javascript:alert(1)"},
+      {title:"Inseguro",url:"javascript:alert(1)",source:"Fuente"}]
+  },{type:"all",fresh:false});
+  assert.equal(result.ok,true);
+  assert.equal(result.results.length,1);
+  assert.ok(result.results[0].snippet.length<=1100);
+  assert.ok(result.results[0].source.length<=120);
+  assert.equal(result.results[0].image,null);
 });
