@@ -1,4 +1,4 @@
-const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (research-search; contact: waeweb-search@example.invalid)" };
+const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 export const normalizeQuery = value => clean(value).slice(0, 180);
@@ -69,7 +69,7 @@ export async function googleSearch(query, type = "web") {
 export async function wikimediaImages(query) {
   const u = new URL("https://commons.wikimedia.org/w/api.php");
   u.search = new URLSearchParams({
-    action: "query", generator: "search", gsrsearch: query + " filetype:bitmap",
+    action: "query", generator: "search", gsrsearch: query,
     gsrnamespace: "6", gsrlimit: "18", prop: "imageinfo",
     iiprop: "url|mime", iiurlwidth: "520", format: "json"
   }).toString();
@@ -105,7 +105,7 @@ export async function search(query, type = "all") {
     ? [["Google", () => googleSearch(q, selected)]]
     : selected === "research"
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)]]
-    : [["Wikipedia", () => wikipedia(q)], ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Google", () => googleSearch(q)]];
+    : [["Google", () => googleSearch(q)], ["Wikipedia", () => wikipedia(q)], ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)]];
   const settled = await Promise.allSettled(sources.map(async ([name, fn]) => ({ name, items: await fn() })));
   const errors = [], available = [], results = [];
   settled.forEach((entry, i) => {
