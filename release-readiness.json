@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC22 authenticates an operator-supplied complete set of encrypted media capsules against one verified PostgreSQL backup, with duplicate/overlap/gap detection and bounded 100-file audit. RC21 tested missing-only conditional PUT recovery in disposable CI. Still no independent external custody, real-provider versioning/IAM restore test, full catalog beyond per-run limit, cross-store transaction or measured RPO/RTO. HOLD.",
+      "reason": "RC23 prepares a complete, PostgreSQL-bound encrypted media package in an explicitly selected private directory and re-verifies its hashes, PG envelopes and capsule bytes without original source files in disposable CI. A second directory does not demonstrate independent hardware/failure domain or real offsite custody. Real-provider IAM/versioning restore, external key custody, full RPO/RTO, and cross-store transaction remain unproven. HOLD.",
       "evidence": ""
     },
     {
@@ -41,7 +41,7 @@
     {
       "id": "marketplace",
       "status": "blocked",
-      "reason": "RC22 distinguishes complete PostgreSQL-bound local archive coverage from incomplete/overlapping/tampered media capsules without object writes; RC21 restores only confirmed-missing objects. Real-provider recovery, custody, legacy migration, E2E mobile, privacy, moderation, payments and external security validation remain blocked. HOLD."
+      "reason": "RC23 verifies portable full-set encrypted backup package independent of original PG and media files in synthetic CI; RC21 restores only missing media without overwrite. Still missing real provider rehearsal and independent offsite custody, legacy migration, E2E mobile, privacy, payments and external security validation. HOLD."
     }
   ]
 }
