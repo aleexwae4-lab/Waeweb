@@ -155,11 +155,11 @@ export async function headMarketImage(config, key, transport=fetch, now=Date.now
   const path=objectPath(config,key);
   const {amz,day}=dates(now), credentialScope=scope(config,day);
   const payloadHash=hex(Buffer.alloc(0)),endpointHost=host(config);
-  const canonicalHeaders="host:"+endpointHost+"\\nx-amz-content-sha256:"+payloadHash+
-    "\\nx-amz-date:"+amz+"\\n";
+  const canonicalHeaders="host:"+endpointHost+"\nx-amz-content-sha256:"+payloadHash+
+    "\nx-amz-date:"+amz+"\n";
   const signedHeaders="host;x-amz-content-sha256;x-amz-date";
-  const request="HEAD\\n"+path+"\\n\\n"+canonicalHeaders+"\\n"+signedHeaders+"\\n"+payloadHash;
-  const toSign="AWS4-HMAC-SHA256\\n"+amz+"\\n"+credentialScope+"\\n"+hex(request);
+  const request="HEAD\n"+path+"\n\n"+canonicalHeaders+"\n"+signedHeaders+"\n"+payloadHash;
+  const toSign="AWS4-HMAC-SHA256\n"+amz+"\n"+credentialScope+"\n"+hex(request);
   const signature=createHmac("sha256",signingKey(config,day)).update(toSign).digest("hex");
   let response;
   try {
