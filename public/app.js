@@ -201,7 +201,7 @@ function renderResult(item, index) {
   if (item.snippet) card.append(element("p", "snippet", item.snippet));
   const meta = element("div", "meta-line");
   if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
-  meta.append(element("span", "", "↗ Consultar documento original"));
+  meta.append(button("◎ Navegar aquí", () => openBrowser(url), "save-button"));
   const save = button(workspace.has(url) ? "◆ Guardado" : "◇ Guardar fuente", () => {
     const outcome = workspace.add(item);
     if (outcome.ok) {
