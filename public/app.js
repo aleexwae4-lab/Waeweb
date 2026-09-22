@@ -1,5 +1,6 @@
 import { createWorkspace, asMarkdown } from "/workspace.js";
 import { openBrowser, hideBrowser } from "/browser.js";
+import { classifyOmnibox } from "/omnibox.js";
 "use strict";
 const byId = id => document.getElementById(id);
 const hero = byId("hero");
@@ -14,6 +15,7 @@ const readerPanel = byId("reader-panel");
 const readerStatus = byId("reader-status");
 const readerOutput = byId("reader-output");
 let readerEnabled = false;
+let businessSearchEnabled = false;
 let readerBusy = false;
 let vaultToken = null;
 const vaultDialog = byId("vault-dialog");
@@ -83,13 +85,22 @@ async function getJSON(path, signal, request = {}) {
     method: request.method || "GET", body: request.body,
     signal, headers, cache: "no-store", credentials: "omit"
   });
-  const data = await response.json();
-  if (response.status === 401) {
-    vaultToken = null;
-    updateVaultUI();
-    throw new Error("Credencial inválida o revocada. Conecta tu bóveda nuevamente.");
+  let data;
+  try { data = await response.json(); }
+  catch {
+    throw new Error("La API devolvió una respuesta no válida (HTTP " + response.status +
+      "). Comprueba que /api/* esté dirigido al backend de WAEWEB.");
   }
-  if (!response.ok) throw new Error(data.error || "El servicio no respondió.");
+  const isPrivate = path.startsWith("/api/index/") || path === "/api/read";
+  if (response.status === 401) {
+    if (isPrivate) {
+      vaultToken = null;
+      updateVaultUI();
+      throw new Error("La credencial de tu índice privado caducó o fue revocada.");
+    }
+    throw new Error("La búsqueda pública devolvió HTTP 401. No necesitas una bóveda: comprueba el acceso y las rutas de la API pública.");
+  }
+  if (!response.ok) throw new Error(data.error || "La API no respondió (HTTP " + response.status + ").");
   return data;
 }
 function updateVaultUI() {
@@ -336,7 +347,7 @@ function renderPublicBusiness(item) {
   }
   const url = safeUrl(item.website);
   if (url?.startsWith("https://")) {
-    card.append(button("◎ Navegar en WAEWEB", () => openBrowser(url), "link-button"));
+    card.append(button("◎ Abrir sitio", () => openBrowser(url), "link-button"));
     card.append(external(url, "↗ Sitio web original", "link-button"));
   }
   return card;
@@ -415,6 +426,33 @@ function renderMap(query) {
   map.append(external("https://www.openstreetmap.org/search?query=" + encodeURIComponent(query), "↗ Ver mapa real", "link-button"));
   resultsContainer.append(map);
 }
+// The SAME search bars accept either a query or an explicit HTTPS address.
+function runOmnibox(value,type="all",push=true){
+  const intent=classifyOmnibox(value);
+  if(intent.kind==="empty"){
+    heroStatus.textContent="Escribe una búsqueda o dirección HTTPS.";
+    stats.textContent=heroStatus.textContent;
+    return;
+  }
+  if(intent.kind==="invalid"){
+    heroStatus.textContent="La dirección o búsqueda es demasiado larga.";
+    stats.textContent=heroStatus.textContent;
+    return;
+  }
+  if(intent.kind==="url"){
+    state.controller?.abort();state.sequence++;
+    heroStatus.textContent="";
+    speechSynthesisSafeCancel();
+    if(hero.hidden===false){
+      stats.textContent="Vista web integrada · Introduce una consulta para encontrar fuentes.";
+      panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
+      resultsContainer.replaceChildren();
+    }
+    resultsInput.value=intent.value;
+    return openBrowser(intent.value);
+  }
+  return performSearch(intent.value,type,push);
+}
 async function performSearch(query, type = "all", push = true) {
   hideBrowser();
   const q = query.trim().slice(0, 180);
@@ -431,9 +469,24 @@ async function performSearch(query, type = "all", push = true) {
   heroInput.value = q; resultsInput.value = q; setTab(type);
   if (push) updateAddress(q, type);
   if (type === "maps") { renderMap(q); return; }
+  if (type === "index" && !readerEnabled) {
+    stats.textContent="Índice privado desactivado en esta vista.";
+    resultsContainer.replaceChildren(stateCard("Índice privado no disponible",
+      "La búsqueda pública no necesita bóveda. Vuelve a Todo o Investigación para consultar fuentes abiertas."));
+    return;
+  }
+  if (type === "businesses" && !businessSearchEnabled) {
+    stats.textContent="Registro de negocios desactivado en esta vista.";
+    resultsContainer.replaceChildren(stateCard("Negocios aún no disponibles",
+      "El Marketplace de pruebas no contiene empresas reales. Consulta las fuentes públicas desde Todo."));
+    return;
+  }
   stats.textContent = "Consultando fuentes reales…";
   panel.replaceChildren(); answer.replaceChildren(); weatherSlot.replaceChildren();
   resultsContainer.replaceChildren(stateCard("Buscando información", "Conectando con las fuentes disponibles.", true));
+  // Weather is an independent public API; a search provider failure must not
+  // suppress the weather card or misreport it as an invalid vault credential.
+  if (type === "all") void renderWeather(q,signal,sequence);
   try {
     const url = type === "index"
       ? "/api/index/search?q=" + encodeURIComponent(q)
@@ -462,7 +515,6 @@ async function performSearch(query, type = "all", push = true) {
     }
     if (sequence !== state.sequence) return;
     renderData(data);
-    if (type === "all") renderWeather(q, signal, sequence);
   } catch (e) {
     if (e.name === "AbortError" || sequence !== state.sequence) return;
     stats.textContent = "No se pudo completar la consulta.";
@@ -521,6 +573,11 @@ async function loadReaderCapability() {
     const previewBanner=byId("preview-banner");
     if(previewBanner)previewBanner.hidden = info.previewMode !== true;
     readerEnabled = info.readerEnabled === true;
+    businessSearchEnabled = info.publicBusinessProfiles === true;
+    for(const [type,available] of [["index",readerEnabled],["businesses",businessSearchEnabled]]){
+      const tab=document.querySelector(\`[data-type="${type}"]\`);
+      if(tab){tab.hidden=!available;tab.disabled=!available;}
+    }
     readerPanel.hidden = !readerEnabled;
     if (readerEnabled) updateVaultUI();
   } catch {
@@ -530,10 +587,10 @@ async function loadReaderCapability() {
 }
 loadReaderCapability();
 document.addEventListener("wae:browser:read", event => requestRead(event.detail.url));
-byId("hero-form").addEventListener("submit", event => { event.preventDefault(); performSearch(heroInput.value); });
-byId("results-form").addEventListener("submit", event => { event.preventDefault(); performSearch(resultsInput.value, state.type); });
+byId("hero-form").addEventListener("submit", event => { event.preventDefault(); runOmnibox(heroInput.value); });
+byId("results-form").addEventListener("submit", event => { event.preventDefault(); runOmnibox(resultsInput.value, state.type); });
 byId("home-button").addEventListener("click", goHome);
-document.querySelectorAll("[data-query]").forEach(chip => chip.addEventListener("click", () => performSearch(chip.dataset.query)));
+document.querySelectorAll("[data-query]").forEach(chip => chip.addEventListener("click", () => runOmnibox(chip.dataset.query)));
 document.querySelectorAll("[data-type]").forEach(tab => tab.addEventListener("click", () => performSearch(state.query || resultsInput.value, tab.dataset.type)));
 byId("copy-search").addEventListener("click", () => copyText(location.href));
 sourceFilter.addEventListener("change", () => {
@@ -551,7 +608,7 @@ byId("voice-button").addEventListener("click", () => {
   if (!Recognition) { heroStatus.textContent = "El reconocimiento de voz no está disponible en este navegador."; stats.textContent = heroStatus.textContent; return; }
   const recognition = new Recognition();
   recognition.lang = "es-MX"; recognition.interimResults = false;
-  recognition.onresult = event => performSearch(event.results[0][0].transcript);
+  recognition.onresult = event => runOmnibox(event.results[0][0].transcript);
   recognition.onerror = () => { heroStatus.textContent = "No se pudo reconocer la voz; usa el campo de búsqueda."; stats.textContent = heroStatus.textContent; };
   recognition.start();
 });
@@ -559,8 +616,8 @@ window.addEventListener("popstate", () => {
   hideBrowser();
   const params = new URLSearchParams(location.search);
   const q = params.get("q");
-  if (q) performSearch(q, params.get("type") || "all", false);
+  if (q) runOmnibox(q, params.get("type") || "all", false);
   else { state.controller?.abort(); state.sequence++; hero.hidden = false; resultsView.hidden = true; }
 });
 const params = new URLSearchParams(location.search);
-if (params.get("q")) performSearch(params.get("q"), params.get("type") || "all", false);
+if (params.get("q")) runOmnibox(params.get("q"), params.get("type") || "all", false);
