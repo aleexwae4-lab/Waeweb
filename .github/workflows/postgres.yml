@@ -6,6 +6,10 @@ on:
     paths:
       - "server/accounts.mjs"
       - "server/marketplace-media.mjs"
+      - "server/marketplace-recovery.mjs"
+      - "server/marketplace-lifecycle.mjs"
+      - "tests/marketplace-recovery.test.mjs"
+      - "scripts/market-media-ops.mjs"
       - "server/marketplace.mjs"
       - "server/index.mjs"
       - "tests/marketplace-media-postgres.integration.mjs"
