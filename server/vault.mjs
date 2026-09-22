@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, open, lstat, unlink } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { EncryptionError, encryptionReady, keyForVault, openVaultEnvelope, sealVault } from "./crypto.mjs";
 import { vaultPostgresSelected, vaultPostgresConfig, readVaultPostgres, mutateVaultPostgres } from "./vault-postgres.mjs";
+import { requiresDurableStorage } from "./hosting.mjs";
 
 const MAX_DOCS = 80;
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
@@ -104,7 +105,7 @@ export async function readEncryptedFile(id, base = vaultRoot()) {
 export function vaultStorageReady() {
   const mode = process.env.WAE_VAULT_STORE || "file";
   return mode === "postgres" ? Boolean(vaultPostgresConfig()) :
-    mode === "file" && process.env.VERCEL !== "1";
+    mode === "file" && !requiresDurableStorage();
 }
 export async function loadVault(id, base) {
   keyForVault(id); // Missing keys always fail even when storage is empty.
