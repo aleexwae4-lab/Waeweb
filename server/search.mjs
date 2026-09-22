@@ -78,6 +78,24 @@ export async function googleSearch(query, type = "web") {
     item.image?.thumbnailLink || item.pagemap?.cse_thumbnail?.[0]?.src || null
   )).filter(item => item.title && urlAllowed(item.url));
 }
+export async function openLibrary(query) {
+  const u = new URL("https://openlibrary.org/search.json");
+  u.search = new URLSearchParams({
+    q: query, limit: "6", fields: "key,title,author_name,first_publish_year,cover_i"
+  }).toString();
+  const data = await json(u);
+  return (data.docs || []).filter(item => /^\/works\/OL\d+W$/.test(item.key || "")).map(item => {
+    const cover = Number.isInteger(item.cover_i) && item.cover_i > 0
+      ? "https://covers.openlibrary.org/b/id/" + item.cover_i + "-M.jpg" : null;
+    const snippet = [
+      item.author_name?.length ? "Autoría: " + item.author_name.slice(0, 3).join(", ") : null,
+      item.first_publish_year ? "Primera publicación: " + item.first_publish_year : null
+    ].filter(Boolean).join(" · ") || "Ficha bibliográfica";
+    return result(item.title, "https://openlibrary.org" + item.key, snippet,
+      "Open Library", item.first_publish_year ? String(item.first_publish_year) : null, cover);
+  }).filter(item => item.title && urlAllowed(item.url));
+}
+
 export async function wikimediaImages(query) {
   const u = new URL("https://commons.wikimedia.org/w/api.php");
   u.search = new URLSearchParams({
@@ -109,17 +127,18 @@ export async function search(query, type = "all") {
   const q = spec.query;
   if (spec.errors.length) return { error: spec.errors.join(" ") };
   if (q.length < 2) return { error: "Escribe al menos dos caracteres de búsqueda además de los filtros." };
-  const selected = ["all", "images", "news", "videos", "research"].includes(type) ? type : "all";
+  const selected = ["all", "images", "news", "videos", "research", "books"].includes(type) ? type : "all";
   const key = selected + ":" + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return cached.value;
-  const sources = selected === "images"
+  const sources = selected === "books" ? [["Open Library", () => openLibrary(q)]]
+    : selected === "images"
     ? [["Wikimedia Commons", () => wikimediaImages(q)], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]]
     : selected === "news" || selected === "videos"
     ? [["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, selected)]]
     : selected === "research"
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)]]
-    : [["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q)], ["Wikipedia", () => wikipedia(q)], ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)]];
+    : [["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q)], ["Wikipedia", () => wikipedia(q)], ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Open Library", () => openLibrary(q)]];
   const settled = await Promise.allSettled(sources.map(async ([name, fn]) => ({ name, items: await fn() })));
   const errors = [], available = [], results = [];
   settled.forEach((entry, i) => {
