@@ -122,7 +122,7 @@ export function dedupe(items) {
   });
 }
 const cache = new Map();
-export async function search(query, type = "all") {
+export async function search(query, type = "all", { fresh = false } = {}) {
   const spec = parseQuery(normalizeQuery(query));
   const q = spec.query;
   if (spec.errors.length) return { error: spec.errors.join(" ") };
@@ -130,7 +130,7 @@ export async function search(query, type = "all") {
   const selected = ["all", "images", "news", "videos", "research", "books"].includes(type) ? type : "all";
   const key = selected + ":" + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.value;
+  if (!fresh && cached && cached.expires > Date.now()) return cached.value;
   const sources = selected === "books" ? [["Open Library", () => openLibrary(q)]]
     : selected === "images"
     ? [["Wikimedia Commons", () => wikimediaImages(q)], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]]
