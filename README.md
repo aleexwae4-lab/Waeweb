@@ -80,3 +80,26 @@ Pruebas adicionales: parser, fechas inválidas, filtros por dominio, caché aisl
 - QA visual, accesibilidad, seguridad y carga antes del despliegue.
 
 **Vercel permanece desconectado.**
+
+## WAE Web Reader — Fase 3 (v0.3)
+
+Se añade un lector bajo demanda para páginas de texto/HTML y un índice propio TEMPORAL del proceso Node. No es un crawler de Internet ni un navegador Chromium. No hace rastreo en segundo plano.
+
+Activación explícita para un entorno de desarrollo aislado:
+
+1. Mantener WAE_READER_ENABLED=false en cualquier entorno expuesto hasta revisar controles de salida y términos de sitios.
+2. Iniciar Node con WAE_READER_ENABLED=true solo en un entorno controlado con acceso de salida restringido. El archivo .env.example es documentación: el servidor no carga archivos .env automáticamente.
+3. Abrir la aplicación local; el panel WAE Web Reader permite indicar una URL pública HTTPS o leer un resultado mediante "Leer e indexar".
+
+API (no realizar pruebas contra redes internas):
+
+- GET /api/read?url=https%3A%2F%2Fexample.org%2Farticle — recupera texto explícitamente solicitado y lo incorpora al índice, solo si WAE_READER_ENABLED=true.
+- GET /api/index/search?q=término — busca solamente documentos recuperados durante la ejecución actual.
+- GET /api/index/document?id=... — obtiene un documento temporal previamente indexado.
+- GET /api/capabilities — incluye readerEnabled, indexSize e indexPersistence.
+
+Controles: HTTPS/443 únicamente, sin credenciales ni IP literales, sin hosts internos/reservados, DNS IPv4 verificado y fijado en la conexión TLS, detección de respuestas con IP privada, timeout por solicitud, límite de 256 KiB por respuesta, HTML y texto únicamente, rechazo de redirecciones de páginas para no saltarse robots.txt, rechazo de documentos demasiado breves y cache temporal de robots.txt. Si no se puede comprobar robots.txt, el lector no continúa. El contenido externo se trata como texto, no como instrucciones ni JavaScript ejecutable.
+
+LIMITACIONES: la extracción es textual y sencilla, no comprende páginas JavaScript, archivos PDF, anti-bot, atribución legal de contenido, licencias de reutilización ni validación semántica. Las políticas de robots.txt no sustituyen autorizaciones, derechos de autor o términos de acceso. El índice tiene capacidad acotada a 80 páginas y se pierde al reiniciar el proceso; no está aislado por usuario o empresa y por ello no debe contener información privada. Las APIs del índice son compartidas por cualquier usuario con acceso al servidor. No publicar sin autenticación, segregación multi-tenant, cuotas persistentes, revisión de seguridad, logging respetuoso de privacidad y pruebas E2E.
+
+Las pruebas usan un transporte DNS simulado únicamente en CI para confirmar denegación de rangos privados, rechazo de redirecciones, cumplimiento de robots, extracción, límite de memoria y apagado por defecto. Las pruebas no prueban la Internet real. No se ha conectado Vercel.
