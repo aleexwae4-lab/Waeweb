@@ -7,6 +7,7 @@ import { billingConfig, paidPeriod, subscriptionMatchesAttempt } from "./billing
 import { postgresAccountsSelected, postgresAccountsConfig, readAccountsPostgres, mutateAccountsPostgres } from "./accounts-postgres.mjs";
 import { requiresDurableStorage } from "./hosting.mjs";
 import { createListing, validateListing, publicCatalog, searchMarketplace, validMarketId, MAX_LISTINGS, MarketplaceError } from "./marketplace.mjs";
+import { mediaConfig, mediaSelected, decodeMarketPhoto, makeMediaKey, putMarketImage, deleteMarketImage, presignedMarketImage, ownerImageUrl, MarketMediaError } from "./marketplace-media.mjs";
 import { validId, validateInquiry, validateReport, newInquiry, newReport, publicInquiryReceipt, MarketplaceTrustError } from "./marketplace-trust.mjs";
 
 const scrypt = promisify(scryptCb);
@@ -493,6 +494,7 @@ export async function listOwnerListings(header, businessId, base) {
 }
 export async function addMarketListing(header, businessId, input, base) {
   if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  if (mediaSelected() && input?.imageDataUrl) throw new MarketMediaError("media_endpoint_required",422);
   const listing = createListing(input);
   return mutate(db => {
     const business = ownedBusiness(db,header,businessId);
@@ -506,6 +508,7 @@ export async function addMarketListing(header, businessId, input, base) {
 export async function editMarketListing(header, businessId, listingId, input, base) {
   if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
   if (!validMarketId(listingId)) fail("listing_missing","Publicación no encontrada.",404);
+  if (mediaSelected() && input?.imageDataUrl) throw new MarketMediaError("media_endpoint_required",422);
   return mutate(db => {
     const business = ownedBusiness(db,header,businessId);
     const listing = business.listings?.find(item=>item.id===listingId);
@@ -659,4 +662,107 @@ export async function reviewMarketReport(reportId, decision, { manualConfirmed =
     report.reviewedAt=new Date().toISOString();
     return { reviewed:true,decision,listingHidden:decision==="hide" };
   },base);
+}
+
+function objectMedia(media, base) {
+  if (!media) throw new MarketMediaError("media_unavailable",503);
+  // Hosted uploads require durable encrypted records. Explicit file bases are for
+  // isolated tests only and must never enable media on production ephemeral disks.
+  if (base === undefined && !postgresAccountsSelected())
+    fail("media_requires_postgres","Las fotografías requieren PostgreSQL persistente.",503);
+  if (base !== undefined && process.env.NODE_ENV !== "test")
+    fail("media_requires_postgres","La carga de fotografías no admite modo local productivo.",503);
+}
+function checkedImageKey(businessId, listingId, listing) {
+  const key=listing?.imageKey;
+  const prefix="marketplace/"+businessId.toLowerCase()+"/"+listingId.toLowerCase()+"/";
+  if (typeof key !== "string" || !key.startsWith(prefix) || listing.imageType!=="image/jpeg")
+    throw new MarketMediaError("media_not_found",404);
+  return key;
+}
+export async function uploadMarketPhoto(header, businessId, listingId, data, base,
+    { media = mediaConfig(), transport = fetch } = {}) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  objectMedia(media,base);
+  if (!validMarketId(businessId) || !validMarketId(listingId))
+    fail("listing_missing","Publicación no encontrada.",404);
+  // Do not send bytes to a provider before validating auth and ownership.
+  const current=await readDb(base);
+  const owned=ownedBusiness(current,header,businessId);
+  if (!owned.listings?.some(item=>item.id===listingId))
+    fail("listing_missing","Publicación no encontrada.",404);
+  const bytes=decodeMarketPhoto(data?.imageDataUrl);
+  const key=makeMediaKey(businessId,listingId);
+  await putMarketImage(media,key,bytes,transport);
+  let previousKey;
+  let item;
+  try {
+    item=await mutate(db=>{
+      const business=ownedBusiness(db,header,businessId);
+      const listing=business.listings?.find(entry=>entry.id===listingId);
+      if (!listing) fail("listing_missing","Publicación no encontrada.",404);
+      previousKey=listing.imageKey;
+      // The object has been uploaded before committing its reference.
+      Object.assign(listing,{imageKey:key,imageType:"image/jpeg",imageDataUrl:null,
+        updatedAt:new Date().toISOString()});
+      return listing;
+    },base);
+  } catch(error) {
+    await deleteMarketImage(media,key,transport).catch(()=>{});
+    throw error;
+  }
+  // Deletion happens only after the new key is durably committed. An object
+  // may remain orphaned if cleanup fails; it must never revoke the new image.
+  if (previousKey && previousKey !== key)
+    await deleteMarketImage(media,previousKey,transport).catch(()=>{});
+  return { uploaded:true, item:{...item,
+    imageUrl:ownerImageUrl(businessId,listingId)} };
+}
+export async function getMarketPhotoLink(header, businessId, listingId, base,
+    { media=mediaConfig(), now=Date.now() } = {}) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  objectMedia(media,base);
+  const db=await readDb(base);
+  const business=ownedBusiness(db,header,businessId);
+  const listing=business.listings?.find(item=>item.id===listingId);
+  if (!listing) fail("listing_missing","Publicación no encontrada.",404);
+  return { url:presignedMarketImage(media,checkedImageKey(businessId,listingId,listing),now),
+    expiresIn:120 };
+}
+export async function getPublicMarketPhotoLink(businessId, listingId, base,
+    { media=mediaConfig(), now=Date.now() } = {}) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  objectMedia(media,base);
+  const db=await readDb(base);
+  if (!validMarketId(businessId) || !validMarketId(listingId))
+    fail("listing_missing","Publicación no encontrada.",404);
+  const business=db.users.flatMap(user=>user.businesses)
+    .find(item=>item.id===businessId && item.visibility==="public");
+  const listing=business?.listings?.find(item=>
+    item.id===listingId && item.visibility==="public" && item.moderation!=="blocked");
+  if (!listing) fail("listing_missing","Publicación no encontrada.",404);
+  return { url:presignedMarketImage(media,checkedImageKey(businessId,listingId,listing),now),
+    expiresIn:120 };
+}
+export async function removeMarketPhoto(header,businessId,listingId,base,
+    { media=mediaConfig(),transport=fetch } = {}) {
+  if (!accountsEnabled())fail("accounts_disabled","Cuentas desactivadas.",503);
+  if (!validMarketId(businessId) || !validMarketId(listingId))
+    fail("listing_missing","Publicación no encontrada.",404);
+  // Removing inline legacy photos remains possible without an S3 provider.
+  let oldKey;
+  const item=await mutate(db=>{
+    const business=ownedBusiness(db,header,businessId);
+    const listing=business.listings?.find(entry=>entry.id===listingId);
+    if (!listing)fail("listing_missing","Publicación no encontrada.",404);
+    if (listing.imageKey && !media)
+      throw new MarketMediaError("media_unavailable",503);
+    oldKey=listing.imageKey;
+    listing.imageKey=null;listing.imageType=null;listing.imageDataUrl=null;
+    listing.updatedAt=new Date().toISOString();
+    return listing;
+  },base);
+  if (oldKey && media)
+    await deleteMarketImage(media,oldKey,transport).catch(()=>{});
+  return { removed:true, item };
 }
