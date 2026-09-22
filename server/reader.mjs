@@ -126,9 +126,11 @@ export function robotsPermits(body, path, agent = AGENT) {
   let matched = null;
   for (const rule of rules) {
     if (!rule.value) continue;
-    const encoded = rule.value.split("*").map(part => [...part].map(c =>
+    const anchorEnd = rule.value.endsWith("$");
+    const value = anchorEnd ? rule.value.slice(0, -1) : rule.value;
+    const encoded = value.split("*").map(part => [...part].map(c =>
       ".+?^$()[]{}|\\".includes(c) ? "\\" + c : c).join("")).join(".*");
-    const pattern = "^" + encoded;
+    const pattern = "^" + encoded + (anchorEnd ? "$" : "");
     let matches;
     try { matches = new RegExp(pattern).test(path); } catch { return false; }
     if (!matches) continue;
