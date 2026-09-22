@@ -575,7 +575,7 @@ async function loadReaderCapability() {
     readerEnabled = info.readerEnabled === true;
     businessSearchEnabled = info.publicBusinessProfiles === true;
     for(const [type,available] of [["index",readerEnabled],["businesses",businessSearchEnabled]]){
-      const tab=document.querySelector(\`[data-type="${type}"]\`);
+      const tab=document.querySelector('[data-type="'+type+'"]');
       if(tab){tab.hidden=!available;tab.disabled=!available;}
     }
     readerPanel.hidden = !readerEnabled;
