@@ -57,7 +57,7 @@ export function mediaRecoveryEntries(db) {
       const sha=listing.imageSha256,bytes=listing.imageBytes;
       entries.push({key:listing.imageKey,
         sha256:typeof sha==="string"&&/^[a-f0-9]{64}$/.test(sha)?sha:null,
-        bytes:Number.isSafeInteger(bytes)&&bytes>=8?bytes:null});
+        bytes:Number.isSafeInteger(bytes)&&bytes>=8&&bytes<=250*1024?bytes:null});
     }
   entries.sort((a,b)=>a.key.localeCompare(b.key,"en"));
   return {entries,manifest};
