@@ -12,6 +12,8 @@ on:
       - "server/marketplace-object-inventory.mjs"
       - "tests/marketplace-object-inventory.test.mjs"
       - "server/marketplace-restored-audit.mjs"
+      - "server/marketplace-object-inventory.mjs"
+      - "tests/marketplace-object-inventory.test.mjs"
       - "tests/marketplace-restored-audit.test.mjs"
       - "tests/marketplace-integrity.test.mjs"
       - "server/marketplace-lifecycle.mjs"
