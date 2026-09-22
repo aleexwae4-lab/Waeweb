@@ -1,3 +1,4 @@
+import { createWorkspace, asMarkdown } from "/workspace.js";
 "use strict";
 const byId = id => document.getElementById(id);
 const hero = byId("hero");
@@ -6,11 +7,13 @@ const heroInput = byId("hero-input");
 const resultsInput = byId("results-input");
 const resultsContainer = byId("results-container");
 const stats = byId("result-stats");
+const sourceFilter = byId("source-filter");
+const workspace = createWorkspace();
 const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], controller: null, sequence: 0, summary: "" };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "" };
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -88,6 +91,16 @@ function renderResult(item, index) {
   const meta = element("div", "meta-line");
   if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
   meta.append(element("span", "", "↗ Consultar documento original"));
+  const save = button(workspace.has(url) ? "◆ Guardado" : "◇ Guardar fuente", () => {
+    const outcome = workspace.add(item);
+    if (outcome.ok) {
+      save.textContent = "◆ Guardado";
+      stats.textContent = outcome.persisted === false ? "Fuente guardada temporalmente; almacenamiento local bloqueado." : "Fuente guardada en la biblioteca local.";
+      refreshLibraryCount();
+    } else stats.textContent = outcome.reason;
+  }, "save-button");
+  save.disabled = workspace.has(url);
+  meta.append(save);
   card.append(meta);
   return card;
 }
@@ -119,22 +132,96 @@ async function copyText(text) {
   try { await navigator.clipboard.writeText(text); stats.textContent = "Copiado al portapapeles."; }
   catch { stats.textContent = "No se pudo copiar. Comprueba los permisos del navegador."; }
 }
+function briefMarkdown(data) {
+  const brief = data?.brief;
+  if (!brief?.notes?.length) return "";
+  return [
+    "# WAE WEB · Panorama documental",
+    "Consulta: " + (data.originalQuery || data.query),
+    "",
+    ...brief.notes.flatMap((note, i) => [
+      "## " + (i + 1) + ". " + note.title,
+      note.statement,
+      "Fuente: " + note.source + " · " + note.url,
+      note.date ? "Fecha indicada: " + note.date : "Fecha no informada",
+      ""
+    ]),
+    brief.disclaimer
+  ].join("\n");
+}
 function renderSummary(data) {
   answer.replaceChildren();
-  const item = data.results.find(r => r.source === "Wikipedia" && r.snippet) || data.results.find(r => r.snippet);
-  if (!item) return;
-  const url = safeUrl(item.url);
-  if (!url) return;
-  state.summary = item.snippet;
+  if (!data.brief?.notes?.length) return;
+  const notes = data.brief.notes;
   const card = element("section", "answer-card");
-  append(card, element("p", "eyebrow", "Fragmento de fuente · No generado por IA"),
-    element("h2", "", "Vista rápida documental"),
-    element("blockquote", "", item.snippet));
+  append(card, element("p", "eyebrow", "◈ WAE Research Core · Evidencias rastreables"),
+    element("h2", "", "Panorama de fuentes para esta búsqueda"),
+    element("p", "research-disclaimer", data.brief.disclaimer));
+  const noteList = element("ol", "brief-notes");
+  notes.forEach((note, i) => {
+    const url = safeUrl(note.url);
+    if (!url) return;
+    const li = element("li", "brief-note");
+    const head = element("div", "brief-title");
+    append(head, element("span", "tag", String(i + 1) + " · " + note.source), external(url, note.title, "brief-link"));
+    append(li, head, element("p", "", note.statement));
+    if (note.date) li.append(element("span", "tag", formatDate(note.date)));
+    noteList.append(li);
+  });
+  card.append(noteList);
   const actions = element("div", "answer-actions");
-  append(actions, external(url, "↗ " + item.source),
-    button("⧉ Copiar", () => copyText(item.snippet)),
-    button("◖ Escuchar / detener", () => readAloud(item.snippet)));
-  card.append(actions); answer.append(card);
+  const markdown = briefMarkdown(data);
+  append(actions,
+    button("⧉ Copiar panorama y fuentes", () => copyText(markdown)),
+    button("◖ Leer / detener", () => readAloud(notes.map(n => n.statement).join(". "))),
+    button("◇ Guardar fuentes", () => {
+      let saved = 0;
+      for (const note of notes) {
+        const response = workspace.add(note);
+        if (response.ok && !response.duplicate) saved++;
+      }
+      refreshLibraryCount();
+      stats.textContent = saved + " fuente(s) añadidas a la biblioteca local.";
+    })
+  );
+  card.append(actions);
+  answer.append(card);
+}
+function refreshLibraryCount() {
+  byId("library-count").textContent = String(workspace.count());
+}
+function drawLibrary() {
+  refreshLibraryCount();
+  const list = byId("library-items");
+  list.replaceChildren();
+  const entries = workspace.list();
+  if (!entries.length) {
+    list.append(stateCard("Tu biblioteca está vacía", "Guarda fuentes de resultados o del panorama de investigación."));
+    return;
+  }
+  entries.forEach(item => {
+    const card = element("article", "library-entry");
+    append(card, external(item.url, item.title, "result-title"),
+      element("p", "", item.source + (item.date ? " · " + formatDate(item.date) : "")));
+    if (item.snippet) card.append(element("p", "snippet", item.snippet));
+    card.append(button("Eliminar de biblioteca", () => { workspace.remove(item.url); drawLibrary(); }, "small-action"));
+    list.append(card);
+  });
+}
+function downloadLibrary() {
+  const entries = workspace.list();
+  const status = byId("library-status");
+  if (!entries.length) { status.textContent = "Guarda una fuente antes de exportar."; return; }
+  const blob = new Blob([asMarkdown(entries)], { type: "text/markdown;charset=utf-8" });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = "WAE-WEB-investigacion.md";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  status.textContent = entries.length + " fuente(s) preparadas para exportar.";
 }
 function renderPanel(data) {
   panel.replaceChildren();
@@ -147,19 +234,36 @@ function renderPanel(data) {
   (data.sources || []).forEach(source => list.append(element("li", "", "✓ " + source)));
   (data.failedSources || []).forEach(source => list.append(element("li", "", "⚠ " + source + " no respondió")));
   card.append(list);
+  if (data.filters) {
+    const active = Object.entries(data.filters).filter(([, value]) => value && (!Array.isArray(value) || value.length));
+    if (active.length) card.append(element("p", "legend", "Filtros aplicados: " + active.map(([name, value]) => name + ": " + (Array.isArray(value) ? value.join(", ") : value)).join(" · ")));
+  }
   if (data.fetchedAt) card.append(element("p", "legend", "Consulta: " + formatDate(data.fetchedAt)));
   card.append(element("p", "legend", "Contrasta los resultados con sus fuentes originales. Los extractos no sustituyen una verificación independiente."));
   panel.append(card);
 }
 function renderData(data) {
-  state.results = data.results || [];
+  state.data = data;
+  const allResults = data.results || [];
+  const options = [...new Set(allResults.map(item => item.source).filter(Boolean))].sort();
+  sourceFilter.replaceChildren(new Option("Todas las fuentes", ""));
+  options.forEach(name => sourceFilter.add(new Option(name, name)));
+  if (!options.includes(state.selectedSource)) state.selectedSource = "";
+  sourceFilter.value = state.selectedSource;
+  state.results = state.selectedSource ? allResults.filter(item => item.source === state.selectedSource) : allResults;
   resultsContainer.replaceChildren();
   weatherSlot.replaceChildren();
   const count = state.results.length;
-  stats.textContent = count + " resultado" + (count === 1 ? "" : "s") + " recuperado" + (count === 1 ? "" : "s") +
-    " · " + (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
+  stats.textContent = count + " resultado" + (count === 1 ? "" : "s") + " visible" + (count === 1 ? "" : "s") +
+    " de " + allResults.length + " recuperados · " +
+    (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
   renderPanel(data);
-  if (state.type === "all") renderSummary(data);
+  if (state.type === "all" || state.type === "research") {
+    const filteredBrief = state.selectedSource ? {
+      ...data, brief: { ...data.brief, notes: (data.brief?.notes || []).filter(note => note.source === state.selectedSource) }
+    } : data;
+    renderSummary(filteredBrief);
+  }
   else answer.replaceChildren();
   if (state.type === "images") {
     const grid = renderImages(state.results);
@@ -220,6 +324,7 @@ async function performSearch(query, type = "all", push = true) {
   const signal = state.controller.signal;
   const sequence = ++state.sequence;
   state.query = q; state.type = type;
+  state.selectedSource = "";
   hero.hidden = true; resultsView.hidden = false;
   heroInput.value = q; resultsInput.value = q; setTab(type);
   if (push) updateAddress(q, type);
@@ -244,6 +349,14 @@ byId("home-button").addEventListener("click", goHome);
 document.querySelectorAll("[data-query]").forEach(chip => chip.addEventListener("click", () => performSearch(chip.dataset.query)));
 document.querySelectorAll("[data-type]").forEach(tab => tab.addEventListener("click", () => performSearch(state.query || resultsInput.value, tab.dataset.type)));
 byId("copy-search").addEventListener("click", () => copyText(location.href));
+sourceFilter.addEventListener("change", () => {
+  state.selectedSource = sourceFilter.value;
+  if (state.data) renderData(state.data);
+});
+byId("library-button").addEventListener("click", () => { drawLibrary(); byId("library-dialog").showModal(); });
+byId("close-library").addEventListener("click", () => byId("library-dialog").close());
+byId("export-library").addEventListener("click", downloadLibrary);
+refreshLibraryCount();
 byId("about-button").addEventListener("click", () => byId("about-dialog").showModal());
 byId("close-dialog").addEventListener("click", () => byId("about-dialog").close());
 byId("voice-button").addEventListener("click", () => {
