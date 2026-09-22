@@ -73,7 +73,7 @@ export async function googleSearch(query, type = "web") {
   u.search = new URLSearchParams(params).toString();
   const data = await json(u);
   return (data.items || []).map(item => result(
-    item.title, item.link, item.snippet, item.displayLink || "Google Programmable Search",
+    item.title, item.link, item.snippet, "Google Programmable Search",
     item.pagemap?.metatags?.[0]?.["article:published_time"] || null,
     item.image?.thumbnailLink || item.pagemap?.cse_thumbnail?.[0]?.src || null
   )).filter(item => item.title && urlAllowed(item.url));
