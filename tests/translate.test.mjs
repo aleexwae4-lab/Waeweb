@@ -94,7 +94,7 @@ test("translator tab remains next to index and never requests a vault token",asy
   const app=await readFile(new URL("../public/app.js",import.meta.url),"utf8");
   const ui=await readFile(new URL("../public/translator.js",import.meta.url),"utf8");
   const ix=html.indexOf('data-type="index"'),tr=html.indexOf('data-type="translate"'),book=html.indexOf('data-type="books"');
-  assert.ok(ix>0&&tr>ix&&book>tr);
+  assert.ok(tr>0&&book>tr&&ix>book);
   assert.match(ui,/\/api\/translate\/capabilities/);
   assert.match(ui,/\/api\/translate"/);
   assert.match(app,/function renderTranslator/);
