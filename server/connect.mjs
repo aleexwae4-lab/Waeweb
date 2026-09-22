@@ -83,7 +83,7 @@ function sse(res,event,data) {
 // Never turn an upstream outage (including an unconfigured category) into a
 // successful empty answer. Preserve partial evidence without claiming completeness.
 const textField=(value,max=1024)=>typeof value==="string"
-  ? value.replace(/[\\u0000-\\u001f\\u007f]/g," ").trim().slice(0,max) : "";
+  ? value.replace(/[\u0000-\u001f\u007f]/g," ").trim().slice(0,max) : "";
 const sourceList=value=>Array.isArray(value)
   ? value.filter(x=>typeof x==="string").slice(0,25).map(x=>textField(x,120)).filter(Boolean)
   : [];
@@ -92,7 +92,7 @@ function usableUrl(value) {
   try {
     const url=new URL(value);
     return ["https:","http:"].includes(url.protocol) &&
-      !url.username && !url.password && !url.hash && Boolean(url.hostname);
+      !url.username && !url.password && Boolean(url.hostname);
   }catch{return false;}
 }
 export function safeResults(payload,params) {
