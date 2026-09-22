@@ -1,7 +1,7 @@
 // Offline encrypted PostgreSQL recovery. Never exposed through HTTP.
 // Backups preserve ciphertext, not credentials, plaintext, or encryption keys.
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, lstat, readFile, open, unlink } from "node:fs/promises";
+import { mkdir, lstat, readFile, open, unlink, realpath } from "node:fs/promises";
 import { resolve, join, sep } from "node:path";
 import { postgresAccountsConfig } from "./accounts-postgres.mjs";
 import { accountKey } from "./accounts.mjs";
@@ -29,9 +29,23 @@ function settings() {
 function directory() {
   const raw = process.env.WAE_PG_BACKUP_DIR || ".wae-private-pg-backups";
   if (typeof raw !== "string" || !raw || raw.includes("\0")) reject("recovery_directory");
-  const result = resolve(raw), publicRoot = resolve("public");
-  if (result === publicRoot || result.startsWith(publicRoot + sep)) reject("recovery_directory");
+  const result = resolve(raw);
+  const forbidden = [resolve("."), resolve("public"), resolve(".git")];
+  if (forbidden.some(root => result === root ||
+      root !== resolve(".") && result.startsWith(root + sep))) reject("recovery_directory");
   return result;
+}
+// Refuse symlinked, group-readable or publicly served backup directories.
+// A backup may contain personal data even though its envelopes are encrypted.
+async function privateDirectory({ create = false } = {}) {
+  const root = directory();
+  if (create) await mkdir(root, { recursive: true, mode: 0o700 });
+  try {
+    const info = await lstat(root);
+    if (!info.isDirectory() || process.platform !== "win32" && (info.mode & 0o077) !== 0 ||
+        await realpath(root) !== root) reject("recovery_directory");
+  } catch { reject("recovery_directory"); }
+  return root;
 }
 function backupFile(filename) {
   if (typeof filename !== "string" || !filenamePattern.test(filename))
@@ -117,8 +131,8 @@ export async function backupPostgres() {
   const bytes = Buffer.from(JSON.stringify(snapshot));
   if (bytes.length > MAX_BYTES) reject("recovery_size");
   const filename = "waeweb-pg-" + Date.now() + "-" + randomUUID() + ".backup.json";
+  await privateDirectory({ create: true });
   const path = backupFile(filename);
-  await mkdir(directory(), { recursive: true, mode: 0o700 });
   let handle;
   try {
     handle = await open(path, "wx", 0o600);
@@ -136,11 +150,14 @@ export async function backupPostgres() {
   return { filename, ...result };
 }
 async function readSnapshot(filename) {
+  await privateDirectory();
   const path = backupFile(filename);
   let bytes;
   try {
     const stat = await lstat(path);
-    if (!stat.isFile() || stat.size > MAX_BYTES) reject("recovery_file");
+    if (!stat.isFile() || stat.size > MAX_BYTES ||
+        process.platform !== "win32" && (stat.mode & 0o077) !== 0)
+      reject("recovery_file");
     bytes = await readFile(path);
   } catch (error) {
     if (error instanceof RecoveryError) throw error;
