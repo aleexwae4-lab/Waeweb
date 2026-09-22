@@ -4,6 +4,31 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js con c
 
 **Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
 
+## Fase 14 — WAEWEB Connect v1.0.0-rc.5: seguridad del gateway
+
+**Control distribuido comprobado:** `server/connect-postgres.mjs` asigna un
+presupuesto global de 20 solicitudes/minuto y 3 operaciones concurrentes
+por identidad de cliente usando PostgreSQL 16, bloqueos de fila y leases
+de 45 segundos. A diferencia de un Map local, distintas instancias no
+reciben presupuestos nuevos. `WAE_CONNECT_ADMISSION_MODE=postgres` es
+obligatorio para producción, Render o Vercel: si PostgreSQL/TLS/esquema
+no están disponibles, el conector queda desactivado o responde 503,
+sin degradarse a presupuestos locales.
+
+El esquema `wae_connect_quota` + `wae_connect_lease` se crea SOLO con
+`npm run connect:pg:init` y autorización del operador, después de configurar
+`WAE_ACCOUNTS_DATABASE_URL`, `WAE_ACCOUNTS_PG_CA` y
+`WAE_CONNECT_ADMISSION_MODE=postgres`. No se han conectado cuentas ni
+bases de producción. La prueba real abarca procesos Node independientes:
+[PostgreSQL CI PASS](https://github.com/aleexwae4-lab/Waeweb/actions/runs/35712745534).
+
+En `Inteligenciauniversal`, el proxy opcional también requiere una
+segunda clave entrante en `WAEWEB_CONNECT_INBOUND_TOKEN` además del
+token de WAEWEB. Así un navegador anónimo no puede utilizar la clave de
+servicio. Las credenciales no se suben a GitHub ni se exponen en JS
+público. La protección individual por usuario y las pruebas completas
+entre los tres servicios de Render aún son pendientes. **Vercel sigue HOLD.**
+
 ## Fase 13 — WAEWEB Connect v1 (v1.0.0-rc.4)
 
 API **servidor-a-servidor** para integrar la búsqueda WAEWEB en dos despliegues Universal Core y WAE OS Green, con tres credenciales independientes. Endpoints autenticados `/api/connect/v1/status`, `/search`, `/stream` (SSE: `ready → results/error → done`) y `/retrieve` (Reader seguro, opt-in). El parámetro `fresh:true` evita la caché interna de resultados, pero no convierte WAEWEB en un crawler de Internet ni en un Chromium remoto.
