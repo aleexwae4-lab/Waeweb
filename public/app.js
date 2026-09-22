@@ -691,6 +691,11 @@ function runOmnibox(value,type="all",push=true){
     stats.textContent=heroStatus.textContent;
     return;
   }
+  if(intent.kind==="search" && intent.value.length>180){
+    const message="La búsqueda admite hasta 180 caracteres; las URLs pueden contener hasta 2048.";
+    heroStatus.textContent=message;stats.textContent=message;
+    return;
+  }
   if(intent.kind==="url"){
     translator.hide();sourceFilter.hidden=false;
     state.type="all";stopDirections();
