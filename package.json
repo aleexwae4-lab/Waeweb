@@ -1,21 +1,25 @@
 {
   "name": "waeweb",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
-  "description": "WAE WEB — federated search, guarded Reader and session-only internal HTTPS browser",
+  "description": "WAEWEB — federated search, encrypted business profiles, web fallback and optional native Chromium desktop engine",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "start": "node server/index.mjs",
     "test": "node --test",
-    "check": "node --check server/index.mjs && node --check server/search.mjs && node --check server/intelligence.mjs && node --check server/reader.mjs && node --check public/app.js && node --check public/browser.js && node --check public/browser-core.js && node --check public/workspace.js && node --check server/vault.mjs && node --check server/crypto.mjs && node --check server/backup.mjs && node --check scripts/vault-ops.mjs && node --check server/accounts.mjs && node --check public/accounts.js && node --check server/maintenance.mjs && node --check scripts/vault-maintenance.mjs && node --check public/business-profile.js",
+    "check": "node --check server/index.mjs && node --check server/search.mjs && node --check server/intelligence.mjs && node --check server/reader.mjs && node --check public/app.js && node --check public/browser.js && node --check public/browser-core.js && node --check public/workspace.js && node --check server/vault.mjs && node --check server/crypto.mjs && node --check server/backup.mjs && node --check scripts/vault-ops.mjs && node --check server/accounts.mjs && node --check public/accounts.js && node --check server/maintenance.mjs && node --check scripts/vault-maintenance.mjs && node --check public/business-profile.js && node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check desktop/security.mjs",
     "vault:backup": "node scripts/vault-ops.mjs backup",
     "vault:verify": "node scripts/vault-ops.mjs verify",
     "vault:restore": "node scripts/vault-ops.mjs restore",
     "vault:rotate": "node scripts/vault-maintenance.mjs rotate",
-    "vault:migrate": "node scripts/vault-maintenance.mjs migrate-v1"
+    "vault:migrate": "node scripts/vault-maintenance.mjs migrate-v1",
+    "desktop": "electron desktop/main.cjs"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "44.2.0"
+  }
 }
