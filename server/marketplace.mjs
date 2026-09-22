@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import { imageUrl } from "./marketplace-media.mjs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_LISTINGS = 16; // Encrypted account envelope is limited to 4 MiB.
+const MAX_LISTINGS = 16; // Inline-file compatibility and legacy envelope bound.
+const MAX_OBJECT_LISTINGS = 40; // Only with configured durable PostgreSQL + offloaded photos.
 const MAX_IMAGE = 48 * 1024; // Encoded JPEG/PNG/WebP. No SVG or remote proxy.
 export class MarketplaceError extends Error {
   constructor(code, message, status = 422) {
@@ -119,4 +120,4 @@ export function searchMarketplace(users, { q = "", kind = "all", city = "", page
     hasMore: results.length>page*20,
     disclaimer:"Anuncios comerciales autodeclarados. WAEWEB no verifica identidad, disponibilidad ni precios." };
 }
-export { MAX_LISTINGS };
+export { MAX_LISTINGS, MAX_OBJECT_LISTINGS };
