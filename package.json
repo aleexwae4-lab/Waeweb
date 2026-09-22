@@ -1,9 +1,9 @@
 {
   "name": "waeweb",
-  "version": "1.0.0-rc.5",
+  "version": "1.0.0-rc.6",
   "private": true,
   "type": "module",
-  "description": "WAEWEB — encrypted PostgreSQL backend, native desktop and authenticated realtime Connect API",
+  "description": "WAEWEB — encrypted multi-tenant backend and Connect API with cross-repository contract QA",
   "engines": {
     "node": ">=20"
   },
