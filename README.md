@@ -6,6 +6,24 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Aplicación Node.js indepe
 
 
 
+## Estado actual — Fase 9 (v0.9): WAEWEB Native Chromium Desktop Engine
+
+**Objetivo implementado en la rama:** edición local opcional para Windows, macOS y Linux usando **Electron 44.3.0 / Chromium**. Conserva el mismo WAEWEB web y sus módulos; no depende del despliegue existente de Vercel. El proceso principal abre el backend Node de WAEWEB *solo en 127.0.0.1 y puerto aleatorio*; la interfaz se sirve en una ventana Electron y las páginas externas se muestran en `WebContentsView` independientes en vez de iframes. Nada cambia en producción y no se ha publicado un instalador.
+
+### Arranque local para desarrolladores
+
+1. Instalar Node.js compatible (recomendado Node 22 o superior) y las dependencias opcionales del entorno de escritorio en el propio equipo: `npm install` (Electron es una dependencia de desarrollo; su descarga inicial puede consumir datos/almacenamiento y no se realiza en CI).
+2. Ejecutar `npm run desktop`. Abre «◎ Navegar», introduce un sitio público HTTPS y utiliza las pestañas. `npm start` **sigue iniciando únicamente el servidor web existente**.
+3. Antes de desarrollar para clientes: configurar claves/almacenamiento solo cuando corresponda, ejecutar `npm run check && npm test`, realizar pruebas visuales y funcionales reales en los sistemas operativos objetivo, firmar y empaquetar los binarios. Este PR no incluye ejecutables ni exige tokens/productos de pago.
+
+**Motor real y aislamiento:** hasta ocho `WebContentsView` con su propia URL, título, historial real `navigationHistory`, progreso y fallos de carga. Al cambiar pestañas no se vuelve a cargar la web: se intercambia la vista nativa activa. Se aceptan páginas públicas HTTPS que no se pueden incrustar en un iframe, sujetas a sus propias políticas de autenticación y seguridad. El contenido web externo está en una sesión efímera y separada de la interfaz local, sin preload ni Node.js; sandbox, context isolation y web security permanecen activos. Todos los permisos de dispositivos y descargas están denegados en esta fase. Los popups HTTPS se convierten en pestañas dentro del límite; se deniegan otras aperturas. No se omiten CAPTCHA, autenticación, controles antiautomatización ni políticas de los sitios.
+
+**Canal IPC:** solo el frame principal de la ventana local exacta puede solicitar navegación, selección, historial, geometría de la vista y salida explícita al navegador del sistema. Los comandos y URLs vuelven a validarse en el proceso principal. No se expone `ipcRenderer` ni acceso a archivos, consola del sistema, claves o bóvedas a sitios de terceros. El navegador del sistema solo se abre con URL HTTPS validada desde la interfaz local. La vista nativa ajusta su geometría al área real visible de la aplicación. Los contenidos se cierran expresamente al cerrar cada pestaña/ventana para limitar fugas de memoria.
+
+**Diferencia con v0.8 web:** dentro del navegador web normal WAEWEB sigue usando su `iframe` de compatibilidad y mostrando «Abrir fuera»; el motor Chromium verdadero se activa **solo** al arrancar la edición Electron local. En escritorio, los enlaces/clics y redirecciones HTTPS de la página remota pasan al historial del motor. No se prometen equivalencia total con Google Chrome, extensiones Chrome, DRM, todas las páginas ni compatibilidad de cada inicio de sesión. No existe una plataforma remota de Chromium para usuarios de Vercel/Render.
+
+**QA disponible:** las pruebas automatizadas cubren URLs, prohibición de protocolos/destinos locales, límites de viewport, origen/frame del IPC y controles de aislamiento; `node --check` también valida los archivos de escritorio. GitHub Actions no instala ni inicia Electron, así que una ejecución PASS **no es** una validación visual ni de navegación real del ejecutable. Quedan pendientes E2E nativos y paquetes instalables firmados.
+
 ## Estado actual — Fase 8 (v0.8): WAEWEB Browser Core
 
 **Navegación interna sin usar Vercel.** La barra «◎ Navegar» y los títulos de resultados abren un área integrada con direcciones HTTPS, hasta ocho pestañas por sesión, atrás/adelante, recarga, salida al buscador y apertura explícita del sitio original. La pestaña conserva su iframe mientras se alterna entre pestañas; el historial de URLs introducidas por WAEWEB tiene un límite de 30 entradas. La interfaz muestra siempre el aviso de que la navegación interna es condicional.
