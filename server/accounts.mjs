@@ -7,6 +7,7 @@ import { billingConfig, paidPeriod, subscriptionMatchesAttempt } from "./billing
 import { postgresAccountsSelected, postgresAccountsConfig, readAccountsPostgres, mutateAccountsPostgres } from "./accounts-postgres.mjs";
 import { requiresDurableStorage } from "./hosting.mjs";
 import { createListing, validateListing, publicCatalog, searchMarketplace, validMarketId, MAX_LISTINGS, MarketplaceError } from "./marketplace.mjs";
+import { validId, validateInquiry, validateReport, newInquiry, newReport, publicInquiryReceipt, MarketplaceTrustError } from "./marketplace-trust.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -555,4 +556,67 @@ export async function browseMarketplace(filters={},base) {
   if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
   const db=await readDb(base);
   return searchMarketplace(db.users,filters);
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+function publicForContact(db, businessId, listingId) {
+  if (!validId(businessId) || !validId(listingId))
+    fail("listing_missing", "Publicación no encontrada.", 404);
+  for (const owner of db.users) {
+    const business = owner.businesses.find(item => item.id === businessId);
+    if (!business || business.visibility !== "public") continue;
+    const listing = (business.listings || []).find(item =>
+      item.id === listingId && item.visibility === "public");
+    if (listing) return { owner, business, listing };
+  }
+  fail("listing_missing", "Publicación no encontrada.", 404);
+}
+export async function sendMarketInquiry(header, businessId, listingId, input, base) {
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  const message = validateInquiry(input);
+  return mutate(db => {
+    const buyer = userWithSession(db, header);
+    const { owner, business, listing } = publicForContact(db, businessId, listingId);
+    if (owner.id === buyer.id) fail("self_inquiry", "No puedes consultar tu propia publicación.", 409);
+    business.inquiries ||= [];
+    if (business.inquiries.length >= 40)
+      fail("inquiry_capacity", "Este negocio alcanzó su capacidad de consultas.", 503);
+    const now = Date.now();
+    if (business.inquiries.some(item => item.buyerId === buyer.id &&
+        item.listingId === listing.id && now - Date.parse(item.createdAt) < DAY_MS))
+      fail("inquiry_duplicate", "Ya enviaste una consulta para este artículo durante las últimas 24 horas.", 409);
+    business.inquiries.push(newInquiry({ buyer, listing, message, now }));
+    return publicInquiryReceipt();
+  }, base);
+}
+export async function getMarketInquiries(header, businessId, base) {
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  const db = await readDb(base);
+  const business = ownedBusiness(db, header, businessId);
+  return { items: business.inquiries || [], limit: 40 };
+}
+export async function reportMarketListing(header, businessId, listingId, input, base) {
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  const reason = validateReport(input);
+  return mutate(db => {
+    const reporter = userWithSession(db, header);
+    const { owner } = publicForContact(db, businessId, listingId);
+    if (owner.id === reporter.id) fail("self_report", "No puedes reportar tu propia publicación.", 409);
+    db.marketReports ||= [];
+    if (db.marketReports.length >= 500)
+      fail("report_capacity", "La recepción de reportes está temporalmente limitada.", 503);
+    const now = Date.now();
+    if (db.marketReports.some(item => item.reporterId === reporter.id &&
+      item.businessId === businessId && item.listingId === listingId &&
+      now - Date.parse(item.createdAt) < 30 * DAY_MS))
+      fail("report_duplicate", "Este reporte ya fue recibido.", 409);
+    if (db.marketReports.filter(item => item.reporterId === reporter.id &&
+      now - Date.parse(item.createdAt) < DAY_MS).length >= 5)
+      fail("report_rate", "Límite diario de reportes alcanzado.", 429);
+    db.marketReports.push(newReport({
+      reporterId: reporter.id, businessId, listingId, reason, now
+    }));
+    // Reports only queue for manual review. Never auto-unpublish on allegations.
+    return { received: true, status: "pending_review" };
+  }, base);
 }
