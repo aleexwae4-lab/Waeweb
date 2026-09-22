@@ -15,7 +15,7 @@ test("Wikidata returns attributable entity links and rejects malformed identifie
     assert.equal(u.searchParams.get("limit"),"12");
     return new Response(JSON.stringify({search:[
       {id:"Q42",label:"Douglas Adams",description:"British writer"},
-      {id:"BAD",label:"not safe"},{id:"Q7",label:""]}
+      {id:"BAD",label:"not safe"},{id:"Q7",label:""}
     ]}),{status:200});
   },async()=>{
     const data=await wikidata("Douglas Adams");

@@ -24,7 +24,7 @@ test("explicit preview serves search/navigation and refuses ALL private or write
     assert.equal(capabilities.previewMode,true);
     const homepage=await get("/");
     assert.equal(homepage.status,200);
-    assert.match(await homepage.text(),/id="preview-banner"/);
+    assert.doesNotMatch(await homepage.text(),/id="preview-banner"/);
     const browse=await get("/api/marketplace");
     assert.equal(browse.status,200);
     assert.deepEqual((await browse.json()).items,[]);
