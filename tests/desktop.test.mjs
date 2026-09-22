@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { safeDesktopUrl, safeDesktopTarget, normalizeViewport, isTrustedShellSender, MAX_DESKTOP_TABS } from "../desktop/security.mjs";
+import { safeDesktopUrl, safeDesktopTarget, normalizeViewport, isTrustedShellSender, desktopRequestAllowed, MAX_DESKTOP_TABS } from "../desktop/security.mjs";
 
 test("native Chromium validates destinations independently of renderer", () => {
   assert.equal(safeDesktopUrl("example.org/path"), "https://example.org/path");
@@ -57,4 +57,26 @@ test("Electron shell source retains sandbox, isolated sessions, and no remote pr
   assert.match(preload, /contextBridge\.exposeInMainWorld/);
   assert.doesNotMatch(preload, /exposeInMainWorld\("ipcRenderer"/);
   assert.match(browser, /waeDesktop/);
+});
+
+test("loopback shell rejects DNS rebinding and cross-origin requests but preserves same-origin APIs", () => {
+  const origin = "http://127.0.0.1:39481";
+  const req = (host, method = "GET", requestOrigin, site) => ({
+    method,
+    headers: { host, ...(requestOrigin === undefined ? {} : { origin: requestOrigin }),
+      ...(site === undefined ? {} : { "sec-fetch-site": site }) }
+  });
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481"), origin), true);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481", "POST", origin, "same-origin"), origin), true);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481", "PATCH", origin), origin), true);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481", "DELETE", origin), origin), true);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481", "GET", undefined, "none"), origin), true);
+  assert.equal(desktopRequestAllowed(req("attacker.test:39481", "GET", undefined), origin), false);
+  assert.equal(desktopRequestAllowed(req("localhost:39481"), origin), false);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39482"), origin), false);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481", "POST"), origin), false);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481", "POST", "https://evil.test"), origin), false);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481", "GET", "null"), origin), false);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481", "GET", undefined, "cross-site"), origin), false);
+  assert.equal(desktopRequestAllowed(req("127.0.0.1:39481", "GET", undefined, "same-site"), origin), false);
 });
