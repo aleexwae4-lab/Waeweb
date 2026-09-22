@@ -23,7 +23,7 @@
     {
       "id": "monetization",
       "status": "blocked",
-      "reason": "Las promociones y pagos requieren prueba E2E, configuracion productiva y reconciliacion auditada.",
+      "reason": "RC12 incorpora huella de checkout verificado y conciliación a demanda READ ONLY entre estado cifrado de cuentas y Stripe, con tests de deriva, dueño, duplicación y fallo de proveedor. Faltan evidencia E2E Stripe test→PostgreSQL, reconciliación de facturas/reembolsos, auditoría operativa y configuración productiva. HOLD.",
       "evidence": ""
     },
     {
