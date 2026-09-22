@@ -13,13 +13,29 @@ const clients={
   "universal-core-vt3h":"ci-vt3h-"+"B".repeat(40),
   waeosgreen:"ci-green-"+"C".repeat(40)
 };
-const testPayload=async(query,type)=>({
-  query,type,
-  results:[{title:"Evidence in source",url:"https://example.org/statement",
-    snippet:"Cited public source",source:"Cross-repo fixture",date:null}],
-  sources:["Cross-repo fixture"],failedSources:[],
-  fetchedAt:"2026-09-22T00:00:00.000Z"
-});
+const testPayload=async(query,type)=>{
+  if(query==="proveedor apagado")return {
+    query,type,results:[],sources:["Google no configurado"],
+    failedSources:["Wikipedia"]
+  };
+  if(query==="resultado parcial")return {
+    query,type,
+    results:[{title:"Fuente existente",url:"https://example.org/partial",
+      snippet:"Evidencia conservada",source:"Wikipedia"}],
+    sources:["Wikipedia","Google no configurado"],failedSources:["Crossref"],
+    fetchedAt:"2026-09-22T00:00:00.000Z"
+  };
+  if(query==="sin coincidencias")return {query,type,
+    results:[],sources:["Wikipedia"],failedSources:[],
+    fetchedAt:"2026-09-22T00:00:00.000Z"};
+  return {
+    query,type,
+    results:[{title:"Evidence in source",url:"https://example.org/statement",
+      snippet:"Cited public source",source:"Cross-repo fixture",date:null}],
+    sources:["Cross-repo fixture"],failedSources:[],
+    fetchedAt:"2026-09-22T00:00:00.000Z"
+  };
+};
 test("Universal Core client interoperates with ACTUAL WAEWEB Connect handler (no deployments)",{
   skip:!enabled
 },async()=>{
@@ -74,6 +90,24 @@ test("Universal Core client interoperates with ACTUAL WAEWEB Connect handler (no
       assert.match(frames,/event: done/);
       assert.match(frames,/Cross-repo fixture/);
       assert.doesNotMatch(frames,new RegExp(token));
+      const partial=await requestWaeweb("search",{query:"resultado parcial"},
+        {env:cfg,transport});
+      assert.equal(partial.status,"partial");
+      assert.deepEqual(partial.failedSources,["Crossref"]);
+      assert.equal(partial.results[0].url,"https://example.org/partial");
+      const noHits=await requestWaeweb("search",{query:"sin coincidencias"},
+        {env:cfg,transport});
+      assert.equal(noHits.ok,true);
+      assert.equal(noHits.status,"complete");
+      assert.deepEqual(noHits.results,[]);
+      await assert.rejects(()=>requestWaeweb("search",{query:"proveedor apagado"},
+        {env:cfg,transport}),{code:"waeweb_upstream_503"});
+      const interrupted=await requestWaeweb("stream",{query:"proveedor apagado"},
+        {env:cfg,transport});
+      const failedFrames=await interrupted.text();
+      assert.match(failedFrames,/event: error/);
+      assert.match(failedFrames,/"error":"no_sources_available"/);
+      assert.match(failedFrames,/"ok":false/);
       const swapped=await fetch(base+"/api/connect/v1/status",{
         headers:{"x-waeweb-client":id,
           authorization:"Bearer "+clients.waeosgreen}
