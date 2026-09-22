@@ -23,13 +23,14 @@ const reader = $("browser-reader");
 const empty = $("browser-empty");
 let lastView = "hero";
 
+// The web pane is CHILD of search results, not another page or product.
 function showView() {
-  for (const id of ["hero", "results-view", "account-view", "business-profile-view"]) {
-    if (!$(id).hidden) lastView = id;
+  if (!view.hidden) return;
+  lastView = $("results-view").hidden ? "hero" : "results-view";
+  for (const id of ["hero", "account-view", "business-profile-view","marketplace-view"])
     $(id).hidden = true;
-  }
+  $("results-view").hidden = false;
   view.hidden = false;
-  window.scrollTo({ top: 0, behavior: "smooth" });
   if (native) void native.setVisible(true).then(syncNativeBounds).catch(displayError);
 }
 export function hideBrowser() {
@@ -38,10 +39,13 @@ export function hideBrowser() {
 }
 function leaveBrowser() {
   hideBrowser();
-  const destination = $(lastView) || $("hero");
-  destination.hidden = false;
-  if (lastView === "results-view") $("results-input").focus();
-  else $("hero-input").focus();
+  // URL-only entry from the hero returns to the hero. A result link returns
+  // to its existing results; a browser close never throws away search cards.
+  if (lastView === "hero") {
+    $("results-view").hidden = true;
+    $("hero").hidden = false;
+    $("hero-input").focus();
+  } else $("results-input").focus();
 }
 function displayError(error) {
   status.textContent = error?.message || "La dirección no se pudo abrir.";
@@ -58,7 +62,7 @@ function makeFrame(tab) {
   frame.hidden = true;
   frame.addEventListener("load", () => {
     if (state.active()?.id === tab.id && !view.hidden)
-      status.textContent = "Carga terminada o bloqueada por el sitio. WAE WEB no puede inspeccionar páginas de otros dominios.";
+      status.textContent = "Vista cargada o rechazada por el sitio. Si está en blanco, usa «Abrir sitio original»: muchas páginas prohíben incrustación.";
   });
   stage.append(frame);
   frames.set(tab.id, frame);
@@ -115,6 +119,7 @@ function render() {
   if (current?.url) external.href = current.url;
   else external.removeAttribute("href");
   empty.hidden = Boolean(current?.url);
+  stage.classList.toggle("is-empty",!current?.url);
   $("browser-new").disabled = tabItems.length >= 8;
 }
 function loadCurrent() {
@@ -127,8 +132,8 @@ function loadCurrent() {
   frame.src = tab.url;
   frame.title = "Página web: " + tab.title;
   render();
-  status.textContent = "Intentando mostrar " + new URL(tab.url).hostname +
-    ". Si está en blanco o falla, el sitio puede prohibir su incrustación. Usa «Abrir fuera».";
+  status.textContent = "Abriendo " + new URL(tab.url).hostname +
+    " · Si se muestra en blanco, este sitio no permite la vista integrada. Usa «Abrir sitio original».";
 }
 export function openBrowser(value = "", { newTab = false } = {}) {
   showView();
@@ -153,7 +158,8 @@ export function openBrowser(value = "", { newTab = false } = {}) {
   } catch (error) { render(); displayError(error); return false; }
   if (url) state.rename(state.active().id, new URL(url).hostname);
   if (url) loadCurrent();
-  else { render(); status.textContent = "Escribe un dominio o pega una URL HTTPS para navegar dentro de WAE WEB."; address.focus(); }
+  else { render(); status.textContent = "Escribe un dominio HTTPS para verlo junto a los resultados de búsqueda."; address.focus(); }
+  view.scrollIntoView({behavior:"smooth",block:"start"});
   return true;
 }
 $("browser-form").addEventListener("submit", event => {
@@ -179,11 +185,9 @@ $("browser-reload").addEventListener("click", () => {
 $("browser-new").addEventListener("click", () => openBrowser("", { newTab: true }));
 $("browser-close").addEventListener("click", leaveBrowser);
 $("browser-open").addEventListener("click", () => openBrowser());
-$("hero-browser").addEventListener("click", () => openBrowser($("hero-input").value.trim().startsWith("https://") ? $("hero-input").value.trim() : ""));
 $("browser-reader").addEventListener("click", () => {
   const tab = native ? nativeState?.tabs.find(item => item.id === nativeState.activeId) : state.active();
   if (!tab?.url) return;
-  hideBrowser();
   $("hero").hidden = true;
   $("results-view").hidden = false;
   document.dispatchEvent(new CustomEvent("wae:browser:read", { detail: { url: tab.url } }));
