@@ -23,6 +23,9 @@ export function videoIdentity(value){
   return null;
 }
 export function verifiedVideoResults(items,platform){
+  // Preserve "not configured" across the provider wrapper: [] means a real
+  // zero-hit response, while null means Brave/Google was never queried.
+  if(items===null)return null;
   return (items||[]).flatMap(item=>{
     const info=videoIdentity(item.url);
     if(!info||info.platform!==platform)return [];
