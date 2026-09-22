@@ -64,6 +64,8 @@ function decodeDb(raw) {
   }
 }
 async function readDb(base) {
+  if (base === undefined && process.env.VERCEL === "1" && !postgresAccountsSelected())
+    fail("storage_config", "No se permite leer cuentas desde almacenamiento efímero.", 503);
   if (!accountKey()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
   if (base === undefined && postgresAccountsSelected()) {
     if (!postgresAccountsConfig()) fail("storage_config", "PostgreSQL de cuentas no configurado.", 503);
@@ -107,6 +109,8 @@ async function writeDb(db, base) {
   }
 }
 async function mutate(operation, base) {
+  if (base === undefined && process.env.VERCEL === "1" && !postgresAccountsSelected())
+    fail("storage_config", "No se permiten escrituras en almacenamiento efímero.", 503);
   if (base === undefined && postgresAccountsSelected()) {
     if (!postgresAccountsConfig()) fail("storage_config", "PostgreSQL de cuentas no configurado.", 503);
     try {
