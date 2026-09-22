@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import { mkdir, lstat, readFile, open, rename, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { sealVault, openVaultEnvelope, EncryptionError } from "./crypto.mjs";
-import { paidPeriod, subscriptionMatchesAttempt } from "./billing.mjs";
+import { billingConfig, paidPeriod, subscriptionMatchesAttempt } from "./billing.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -273,13 +273,13 @@ export async function updateBusinessVisibility(header, id, published, base) {
   }, base);
 }
 const promotionLive = (item, now = Date.now()) =>
-  item.visibility === "public" && item.promotion?.status === "active" &&
+  Boolean(billingConfig()) && item.visibility === "public" && item.promotion?.status === "active" &&
   typeof item.promotion.currentPeriodEnd === "number" && item.promotion.currentPeriodEnd > now;
 export function promotionalStatus(item, now = Date.now()) {
   const promotion = item?.promotion;
   return {
     plan: promotionLive(item, now) ? "promocionar" : "gratis",
-    state: promotionLive(item, now) ? "active" : promotion?.status || "free",
+    state: promotionLive(item, now) ? "active" : promotion?.status === "active" ? "inactive" : promotion?.status || "free",
     paidThrough: promotion?.currentPeriodEnd || null
   };
 }
