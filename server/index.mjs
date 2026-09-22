@@ -98,7 +98,7 @@ export async function handler(req, res) {
     publicBusinessProfiles: accountsEnabled(),
     deploymentConnected: false
   });
-  const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses", "/api/businesses/public", "/api/promotions/plan", "/api/promotions/webhook"]);
+  const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses", "/api/businesses/public", "/api/promotions/plan", "/api/promotions/webhook", "/api/promotions/search"]);
   const businessDelete = /^\/api\/businesses\/[0-9a-f-]{36}$/i.test(u.pathname);
   const businessEdit = /^\/api\/businesses\/[0-9a-f-]{36}\/profile$/i.test(u.pathname);
   const businessPublicProfile = /^\/api\/businesses\/public\/[0-9a-f-]{36}$/i.test(u.pathname);
@@ -114,6 +114,14 @@ export async function handler(req, res) {
     try {
       if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile || businessCheckout || businessPromotion) {
         if (!accountsEnabled()) return write(res, 503, { error: "Cuentas desactivadas. Configura WAE_ACCOUNTS_ENABLED y WAE_ACCOUNTS_KEY en el servidor." });
+        if (u.pathname === "/api/promotions/search" && req.method === "GET") {
+          if (!billingConfig()) return write(res, 200, { sponsored: [], label: "Patrocinado" });
+          const q = u.searchParams.get("q") || "";
+          if (q.length < 2 || q.length > 100) return write(res, 400, { error: "Consulta de promoción inválida." });
+          const listings = await listPublicBusinesses(q);
+          return write(res, 200, { sponsored: listings.sponsored,
+            label: "Patrocinado", disclaimer: "Publicidad pagada no verificada. Los resultados orgánicos son independientes." });
+        }
         if (u.pathname === "/api/promotions/plan" && req.method === "GET") {
           return write(res, 200, { free: { name: "Registro Gratis", price: 0,
             description: "Ficha y participación orgánica sin costo." },
