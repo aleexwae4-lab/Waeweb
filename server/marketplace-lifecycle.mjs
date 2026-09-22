@@ -1,4 +1,5 @@
 // RC16 durable encrypted cleanup journal. Never log keys or personal records.
+import { createHash } from "node:crypto";
 const KEY = /^marketplace\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.jpg$/;
 const LIMIT = 1200;
 export class MediaJournalError extends Error {
@@ -37,4 +38,27 @@ export function mediaJournalSummary(db,{now=Date.now()}={}) {
   const inUse=all.filter(entry=>validMediaKey(entry?.key) && referencedMedia(db,entry.key)).length;
   return {queued:all.length,eligible:eligible.length,referenced:inUse,
     noDeletionPerformed:true};
+}
+
+export function mediaReferenceManifest(db) {
+  if (!db || !Array.isArray(db.users))throw new MediaJournalError("media_manifest_invalid");
+  const keys=[];
+  let malformed=0,duplicates=0;
+  const unique=new Set();
+  for(const user of db.users)for(const business of user.businesses||[])
+    for(const listing of business.listings||[]){
+      if(!listing.imageKey)continue;
+      if(!validMediaKey(listing.imageKey)){malformed++;continue;}
+      if(unique.has(listing.imageKey))duplicates++;
+      unique.add(listing.imageKey);keys.push(listing.imageKey);
+    }
+  keys.sort();
+  return {
+    scope:"encrypted_database_references_only",
+    referenced:keys.length,unique:unique.size,malformed,duplicates,
+    fingerprint:createHash("sha256").update(JSON.stringify(keys)).digest("hex"),
+    providerObjectsVerified:false,
+    objectBackupVerified:false,
+    releaseApproval:"not_evaluated"
+  };
 }
