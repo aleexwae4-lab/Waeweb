@@ -17,3 +17,6 @@ coverage/
 # Private account records (emails, password verifiers, sessions, business data)
 .wae-private-accounts/
 *.encrypted.json
+
+# Full encrypted PostgreSQL recovery bundles (operator-only)
+.wae-private-pg-backups/
