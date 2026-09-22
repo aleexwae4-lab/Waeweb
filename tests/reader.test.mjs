@@ -120,7 +120,7 @@ test("reader API is opt-in and does not issue network calls by default", async (
     assert.match((await response.json()).error, /lector desactivado/i);
     const caps = await (await fetch(base + "/api/capabilities")).json();
     assert.equal(caps.readerEnabled, false);
-    assert.equal(caps.indexPersistence, "encrypted_local_disk_per_vault");
+    assert.equal(caps.indexPersistence, "disabled");
     assert.equal((await fetch(base + "/api/index/search?q=a")).status, 503);
   } finally {
     await new Promise(resolve => server.close(resolve));
