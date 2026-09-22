@@ -84,7 +84,7 @@ export function publicListing(business, listing) {
 export function publicCatalog(business) {
   if (business?.visibility !== "public") return [];
   return (Array.isArray(business.listings) ? business.listings : [])
-    .filter(item => item.visibility === "public")
+    .filter(item => item.visibility === "public" && item.moderation !== "blocked")
     .map(item => publicListing(business,item));
 }
 const fold = value => String(value ?? "").normalize("NFD")
@@ -99,7 +99,8 @@ export function searchMarketplace(users, { q = "", kind = "all", city = "", page
     if (business.visibility !== "public" ||
         city && !fold(business.city).includes(fold(city))) continue;
     for (const item of business.listings || []) {
-      if (item.visibility !== "public" || kind !== "all" && item.kind !== kind) continue;
+      if (item.visibility !== "public" || item.moderation === "blocked" ||
+          kind !== "all" && item.kind !== kind) continue;
       const title = fold(item.title), category = fold(item.category),
         company = fold(business.name), description = fold(item.description);
       if (!terms.every(term => [title,category,company,description].some(x=>x.includes(term)))) continue;
