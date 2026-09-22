@@ -73,11 +73,14 @@ export async function googleSearch(query, type = "web", page = 1) {
   if (type === "videos") params.q = query + " site:youtube.com/watch";
   u.search = new URLSearchParams(params).toString();
   const data = await json(u);
-  return (data.items || []).map(item => result(
+  const items=(data.items || []).map(item => result(
     item.title, item.link, item.snippet, "Google Programmable Search",
     item.pagemap?.metatags?.[0]?.["article:published_time"] || null,
     item.image?.thumbnailLink || item.pagemap?.cse_thumbnail?.[0]?.src || null
   )).filter(item => item.title && urlAllowed(item.url));
+  if(type==="web" && Array.isArray(data.queries?.nextPage))
+    items.hasMorePage=data.queries.nextPage.length>0;
+  return items;
 }
 // Optional independent web index. No API key is ever sent to the browser.
 export async function braveSearch(query, type = "web", page = 1) {
@@ -100,7 +103,7 @@ export async function braveSearch(query, type = "web", page = 1) {
   if (raw.length > 2500000) throw new Error("brave_too_large");
   const data = JSON.parse(raw);
   const items = category === "web" ? data.web?.results : data.results;
-  return (Array.isArray(items) ? items : []).map(item => {
+  const found=(Array.isArray(items) ? items : []).map(item => {
     const link = item.url;
     const image = category === "images" || category === "videos"
       ? item.thumbnail?.src : item.thumbnail?.src || null;
@@ -108,6 +111,9 @@ export async function braveSearch(query, type = "web", page = 1) {
       "Brave Search", item.page_age || item.page_fetched || null, urlAllowed(image) ? image : null);
   }).filter(item => item.title && urlAllowed(item.url) &&
     (category !== "images" || urlAllowed(item.image)));
+  if(category==="web" && typeof data.query?.more_results_available==="boolean")
+    found.hasMorePage=data.query.more_results_available;
+  return found;
 }
 export async function openLibrary(query) {
   const u = new URL("https://openlibrary.org/search.json");
@@ -256,8 +262,10 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
       available.push(entry.value.name);
       results.push(...entry.value.items);
       if(selected==="all" && page<5 && (
-        (entry.value.name==="Brave" && entry.value.items.length>=20) ||
-        (entry.value.name==="Google" && entry.value.items.length>=10)
+        (entry.value.items.hasMorePage ?? (
+          (entry.value.name==="Brave" && entry.value.items.length>=20) ||
+          (entry.value.name==="Google" && entry.value.items.length>=10)
+        ))
       ))moreFromProviders=true;
     }
   });
