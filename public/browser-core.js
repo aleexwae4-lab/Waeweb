@@ -36,7 +36,8 @@ export function createBrowserState(maxTabs = MAX_BROWSER_TABS, maxHistory = MAX_
     const tab = active();
     if (!tab) return create(url);
     if (tab.history[tab.cursor] !== url) {
-      tab.history = tab.history.slice(0, tab.cursor + 1);
+      if (tab.history.length === 1 && tab.history[0] === null) tab.history = [];
+      else tab.history = tab.history.slice(0, tab.cursor + 1);
       tab.history.push(url);
       if (tab.history.length > maxHistory) tab.history.shift();
       tab.cursor = tab.history.length - 1;
