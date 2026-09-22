@@ -4,6 +4,30 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js con c
 
 **Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
 
+## Fase 15 — RC6: contrato entre repositorios y SSE robusto
+
+**Prueba entre repositorios, sin tocar servicios reales:** el workflow
+`.github/workflows/cross-connect.yml` obtiene las ramas públicas WAEWEB y
+`Inteligenciauniversal`, ejecuta el manejador HTTP WAEWEB real con proveedores
+de prueba y llama mediante el cliente Universal Core real con **dos identidades
+separadas**. Comprueba autenticación cruzada, `/status`, búsqueda con fuentes,
+SSE `ready/results/done` y que ningún token aparece en el texto transmitido.
+Evidencia: [GitHub Actions PASS](https://github.com/aleexwae4-lab/Waeweb/actions/runs/35714662862).
+
+El consumidor Universal Core mantiene vivo su timeout después de las cabeceras,
+limita el cuerpo SSE a 128 KiB, aborta la solicitud al desconectarse el cliente
+y marca una respuesta sin `done` como incompleta. Su QA específico:
+[PASS](https://github.com/aleexwae4-lab/Inteligenciauniversal/actions/runs/35714792211).
+El consumidor WAE OS Green incorpora relay acotado, cancelación y eventos de
+error; su repositorio **privado NO ha logrado ejecutar QA en Actions** porque
+sus jobs fallan sin runner (`runner_id=0`, sin pasos ejecutados). Por tanto
+no se declara compilado, probado en CI ni conectado a Render.
+
+**Separación de evidencias:** la prueba entre repositorios utiliza fuentes
+simuladas, no consulta páginas externas ni demuestra conexiones LIVE con
+`inteligenciauniversal.onrender.com`, la edición `vt3h` o `waeosgreen`.
+El release gate de Vercel y los tres PR de integración siguen bloqueados.
+
 ## Fase 14 — WAEWEB Connect v1.0.0-rc.5: seguridad del gateway
 
 **Control distribuido comprobado:** `server/connect-postgres.mjs` asigna un
