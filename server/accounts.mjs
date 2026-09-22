@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { mkdir, lstat, readFile, open, rename, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { sealVault, openVaultEnvelope, EncryptionError } from "./crypto.mjs";
+import { paidPeriod, subscriptionMatchesAttempt } from "./billing.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -271,6 +272,117 @@ export async function updateBusinessVisibility(header, id, published, base) {
     return business;
   }, base);
 }
+const promotionLive = (item, now = Date.now()) =>
+  item.visibility === "public" && item.promotion?.status === "active" &&
+  typeof item.promotion.currentPeriodEnd === "number" && item.promotion.currentPeriodEnd > now;
+export function promotionalStatus(item, now = Date.now()) {
+  const promotion = item?.promotion;
+  return {
+    plan: promotionLive(item, now) ? "promocionar" : "gratis",
+    state: promotionLive(item, now) ? "active" : promotion?.status || "free",
+    paidThrough: promotion?.currentPeriodEnd || null
+  };
+}
+export async function reserveCheckout(header, businessId, base) {
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  if (!/^[a-f0-9-]{36}$/i.test(businessId || "")) fail("invalid_business", "Negocio no válido.");
+  return mutate(db => {
+    const user = userWithSession(db, header);
+    const business = user.businesses.find(item => item.id === businessId);
+    if (!business) fail("business_missing", "Negocio no encontrado.", 404);
+    if (business.visibility !== "public") fail("business_private", "Publica voluntariamente tu negocio antes de promocionarlo.", 409);
+    if (promotionLive(business)) fail("already_promoted", "Este negocio ya tiene un plan activo.", 409);
+    const last = business.promotion?.pending;
+    if (last && Date.now() - last.createdAt < 20 * 60_000) {
+      fail("checkout_pending", "Ya existe una contratación reciente. Comprueba Stripe antes de iniciar otra.", 409);
+    }
+    const attemptId = randomUUID();
+    business.promotion = { ...business.promotion, pending: { attemptId, createdAt: Date.now() } };
+    return { accountId: user.id, businessId, attemptId, email: user.email };
+  }, base);
+}
+export async function bindCheckout(attempt, sessionId, base) {
+  if (!/^cs_(test_|live_)[A-Za-z0-9_]+$/.test(sessionId || "")) fail("invalid_checkout", "Referencia de compra inválida.");
+  return mutate(db => {
+    const user = db.users.find(item => item.id === attempt.accountId);
+    const business = user?.businesses.find(item => item.id === attempt.businessId);
+    if (!business || business.promotion?.pending?.attemptId !== attempt.attemptId) {
+      fail("checkout_changed", "Contratación pendiente ya no válida.", 409);
+    }
+    business.promotion.pending.sessionId = sessionId;
+    return { ok: true };
+  }, base);
+}
+export async function clearCheckout(attempt, base) {
+  return mutate(db => {
+    const business = db.users.find(item => item.id === attempt.accountId)
+      ?.businesses.find(item => item.id === attempt.businessId);
+    if (business?.promotion?.pending?.attemptId === attempt.attemptId &&
+      !business.promotion.pending.sessionId) delete business.promotion.pending;
+    return { ok: true };
+  }, base);
+}
+export async function acceptPaidCheckout(event, subscription, config, base) {
+  const session = event.data.object;
+  if (event.type !== "checkout.session.completed" ||
+    session.mode !== "subscription" || session.status !== "complete" ||
+    session.payment_status !== "paid" || Boolean(session.livemode) !== config.live ||
+    !/^cs_(test_|live_)/.test(session.id || "") ||
+    typeof session.subscription !== "string") return { applied: false };
+  const period = paidPeriod(subscription, config);
+  if (!period || session.subscription !== subscription.id) return { applied: false };
+  return mutate(db => {
+    const pending = db.users.flatMap(user => user.businesses.map(business => ({ user, business })))
+      .find(({ user, business }) => user.id === session.metadata?.account_id &&
+        business.id === session.metadata?.business_id &&
+        business.promotion?.pending?.attemptId === session.metadata?.attempt_id &&
+        business.promotion.pending.sessionId === session.id);
+    if (!pending || !subscriptionMatchesAttempt(subscription, {
+      accountId: pending.user.id, businessId: pending.business.id,
+      attemptId: pending.business.promotion.pending.attemptId
+    })) return { applied: false };
+    const { business } = pending;
+    if (business.promotion.subscriptionId && business.promotion.subscriptionId !== subscription.id &&
+      promotionLive(business)) return { applied: false };
+    if (business.visibility !== "public") return { applied: false };
+    business.promotion = {
+      subscriptionId: subscription.id, status: "active",
+      currentPeriodEnd: period.currentPeriodEnd, lastEventCreated: event.created,
+      lastEventId: event.id
+    };
+    return { applied: true };
+  }, base);
+}
+export async function updatePaidSubscription(event, subscription, config, base) {
+  const id = subscription?.id;
+  if (typeof id !== "string" || !/^sub_[A-Za-z0-9_]{4,}$/.test(id)) return { applied: false };
+  const period = event.type === "invoice.payment_failed" || event.type === "customer.subscription.deleted"
+    ? null : paidPeriod(subscription, config);
+  return mutate(db => {
+    const match = db.users.flatMap(user => user.businesses.map(business => ({ user, business })))
+      .find(({ business }) => business.promotion?.subscriptionId === id);
+    if (!match || !subscriptionMatchesAttempt(subscription, {
+      accountId: match.user.id, businessId: match.business.id,
+      attemptId: subscription.metadata?.attempt_id
+    })) return { applied: false };
+    const promo = match.business.promotion;
+    if (event.created < (promo.lastEventCreated || 0) ||
+      event.id === promo.lastEventId) return { applied: false };
+    promo.status = period ? "active" : "inactive";
+    promo.currentPeriodEnd = period?.currentPeriodEnd || null;
+    promo.lastEventCreated = event.created;
+    promo.lastEventId = event.id;
+    return { applied: true };
+  }, base);
+}
+export async function getPromotionStatus(header, businessId, base) {
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  const db = await readDb(base || basePath());
+  const user = userWithSession(db, header);
+  const business = user.businesses.find(item => item.id === businessId);
+  if (!business) fail("business_missing", "Negocio no encontrado.", 404);
+  return promotionalStatus(business);
+}
 function publicBusiness(item) {
   return {
     id: item.id, name: item.name, category: item.category, city: item.city,
@@ -306,9 +418,15 @@ export async function listPublicBusinesses(query = "", base) {
       return { item, score };
     }).filter(Boolean)
     .sort((a, b) => b.score - a.score || b.item.createdAt.localeCompare(a.item.createdAt));
+  const eligible = matching.slice(0, 100);
+  const promoted = eligible.filter(({ item }) => promotionLive(item))
+    .slice(0, 3).map(({ item }) => ({ ...publicBusiness(item), sponsored: true, label: "Patrocinado" }));
+  const promotedIds = new Set(promoted.map(item => item.id));
+  const organic = eligible.filter(({ item }) => !promotedIds.has(item.id))
+    .slice(0, 25).map(({ item }) => publicBusiness(item));
   return {
-    businesses: matching.slice(0, 25).map(({ item }) => publicBusiness(item)),
-    resultCount: Math.min(matching.length, 25), limitedTo: 25,
-    disclaimer: "Fichas publicadas voluntariamente y no verificadas por WAE WEB."
+    sponsored: promoted, businesses: organic,
+    resultCount: organic.length, limitedTo: 25,
+    disclaimer: "Patrocinados son publicidad de pago, no verificación comercial. El orden orgánico es independiente."
   };
 }
