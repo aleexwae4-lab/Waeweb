@@ -379,3 +379,8 @@ Además de comprobar presencia, `npm run marketplace:media:integrity` recupera c
 ## RC19 — recuperación coherente PostgreSQL + fotografías
 
 `npm run pg:verify-media -- <backup>` autentica el bundle cifrado de recuperación, exige que el snapshot PostgreSQL restaurado coincida exactamente con ese punto de recuperación y después verifica por lotes los JPEG privados referenciados contra su SHA-256/tamaño. Si el destino difiere, no toca el proveedor de objetos; los cambios concurrentes invalidan el lote. [Procedimiento y límites](docs/RC19_JOINT_RECOVERY_PREFLIGHT.md). **Es un preflight de recuperación, no una certificación de backup del bucket. Vercel continúa HOLD.**
+
+
+## RC20 — inventario privado de objetos
+
+`npm run marketplace:media:inventory` consulta mediante SigV4 y ListObjectsV2 únicamente el prefijo privado `marketplace/` y compara los objetos del proveedor con las referencias cifradas PostgreSQL y el journal de eliminación. Clasifica referencias presentes, eliminaciones pendientes, candidatos huérfanos, claves inesperadas y referencias ausentes; limita páginas/XML, detecta deriva y no imprime object keys ni ejecuta DELETE. [Alcance y seguridad](docs/RC20_OBJECT_INVENTORY.md). **Un huérfano es solo candidato a revisión; no autoriza borrado. Vercel continúa HOLD.**
