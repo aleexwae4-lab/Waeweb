@@ -24,7 +24,7 @@ test("Vercel production is isolated by default, even if account / reader env var
     assert.equal(health.status,200);
     assert.equal(health.headers.get("x-waeweb-api"),"1");
     assert.deepEqual(await health.json(),{status:"ok",product:"WAE WEB",
-      version:"1.0.0-rc.34",previewMode:true,publicMode:"isolated",revision:"0123456789ab"});
+      version:"1.0.0-rc.35",previewMode:true,publicMode:"isolated",revision:"0123456789ab"});
     const c=await(await fetch(base+"/api/capabilities")).json();
     assert.equal(c.previewMode,true);
     assert.equal(c.readerEnabled,false);

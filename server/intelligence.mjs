@@ -12,13 +12,13 @@ export function parseQuery(raw) {
   const siteMatch = input.match(/(?:^|\s)site:([a-z0-9.-]+\.[a-z]{2,})(?=\s|$)/i);
   const afterMatch = input.match(/(?:^|\s)after:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
   const beforeMatch = input.match(/(?:^|\s)before:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
-  const sourceMatch = input.match(/(?:^|\s)source:(wikipedia|crossref|openalex|openlibrary|google|wikimedia)(?=\s|$)/i);
+  const sourceMatch = input.match(/(?:^|\s)source:(wikipedia|crossref|openalex|openlibrary|google|wikimedia|wikidata|europepmc|gdelt)(?=\s|$)/i);
   const excludes = [...input.matchAll(/(?:^|\s)-([\p{L}\p{N}]{2,})(?=\s|$)/gu)].map(x => fold(x[1])).slice(0, 8);
   const phrases = [...input.matchAll(/"([^"]{2,80})"/g)].map(x => fold(x[1])).slice(0, 3);
   const query = input
     .replace(/(?:^|\s)site:[a-z0-9.-]+\.[a-z]{2,}(?=\s|$)/gi, " ")
     .replace(/(?:^|\s)(?:after|before):\d{4}(?:-\d{2}-\d{2})?(?=\s|$)/gi, " ")
-    .replace(/(?:^|\s)source:(?:wikipedia|crossref|openalex|openlibrary|google|wikimedia)(?=\s|$)/gi, " ")
+    .replace(/(?:^|\s)source:(?:wikipedia|crossref|openalex|openlibrary|google|wikimedia|wikidata|europepmc|gdelt)(?=\s|$)/gi, " ")
     .replace(/(?:^|\s)-[\p{L}\p{N}]{2,}(?=\s|$)/gu, " ")
     .replace(/"/g, " ")
     .replace(/\s+/g, " ").trim();
@@ -50,7 +50,7 @@ function hostMatch(url, domain) {
 }
 function eligible(item, spec) {
   if (spec.site && !hostMatch(item.url, spec.site)) return false;
-  if (spec.source && !sourceName(item.source).includes(spec.source)) return false;
+  if (spec.source && !sourceName(item.source).replace(/\s+/g,"").includes(spec.source)) return false;
   const searchable = fold([item.title, item.snippet].join(" "));
   if (spec.excludes.some(term => new RegExp("(^|[^\\p{L}\\p{N}])" + term + "([^\\p{L}\\p{N}]|$)", "u").test(searchable))) return false;
   if (spec.phrases.some(phrase => !searchable.includes(phrase))) return false;
@@ -72,7 +72,7 @@ export function scoreResult(item, query, type = "all") {
   }
   const normalizedQuery = fold(query).trim();
   if (normalizedQuery && title.includes(normalizedQuery)) score += 10;
-  if (type === "research" && /crossref|openalex/.test(sourceName(item.source))) score += 4;
+  if (type === "research" && /crossref|openalex|europe pmc/.test(sourceName(item.source))) score += 4;
   if (item.date && type === "news") {
     const year = Number(String(item.date).slice(0, 4));
     if (Number.isInteger(year)) score += Math.max(0, Math.min(5, year - new Date().getUTCFullYear() + 5));

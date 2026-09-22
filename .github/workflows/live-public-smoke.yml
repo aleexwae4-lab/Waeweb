@@ -1,4 +1,4 @@
-name: WAEWEB Live Public API Check
+name: WAEWEB Render Live Public Check
 on:
   push:
     branches: [main]
@@ -19,6 +19,6 @@ jobs:
           node-version: "22"
       - name: Verify the live Git-deployed production API and essential scripts
         env:
-          WAEWEB_BASE_URL: https://waeweb.vercel.app
-          WAEWEB_EXPECT_VERSION: 1.0.0-rc.34
+          WAEWEB_BASE_URL: https://waeweb.onrender.com
+          WAEWEB_EXPECT_VERSION: 1.0.0-rc.35
         run: node scripts/live-public-smoke.mjs

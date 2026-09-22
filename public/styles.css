@@ -397,3 +397,10 @@
 .translate-engine-row{display:flex;margin:0 0 15px}
 .translate-engine-label{display:flex;flex-direction:column;min-width:min(100%,330px);gap:7px;color:#c5d6ef;font-size:12px}
 .translate-engine-label .translate-select{font-size:13px}
+
+/* RC35: responsive source-backed video previews and empty category navigation */
+.result-card .book-cover{object-fit:cover}
+.result-card:has(.book-cover) .result-title{display:block}
+.results-container .state-card .search-fallback-links{margin-top:18px}
+.results-container .state-card .search-fallback-links button{min-height:45px;cursor:pointer}
+@media(max-width:550px){.result-card .book-cover{max-width:105px;max-height:90px}.results-container .state-card .search-fallback-links button{width:100%}}

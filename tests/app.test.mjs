@@ -36,6 +36,8 @@ test("federated search attributes real provider data and signals provider failur
   } finally { globalThis.fetch = original; }
 });
 test("news without configured search does not invent stories", async () => {
+  const oldFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response("temporarily unavailable",{status:503});
   const key = process.env.GOOGLE_SEARCH_API_KEY;
   const cx = process.env.GOOGLE_SEARCH_ENGINE_ID;
   delete process.env.GOOGLE_SEARCH_API_KEY;
@@ -45,6 +47,7 @@ test("news without configured search does not invent stories", async () => {
     assert.deepEqual(data.results, []);
     assert.match(data.message, /proveedores disponibles/);
   } finally {
+    globalThis.fetch=oldFetch;
     if (key !== undefined) process.env.GOOGLE_SEARCH_API_KEY = key;
     if (cx !== undefined) process.env.GOOGLE_SEARCH_ENGINE_ID = cx;
   }

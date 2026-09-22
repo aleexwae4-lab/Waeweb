@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC34 restores the complete frontend and named /api/* serverless source to Git production branch with a constrained public-isolated mode enforced whenever release-readiness approval is HOLD, even when deployment variables suggest GO. Live smoke workflow must confirm real waeweb.vercel.app returns JSON /api/health, /api/capabilities, /api/maps plus native-map.js/translator.js; production accessibility is not inferred from unit tests or Ready status. Protected previews and incomplete accounts, billing, vaults and connectors remain blocked. Full launch stays HOLD pending security and E2E.",
+      "reason": "RC35 Render deployment: public translator prioritizes ready connected engine and bounds stalled local downloads/requests, cancels on navigation; blank category switches show native category state. Search adds real attributable Wikidata, Europe PMC, Wikimedia video, GDELT news and increased retrieval across existing providers. Removed preview banner payments wording only, with backend accounts/checkout/vaults still fail-closed. Render live API + mobile interaction remain required; full public commercial release HOLD.",
       "evidence": ""
     },
     {

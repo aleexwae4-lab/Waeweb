@@ -1,7 +1,7 @@
 // Checks the REAL public domain after a Git-source production deployment.
 // No preview bypasses, no cookies or secrets; 404/401 are failures.
-const base=process.env.WAEWEB_BASE_URL||"https://waeweb.vercel.app";
-const expected=process.env.WAEWEB_EXPECT_VERSION||"1.0.0-rc.34";
+const base=process.env.WAEWEB_BASE_URL||"https://waeweb.onrender.com";
+const expected=process.env.WAEWEB_EXPECT_VERSION||"1.0.0-rc.35";
 if(new URL(base).protocol!=="https:")throw Error("HTTPS production base required");
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const request=async(path)=>{

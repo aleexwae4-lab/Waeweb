@@ -22,7 +22,7 @@ const result = (title, link, snippet, source, date = null, image = null) => ({
 export async function wikipedia(query) {
   const u = new URL("https://es.wikipedia.org/w/api.php");
   u.search = new URLSearchParams({
-    action: "query", list: "search", srsearch: query, srlimit: "8",
+    action: "query", list: "search", srsearch: query, srlimit: "12",
     format: "json", utf8: "1", origin: "*"
   }).toString();
   const data = await json(u);
@@ -34,7 +34,7 @@ export async function wikipedia(query) {
 }
 export async function crossref(query) {
   const u = new URL("https://api.crossref.org/works");
-  u.search = new URLSearchParams({ query, rows: "6", select: "DOI,title,abstract,URL,published,container-title" }).toString();
+  u.search = new URLSearchParams({ query, rows: "10", select: "DOI,title,abstract,URL,published,container-title" }).toString();
   const data = await json(u);
   return (data.message?.items || []).filter(item => item.DOI).map(item => {
     const dateParts = item.published?.["date-parts"]?.[0];
@@ -56,7 +56,7 @@ export function openAlexAbstract(index) {
 }
 export async function openAlex(query) {
   const u = new URL("https://api.openalex.org/works");
-  u.search = new URLSearchParams({ search: query, "per-page": "6" }).toString();
+  u.search = new URLSearchParams({ search: query, "per-page": "10" }).toString();
   const data = await json(u);
   return (data.results || []).map(item => result(
     item.display_name, item.primary_location?.landing_page_url || item.doi || item.id,
@@ -81,7 +81,7 @@ export async function googleSearch(query, type = "web") {
 export async function openLibrary(query) {
   const u = new URL("https://openlibrary.org/search.json");
   u.search = new URLSearchParams({
-    q: query, limit: "6", fields: "key,title,author_name,first_publish_year,cover_i"
+    q: query, limit: "10", fields: "key,title,author_name,first_publish_year,cover_i"
   }).toString();
   const data = await json(u);
   return (data.docs || []).filter(item => /^\/works\/OL\d+W$/.test(item.key || "")).map(item => {
@@ -100,7 +100,7 @@ export async function wikimediaImages(query) {
   const u = new URL("https://commons.wikimedia.org/w/api.php");
   u.search = new URLSearchParams({
     action: "query", generator: "search", gsrsearch: query,
-    gsrnamespace: "6", gsrlimit: "18", prop: "imageinfo",
+    gsrnamespace: "6", gsrlimit: "28", prop: "imageinfo",
     iiprop: "url|mime", iiurlwidth: "520", format: "json"
   }).toString();
   const data = await json(u);
@@ -111,6 +111,60 @@ export async function wikimediaImages(query) {
       "Imagen de Wikimedia Commons", "Wikimedia Commons", null, image.thumburl || image.url
     ) : null;
   }).filter(item => item && urlAllowed(item.image) && urlAllowed(item.url));
+}
+// Public, source-backed additions: no fabricated hits when Google is absent.
+export async function wikidata(query){
+  const u=new URL("https://www.wikidata.org/w/api.php");
+  u.search=new URLSearchParams({action:"wbsearchentities",search:query,
+    language:"es",uselang:"es",limit:"12",format:"json"}).toString();
+  const data=await json(u);
+  return (data.search||[]).filter(item=>/^Q[1-9]\d*$/.test(item.id||""))
+    .map(item=>result(item.label||item.id,
+      "https://www.wikidata.org/wiki/"+item.id,
+      item.description||"Ficha de entidad en Wikidata","Wikidata"));
+}
+export async function europePMC(query){
+  const u=new URL("https://www.ebi.ac.uk/europepmc/webservices/rest/search");
+  u.search=new URLSearchParams({query,format:"json",pageSize:"10",
+    resultType:"core"}).toString();
+  const data=await json(u);
+  return (data.resultList?.result||[]).map(item=>{
+    const id=/^\d+$/.test(String(item.id||""))?item.id:null;
+    const doi=typeof item.doi==="string"&&/^10\.\d{4,9}\//.test(item.doi)?item.doi:null;
+    const link=doi?"https://doi.org/"+encodeURIComponent(doi):
+      id?"https://europepmc.org/article/"+encodeURIComponent(item.source||"MED")+"/"+id:null;
+    return link?result(item.title||"Publicación académica",link,
+      [item.authorString,item.journalTitle,item.pubYear].filter(Boolean).join(" · "),
+      "Europe PMC",item.firstPublicationDate||null):null;
+  }).filter(item=>item&&urlAllowed(item.url));
+}
+export async function wikimediaVideos(query){
+  const u=new URL("https://commons.wikimedia.org/w/api.php");
+  u.search=new URLSearchParams({action:"query",generator:"search",
+    gsrsearch:"filetype:video "+query,gsrnamespace:"6",gsrlimit:"20",
+    prop:"imageinfo",iiprop:"url|mime",iiurlwidth:"520",format:"json"}).toString();
+  const data=await json(u);
+  return Object.values(data.query?.pages||{}).map(page=>{
+    const video=page.imageinfo?.[0];
+    if(!video||!/^video\/(webm|ogg|mp4|quicktime)$/.test(video.mime||""))return null;
+    const url=video.descriptionurl||video.url;
+    return result(page.title?.replace(/^File:/,"")||"Video",
+      url,"Video de archivo multimedia abierto · "+video.mime,
+      "Wikimedia Commons · Video",null,
+      urlAllowed(video.thumburl)?video.thumburl:null);
+  }).filter(item=>item&&urlAllowed(item.url));
+}
+export async function gdeltNews(query){
+  const u=new URL("https://api.gdeltproject.org/api/v2/doc/doc");
+  u.search=new URLSearchParams({query,mode:"artlist",format:"json",
+    maxrecords:"15",timespan:"1week"}).toString();
+  const data=await json(u);
+  return (data.articles||[]).map(item=>
+    result(item.title||"",item.url,
+      [item.domain,item.language].filter(Boolean).join(" · "),
+      "GDELT · prensa",typeof item.seendate==="string"?item.seendate:null,
+      urlAllowed(item.socialimage)?item.socialimage:null)
+  ).filter(item=>item.title&&urlAllowed(item.url));
 }
 export function dedupe(items) {
   const seen = new Set();
@@ -134,11 +188,16 @@ export async function search(query, type = "all", { fresh = false } = {}) {
   const sources = selected === "books" ? [["Open Library", () => openLibrary(q)]]
     : selected === "images"
     ? [["Wikimedia Commons", () => wikimediaImages(q)], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]]
-    : selected === "news" || selected === "videos"
-    ? [["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, selected)]]
+    : selected === "news"
+    ? [["GDELT · prensa", () => gdeltNews(q)], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
+    : selected === "videos"
+    ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "videos")]]
     : selected === "research"
-    ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)]]
-    : [["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q)], ["Wikipedia", () => wikipedia(q)], ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Open Library", () => openLibrary(q)]];
+    ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Europe PMC", () => europePMC(q)], ["Wikipedia", () => wikipedia(q)]]
+    : [["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q)],
+       ["Wikipedia", () => wikipedia(q)], ["Wikidata", () => wikidata(q)],
+       ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)],
+       ["Europe PMC", () => europePMC(q)], ["Open Library", () => openLibrary(q)]];
   const settled = await Promise.allSettled(sources.map(async ([name, fn]) => ({ name, items: await fn() })));
   const errors = [], available = [], results = [];
   settled.forEach((entry, i) => {

@@ -1,9 +1,9 @@
 {
   "name": "waeweb",
-  "version": "1.0.0-rc.34",
+  "version": "1.0.0-rc.35",
   "private": true,
   "type": "module",
-  "description": "WAEWEB — Git-source production recovery with isolated public routes and live-domain smoke",
+  "description": "WAEWEB — mobile-responsive translator, independent rich sources for search/news/videos",
   "engines": {
     "node": ">=20"
   },

@@ -189,10 +189,10 @@ function renderResult(item, index) {
   row.append(avatar, labels);
   const title = button(item.title, () => openBrowser(url), "result-title browser-result-title");
   title.title = "Navegar en WAEWEB: " + shortHost(url);
-  if (item.source === "Open Library" && safeUrl(item.image)) {
+  if ((item.source === "Open Library" || state.type === "videos") && safeUrl(item.image)) {
     const cover = element("img", "book-cover");
     cover.src = safeUrl(item.image);
-    cover.alt = "Portada de " + item.title;
+    cover.alt = (state.type === "videos" ? "Vista previa de " : "Portada de ") + item.title;
     cover.loading = "lazy";
     cover.referrerPolicy = "no-referrer";
     card.append(cover);
@@ -415,7 +415,7 @@ function renderData(data) {
   if (!resultsContainer.children.length) {
     const detail = data.warning || data.message ||
       (state.type === "news" || state.type === "videos"
-        ? "Esta categoría necesita GOOGLE_SEARCH_API_KEY y GOOGLE_SEARCH_ENGINE_ID configurados en el servidor. No se mostrarán resultados ficticios."
+        ? "No hay resultados recuperados de los proveedores disponibles para esta consulta. Prueba otros términos."
         : "No hubo coincidencias de las fuentes disponibles. Modifica los términos e inténtalo nuevamente.");
     resultsContainer.append(renderSearchFallback(state.query,detail));
   }
@@ -623,7 +623,8 @@ function runOmnibox(value,type="all",push=true){
     return;
   }
   if(intent.kind==="url"){
-    stopDirections();
+    translator.hide();sourceFilter.hidden=false;
+    state.type="all";stopDirections();
     state.controller?.abort();state.sequence++;
     heroStatus.textContent="";
     speechSynthesisSafeCancel();
@@ -636,6 +637,36 @@ function runOmnibox(value,type="all",push=true){
     return openBrowser(intent.value);
   }
   return performSearch(intent.value,type,push);
+}
+function showEmptyCategory(type,push=true){
+  stopDirections();translator.hide();hideBrowser();
+  state.controller?.abort();state.sequence++;
+  state.type=type;state.query="";state.results=[];state.data=null;state.selectedSource="";
+  hero.hidden=true;resultsView.hidden=false;setTab(type);
+  heroInput.value="";resultsInput.value="";
+  sourceFilter.hidden=false;
+  sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
+  panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
+  const categories={
+    all:["Búsqueda WAEWEB","Consulta fuentes académicas, imágenes y bibliotecas.",["Inteligencia artificial","Tecnología en México"]],
+    research:["Investigación","Publicaciones científicas, Wikidata y fuentes bibliográficas.",["Inteligencia artificial","Investigación médica"]],
+    images:["Imágenes","Fotografías y archivos multimedia con origen identificable.",["Jalisco","Arquitectura mexicana"]],
+    news:["Noticias","Artículos recientes de medios disponibles, con enlaces originales.",["Inteligencia artificial","México"]],
+    videos:["Videos","Archivos audiovisuales disponibles de fuentes verificables.",["Tecnología","Naturaleza"]],
+    books:["Libros","Explora fichas bibliográficas y autores.",["Ciencia","Historia de México"]],
+    index:["Índice privado","Conecta una bóveda autorizada para consultar documentos.",[]],
+    businesses:["Negocios","Busca empresas publicadas voluntariamente.",[]]
+  };
+  const [title,description,examples]=categories[type]||categories.all;
+  stats.textContent=title+" · Introduce una búsqueda";
+  const card=stateCard(title,description);
+  const actions=element("div","search-fallback-links");
+  for(const example of examples){
+    actions.append(button("⌕ "+example,()=>performSearch(example,type),"link-button"));
+  }
+  card.append(actions);
+  resultsContainer.replaceChildren(card);
+  if(push)history.pushState({type},"",location.pathname+"?type="+encodeURIComponent(type));
 }
 async function performSearch(query, type = "all", push = true) {
   stopDirections();
@@ -657,9 +688,10 @@ async function performSearch(query, type = "all", push = true) {
       stats.textContent = "Mapas · Escribe un lugar para comenzar.";
       resultsInput.focus();
     } else {
-      const message = "Escribe al menos dos caracteres para buscar.";
-      heroStatus.textContent = message; stats.textContent = message;
-      (hero.hidden ? resultsInput : heroInput).focus();
+      if(!hero.hidden){
+        const message = "Escribe al menos dos caracteres para buscar.";
+        heroStatus.textContent = message;stats.textContent = message;heroInput.focus();
+      }else showEmptyCategory(type,push);
     }
     return;
   }
@@ -780,9 +812,7 @@ byId("reader-form").addEventListener("submit", event => {
 async function loadReaderCapability() {
   try {
     const info = await getJSON("/api/capabilities");
-    const previewBanner=byId("preview-banner");
-    if(previewBanner)previewBanner.hidden = info.previewMode !== true;
-    readerEnabled = info.readerEnabled === true;
+     readerEnabled = info.readerEnabled === true;
     businessSearchEnabled = info.publicBusinessProfiles === true;
     for(const [type,available] of [["index",readerEnabled],["businesses",businessSearchEnabled]]){
       const tab=document.querySelector('[data-type="'+type+'"]');

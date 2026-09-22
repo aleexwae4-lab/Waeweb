@@ -172,7 +172,7 @@ export async function handler(req, res) {
     publicMode:previewMode() ? "isolated" : "full", 
     revision: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,12) || null });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
-    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
+    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "GDELT", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
     mapsEnabled: true, mapPrecision: "locality_centroid_or_user_coordinates",
     directions: {...routingCapabilities(),addressSearch:addressCapabilities()},
     translator: publicTranslateConfig(),

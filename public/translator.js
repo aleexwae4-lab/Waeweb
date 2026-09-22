@@ -62,21 +62,46 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
   const retry=button("↻ Reconectar",()=>{
     config=null;void loadConfig(true);
   });
+  const cancel=button("■ Detener",()=>{
+    active?.abort();sequence++;
+    active=null;translate.disabled=false;cancel.hidden=true;
+    if(!lastTranslation)output.textContent="Traducción detenida. El texto sigue en el editor.";
+    status.textContent="Puedes reintentar.";
+  });
+  cancel.hidden=true;
   const clear=button("✕ Limpiar",()=>{
-    active?.abort();sequence++;input.value="";lastTranslation="";
+    active?.abort();sequence++;active=null;cancel.hidden=true;input.value="";lastTranslation="";
     output.textContent="Tu traducción aparecerá aquí.";detected.textContent="";
     status.textContent="";translate.disabled=false;
     copy.disabled=true;speak.disabled=true;counter.textContent="0 bytes";
     input.focus();
   });
   copy.disabled=true;speak.disabled=true;translate.disabled=false;
-  actions.append(translate,swap,copy,speak,clear,retry);
+  actions.append(translate,cancel,swap,copy,speak,clear,retry);
   root.append(actions);
   const status=$("p","translate-status","");status.setAttribute("role","status");status.setAttribute("aria-live","polite");
   const privacy=$("p","translate-privacy",
     "Motor local cuando sea compatible. Si usas el servicio conectado, el texto se envía al proveedor solo al pulsar Traducir.");
   root.append(status,privacy);
-  let config=null,configRequest=null,active=null,sequence=0,lastTranslation="";
+  let config=null,configRequest=null,active=null,sequence=0,lastTranslation="",visible=false;
+  const TRANSLATE_TIMEOUT_MS=12000;
+  const bounded=async(job,ms,signal)=>{
+    let timer,abortHandler;
+    try{
+      return await Promise.race([
+        job(),
+        new Promise((_,reject)=>{
+          timer=setTimeout(()=>reject(new Error("Tiempo de espera agotado. Prueba el servicio conectado o reintenta.")),ms);
+          abortHandler=()=>reject(new DOMException("Operación cancelada.","AbortError"));
+          if(signal?.aborted)abortHandler();
+          else signal?.addEventListener("abort",abortHandler,{once:true});
+        })
+      ]);
+    }finally{
+      clearTimeout(timer);
+      if(abortHandler)signal?.removeEventListener("abort",abortHandler);
+    }
+  };
   const fallbackLanguages=[
     {code:"es",name:"Español"},{code:"en",name:"Inglés"},
     {code:"fr",name:"Francés"},{code:"de",name:"Alemán"},
@@ -91,7 +116,7 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
   const engineRow=$("div","translate-engine-row");
   const engineLabel=$("label","translate-engine-label","Motor");
   const engineSelect=$("select","translate-select");
-  for(const [value,label]of [["auto","Automático · priorizar dispositivo"],["local","En este dispositivo"],["remote","Servicio conectado"]])
+  for(const [value,label]of [["auto","Automático · respuesta rápida"],["local","En este dispositivo"],["remote","Servicio conectado"]])
     engineSelect.add(new Option(label,value));
   engineSelect.addEventListener("change",()=>{engine=engineSelect.value;status.textContent="";});
   engineLabel.append(engineSelect);
@@ -118,23 +143,23 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
     if(config&&!force)return;
     if(configRequest)return configRequest;
     retry.disabled=true;
-    status.textContent="Comprobando motores de traducción…";
+    if(visible)status.textContent="Comprobando motores de traducción…";
     configRequest=(async()=>{
       try{
-        const info=await getJSON("/api/translate/capabilities");
+        const info=await bounded(()=>getJSON("/api/translate/capabilities"),6500);
         config=info;
         languageOptions(info.languages?.length?info.languages:fallbackLanguages,info.autoDetect===true);
         translate.disabled=false;
-        status.textContent=localAvailable()?
-          "Traducción local disponible en este navegador · servicio "+(info.available?"conectado.":"sin configurar."):
-          info.available?labelProvider(info)+" · Selecciona el motor y traduce.":
+        if(visible)status.textContent=localAvailable()?
+          "Traducción local opcional · servicio "+(info.available?"conectado.":"sin configurar."):
+          info.available?labelProvider(info)+" listo para traducir.":
             "Servicio no configurado. Puedes volver a comprobar la conexión.";
       }catch{
         config=null;
         translate.disabled=false;
-        status.textContent=localAvailable()?
-          "Servidor sin conexión; puedes traducir en el dispositivo o reintentar.":
-          "Servicio sin conexión. Pulsa ↻ Reconectar; el texto permanece en el editor.";
+        if(visible)status.textContent=localAvailable()?
+          "Servicio sin conexión; prueba el motor del dispositivo o reconecta.":
+          "Servicio sin conexión. Reconecta sin perder lo que escribiste.";
       }finally{retry.disabled=false;configRequest=null;}
     })();
     return configRequest;
@@ -167,24 +192,30 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
     active?.abort();
     const id=++sequence;
     active=new AbortController();
-    translate.disabled=true;copy.disabled=true;speak.disabled=true;
+    const signal=active.signal;
+    translate.disabled=true;cancel.hidden=false;copy.disabled=true;speak.disabled=true;
     lastTranslation="";output.textContent="Traduciendo…";detected.textContent="";
     status.textContent="Preparando traducción…";
     try{
       let result=null,localError=null;
-      if(engine!=="remote"&&localAvailable()&&from.value!=="auto"){
+      // Automatic mode uses the ready server first on mobile: downloading a
+      // browser language model could previously leave the panel "Traduciendo…"
+      // for an unbounded period. Local translation requires an explicit choice.
+      const useLocal=engine==="local" || (engine==="auto"&&!config?.available);
+      if(useLocal&&localAvailable()&&from.value!=="auto"){
         try{
           status.textContent="Procesando en este dispositivo; el navegador podría descargar su modelo de idioma.";
           const available=typeof globalThis.Translator.availability==="function"?
-            await globalThis.Translator.availability({sourceLanguage:from.value,targetLanguage:to.value}):
+            await bounded(()=>globalThis.Translator.availability({
+              sourceLanguage:from.value,targetLanguage:to.value}),3500,signal):
             "available";
           if(available==="unavailable")throw new Error("Este par de idiomas no está disponible localmente.");
           if(id!==sequence)return;
-          const translator=await globalThis.Translator.create({
+          const translator=await bounded(()=>globalThis.Translator.create({
             sourceLanguage:from.value,targetLanguage:to.value
-          });
+          }),TRANSLATE_TIMEOUT_MS,signal);
           try{
-            const translatedText=await translator.translate(text);
+            const translatedText=await bounded(()=>translator.translate(text),TRANSLATE_TIMEOUT_MS,signal);
             result={translatedText,provider:"motor local del navegador",detectedLanguage:null};
           }finally{translator.destroy?.();}
         }catch(error){localError=error;}
@@ -194,18 +225,19 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
           "El motor local no admite este par o no pudo instalarlo. Prueba el servicio conectado.":
           "Tu navegador todavía no ofrece traducción local. Selecciona Servicio conectado.");
       if(!result){
+        if(!config?.available)await bounded(()=>loadConfig(true),6500,signal);
         if(!config?.available)
           throw new Error(localError?
-            "No se pudo traducir localmente y el servicio conectado no está disponible. Pulsa ↻ Reconectar.":
-            "El servicio no está conectado. Pulsa ↻ Reconectar.");
+            "No hay un motor disponible. Reconecta o prueba otro par de idiomas.":
+            "Servicio sin conexión. Pulsa ↻ Reconectar.");
         const bytes=new TextEncoder().encode(text).length;
         if(bytes>config.maxBytes)throw new Error("El servicio admite "+config.maxBytes+
           " bytes; reduce el texto o utiliza el motor local.");
         status.textContent="Traduciendo mediante "+labelProvider(config)+"…";
-        result=await getJSON("/api/translate",active.signal,{
+        result=await bounded(()=>getJSON("/api/translate",signal,{
           method:"POST",headers:{"content-type":"application/json"},
           body:JSON.stringify({text,source:from.value,target:to.value})
-        });
+        }),TRANSLATE_TIMEOUT_MS,signal);
       }
       if(id!==sequence||!root.isConnected)return;
       if(typeof result.translatedText!=="string"||!result.translatedText.trim())
@@ -222,9 +254,12 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
       status.textContent=/HTTP 401|bóveda|deployment|API pública/i.test(error.message||"")?
         "Servicio temporalmente inaccesible. Reintenta o cambia a motor local.": 
         error.message||"No se pudo traducir. Puedes reintentar.";
-    }finally{if(id===sequence){translate.disabled=false;active=null;}}
+    }finally{if(id===sequence){
+      translate.disabled=false;cancel.hidden=true;active=null;
+    }}
   }
   function show(){
+    visible=true;
     answer.replaceChildren();weatherSlot.replaceChildren();panel.replaceChildren();
     sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
     resultsContainer.replaceChildren(root);
@@ -233,6 +268,10 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
     void loadConfig();
     input.focus({preventScroll:true});
   }
-  function hide(){active?.abort();sequence++;active=null;if("speechSynthesis" in window)window.speechSynthesis.cancel();}
+  function hide(){
+    visible=false;active?.abort();sequence++;active=null;
+    translate.disabled=false;cancel.hidden=true;
+    if("speechSynthesis" in window)window.speechSynthesis.cancel();
+  }
   return {show,hide};
 }

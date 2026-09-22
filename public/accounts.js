@@ -31,7 +31,7 @@ function showAccount() {
   window.scrollTo({ top: 0, behavior: "smooth" });
   $("account-auth").hidden = !enabled;
   $("account-unavailable").hidden = enabled;
-  if (!enabled) say("Vista previa: registro y datos comerciales reales desactivados.");
+  if (!enabled) say("Acceso empresarial en preparación. La búsqueda pública está disponible.");
   else if (session) refreshBusinesses().catch(error => say(error.message));
   else say("Puedes crear tu cuenta o iniciar sesión. Esta etapa no publica negocios automáticamente.");
 }
@@ -232,7 +232,7 @@ async function loadCapability() {
   } catch { enabled = false; objectMedia = false; }
   $("account-auth").hidden = !enabled;
   $("account-unavailable").hidden = enabled;
-  if (!enabled) say("Vista previa: registro, pagos y publicaciones desactivados.");
+  if (!enabled) say("");
 }
 $("account-button").addEventListener("click", showAccount);
 $("hero-account-button").addEventListener("click", showAccount);
