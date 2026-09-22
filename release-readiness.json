@@ -5,13 +5,13 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "El servidor Node HTTP persistente no tiene adaptador ni rutas API de produccion verificadas para Vercel.",
+      "reason": "Existe adaptador de API Node con ruta catch-all y pruebas HTTP locales PASS, pero faltan validación de ruteo/build en Vercel real, protección antiabuso distribuida y pruebas de runtime desplegado; NO desplegado.",
       "evidence": ""
     },
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "Cuentas, negocios, sesiones y promociones tienen PostgreSQL cifrado transaccional opt-in con prueba multi-proceso PASS, pero las bóvedas documentales siguen en disco local; faltan migración, backups, recuperación y pruebas con almacenamiento de producción.",
+      "reason": "Cuentas, negocios, sesiones, promociones y bóvedas ya admiten PostgreSQL cifrado transaccional opt-in y pruebas reales multi-proceso PASS; faltan migración de datos existentes, backups/restauración operativa y prueba en proveedor duradero de producción.",
       "evidence": ""
     },
     {
