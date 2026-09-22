@@ -9,7 +9,7 @@ export function visibleStreetTiles(center,span,maximum=24) {
   if(!center||!span||![center.latitude,center.longitude,span.lat,span.lon].every(Number.isFinite)||
       span.lat<=0||span.lon<=0)return [];
   // Match the geographic SVG extent without silently downloading another zoom level.
-  const zoom=clamp(Math.floor(Math.log2(360*900/(256*span.lon))),1,15);
+  const zoom=clamp(Math.floor(Math.log2(360*900/(256*span.lon))),1,18);
   const count=2**zoom;
   const firstX=Math.floor((center.longitude-span.lon/2+180)/360*count);
   const lastX=Math.floor((center.longitude+span.lon/2+180)/360*count);
