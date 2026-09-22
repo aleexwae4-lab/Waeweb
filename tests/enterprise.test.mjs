@@ -30,7 +30,7 @@ test("WAEWEB footer links to internal enterprise fullscreen access immediately a
     const books = home.body.indexOf('href="/libros.html"');
     const enterprise = home.body.indexOf('href="/enterprise.html"');
     const diagnostics = home.body.indexOf('href="/diagnostico.html"');
-    assert.ok(books >= 0 && enterprise > books && diagnostics > enterprise);
+    assert.ok(books >= 0 && enterprise > books && diagnostics === -1);
     assert.ok(home.body.includes("Wae os enterprise'</a>"));
     assert.ok(!home.body.includes('href="https://wae-os-enterprice22.onrender.com'));
   });
