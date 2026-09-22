@@ -34,7 +34,18 @@ export function listingCard(item) {
   );
   const a = el("a","business-primary market-profile-link","Ver perfil de empresa →");
   a.href = "/?business=" + encodeURIComponent(item.businessId);
-  body.append(a); card.append(body);
+  body.append(a);
+  const actions=el("div","market-trust-actions");
+  for(const [label,action] of [["Solicitar información","inquiry"],["Reportar anuncio","report"]]) {
+    const button=el("button","small-action",label);
+    button.type="button";
+    button.addEventListener("click",()=>window.dispatchEvent(new CustomEvent(
+      "wae-market-action",{detail:{
+        action, businessId:item.businessId, listingId:item.id, title:item.title
+      }})));
+    actions.append(button);
+  }
+  body.append(actions);card.append(body);
   return card;
 }
 function show() {
