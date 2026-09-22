@@ -255,7 +255,9 @@ export async function search(query, type = "all", { fresh = false } = {}) {
     failedSources: errors, fetchedAt: new Date().toISOString(),
     message: !available.some(s => !s.includes("no configurado")) ? "No hay proveedores disponibles para esta categoría." : null
   };
-  payload.brief = selected === "research" ? researchBrief(payload.results) : null;
+  // Retain the API's extractive brief for clients that need it, but the
+  // consumer search UI displays organic links first and hides this panel.
+  payload.brief = selected === "all" || selected === "research" ? researchBrief(payload.results) : null;
   // Never freeze a transient outage or an unconfigured search category in
   // the cache. A legitimate zero-hit response from a reachable source may cache.
   if (!errors.length && available.some(name => !name.endsWith(" no configurado"))) {
