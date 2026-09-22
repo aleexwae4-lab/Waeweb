@@ -1,10 +1,24 @@
 # WAE WEB
 
-WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js sin dependencias npm de ejecución y edición opcional de escritorio con Electron como dependencia de desarrollo. Interfaz obsidiana/aurora basada en el prototipo visual aportado por el fundador.
+WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js con cliente PostgreSQL opcional en ejecución y edición opcional de escritorio con Electron como dependencia de desarrollo. Interfaz obsidiana/aurora basada en el prototipo visual aportado por el fundador.
 
 **Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
 
 
+
+## Fase 12 — WAEWEB v1.0.0-rc.3: backend compartido y bóvedas duraderas
+
+**Desarrollo exclusivamente en GitHub; no se ha conectado Vercel.** El backend API de Node ahora tiene un punto de entrada independiente en `api/[...path].js` que delega en el mismo `handler` utilizado localmente, sin llamar a `listen()`. Las pruebas HTTP del adaptador comprueban `/api/health`, capacidades, rutas desconocidas, métodos y rechazo del almacenamiento efímero. **Aún NO hay prueba de build/ruteo/despliegue en Vercel real**: el adaptador es código de integración, no prueba de que un deployment ya funcione.
+
+**Bóvedas PostgreSQL opcionales y aisladas:** `WAE_VAULT_STORE=postgres` utiliza la conexión PostgreSQL/CA verificada de `WAE_ACCOUNTS_DATABASE_URL` y `WAE_ACCOUNTS_PG_CA`, pero guarda las bóvedas en `wae_vault_records`, separadas de la tabla de cuentas. Cada bóveda conserva cifrado AES-256-GCM con clave independiente, hash de identificador y hasta 80 documentos. `pg_advisory_xact_lock` y transacciones protegen incluso la creación y escritura concurrente de una bóveda inexistente desde **distintos procesos**; una consulta entre bóvedas sigue prohibida por autenticación y claves propias.
+
+**CI real:** https://github.com/aleexwae4-lab/Waeweb/actions/runs/35709282150 probó PostgreSQL 16, cuentas, bóvedas cifradas, aislamiento de inquilinos, inserciones simultáneas desde ocho procesos independientes y fallo cerrado ante una clave incorrecta. Los tests no equivalen a una auditoría externa ni validan todavía un proveedor productivo.
+
+**Activación controlada, no automática:** `WAE_VAULT_STORE=postgres`, las variables PostgreSQL verificadas, claves distintas por bóveda en `WAE_VAULT_KEYS_JSON` y tokens por bóveda en `WAE_VAULTS_JSON` son requisitos. Ejecutar `npm run vault:pg:init` solo para una base nueva y tras respaldo, con `WAE_READER_ENABLED=false` hasta terminar. **No se importan los archivos previos.** No activar PostgreSQL vacío para un espacio que ya contenga documentos sin migración verificable y ensayo de recuperación. `WAE_VAULT_STORE=file` continúa para el entorno local sin Vercel.
+
+**Fail-closed de serverless:** con `VERCEL=1`, el almacenamiento local de cuentas y de bóvedas queda desactivado; el lector solo puede habilitarse con PostgreSQL cifrado válido, tokens/llaves completos y `WAE_READER_ENABLED=true`. Una tabla sin inicializar produce error, no una bóveda pública falsa ni creación automática de datos. No almacenar variables de cifrado, tokens o base en `public/`.
+
+**HOLD de despliegue:** sigue faltando verificar el build/ruteo reales de Vercel, migración y recuperación de datos, tasa distribuida de registro/login/búsqueda, identidad, pagos E2E, UX móvil, privacidad y operación. `npm run release:gate` sigue devolviendo NO-GO. El navegador Chromium completo continúa limitado a Electron; desplegar la API web no lo instala en el navegador del visitante.
 
 ## Fase 11 — WAEWEB v1.0.0-rc.2: cuentas empresariales cifradas en PostgreSQL
 
