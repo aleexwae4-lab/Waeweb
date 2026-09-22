@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC16: read-only SHA-256 manifest of encrypted PostgreSQL media references, durable cleanup queue and isolated PostgreSQL+synthetic S3 lifecycle PASS. Manifest does NOT verify object bytes or backup; real joint PostgreSQL+bucket backup/restore, versioning, provider inventory, offsite retention and RPO/RTO remain unverified. HOLD.",
+      "reason": "RC17 read-only signed HEAD audit checks presence and size of private objects referenced by encrypted PostgreSQL. Does NOT verify bytes, backups, real IAM, provider inventory, joint restore, versioning or RPO/RTO. HOLD.",
       "evidence": ""
     },
     {
@@ -41,7 +41,7 @@
     {
       "id": "marketplace",
       "status": "blocked",
-      "reason": "RC16: encrypted transactional media deletion journal for photo replacement/listing/business deletion; operator-only delayed cleanup and retry; reference manifest SHA-256; CI synthetic S3 + PostgreSQL deletion PASS (35732858695). Missing provider inventory for untracked PUT orphans, real bucket retention/backups, joint DB/object restore, legacy media migration, operator monitoring and external security. HOLD."
+      "reason": "RC17 read-only object presence audit extends RC16 lifecycle journal. Missing real provider certification, orphan inventory, object integrity, PostgreSQL+bucket restore, legacy migration, E2E mobile, privacy, payments and external security. HOLD."
     }
   ]
 }
