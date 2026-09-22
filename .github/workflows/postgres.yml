@@ -20,6 +20,9 @@ on:
       - "scripts/vault-pg-init.mjs"
       - "tests/vault-postgres.integration.mjs"
       - "server/crypto.mjs"
+      - "server/pg-recovery.mjs"
+      - "scripts/pg-recovery.mjs"
+      - "tests/pg-recovery.integration.mjs"
       - "scripts/accounts-pg-init.mjs"
       - "tests/postgres.integration.mjs"
       - ".github/workflows/postgres.yml"
@@ -54,6 +57,7 @@ jobs:
     env:
       NODE_ENV: test
       WAE_PG_INTEGRATION: "true"
+      WAE_PG_RECOVERY_CI_ACK: disposable-wae-test-only
       WAE_ACCOUNTS_ENABLED: "true"
       WAE_ACCOUNTS_STORE: postgres
       WAE_CONNECT_ENABLED: "true"
@@ -83,3 +87,5 @@ jobs:
         run: npm run test:connect:postgres
       - name: Read-only encrypted PostgreSQL storage preflight
         run: npm run storage:preflight
+      - name: Restore encrypted snapshot in disposable CI database
+        run: npm run test:pg:recovery
