@@ -28,8 +28,8 @@ test("maps creates the existing map viewer before any public API for user coordi
   assert.ok(map.indexOf("renderMapPlaces({")<map.indexOf("getJSON(\"/api/maps?"),
     "the local-coordinate branch must precede remote request");
   assert.match(map,/precision:"coordinate"/);
-  assert.match(map,/\/diagnostico\.html/);
-  assert.match(app,/Mapa interactivo con calles reales/);
+  assert.doesNotMatch(map,/\/diagnostico\.html/);
+  assert.match(app,/createMapQuickSearch/);
   assert.match(app,/showDirectionsWithoutLocality/);
   assert.match(app,/createNativeMap/);
   assert.doesNotMatch(map,/tile\.openstreetmap\.org/,"no uncontrolled tile scraping");
@@ -39,7 +39,7 @@ test("diagnostic page does not request credentials and distinguishes upstream HT
   const html=await readFile(new URL("../public/diagnostico.html",import.meta.url),"utf8");
   const js=await readFile(new URL("../public/diagnostico.js",import.meta.url),"utf8");
   const main=await readFile(new URL("../public/index.html",import.meta.url),"utf8");
-  assert.match(main,/href="\/diagnostico\.html"/);
+  assert.doesNotMatch(main,/href="\/diagnostico\.html"/);
   assert.match(html,/id="run-diagnostics"/);
   assert.match(html,/id="diag-results"/);
   assert.match(js,/response\.headers\.get\("x-waeweb-api"\)==="1"/);
