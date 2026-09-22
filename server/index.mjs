@@ -5,15 +5,15 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
-import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError } from "./vault.mjs";
+import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError, vaultStorageReady } from "./vault.mjs";
 import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
 import { billingConfig, createStripeCheckout, retrieveStripeSubscription, verifyStripeEvent, BillingError } from "./billing.mjs";
 import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
-const readerAvailable = () => process.env.VERCEL !== "1" && process.env.WAE_READER_ENABLED === "true" &&
-  encryptionReady(vaultConfig(), vaultKeysConfig());
+const readerAvailable = () => process.env.WAE_READER_ENABLED === "true" &&
+  vaultStorageReady() && encryptionReady(vaultConfig(), vaultKeysConfig());
 const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
@@ -96,7 +96,8 @@ export async function handler(req, res) {
     localResearchLibrary: true,
     readerEnabled: readerAvailable(),
     vaultRequired: true,
-    indexPersistence: "encrypted_local_disk_per_vault",
+    indexPersistence: readerAvailable() && process.env.WAE_VAULT_STORE === "postgres" ?
+      "encrypted_postgres_per_vault" : "encrypted_local_disk_per_vault",
     encryption: "AES-256-GCM",
     accountsEnabled: accountsEnabled(),
     promotionsEnabled: Boolean(billingConfig()) && accountsEnabled(),
@@ -259,7 +260,7 @@ export async function handler(req, res) {
           }
           const page = await readPage(target);
           const saved = await storeDocument(vault, page);
-          return write(res, 200, { ...saved.record, indexSize: saved.records.size, persistence: "encrypted_local_disk_per_vault" });
+          return write(res, 200, { ...saved.record, indexSize: saved.records.size, persistence: process.env.WAE_VAULT_STORE === "postgres" ? "encrypted_postgres_per_vault" : "encrypted_local_disk_per_vault" });
         }
         if (req.method !== "GET") return write(res, 405, { error: "Método no permitido." }, { allow: "GET" });
         const records = await loadVault(vault);
@@ -268,7 +269,7 @@ export async function handler(req, res) {
           if (q.length > 180) return write(res, 400, { error: "La consulta supera 180 caracteres." });
           const data = searchIndex(q, records);
           return write(res, data.error ? 400 : 200, {
-            ...data, persistence: "encrypted_local_disk_per_vault",
+            ...data, persistence: process.env.WAE_VAULT_STORE === "postgres" ? "encrypted_postgres_per_vault" : "encrypted_local_disk_per_vault",
             warning: "Búsqueda en el espacio autorizado. No representa un índice global de Internet."
           });
         }
