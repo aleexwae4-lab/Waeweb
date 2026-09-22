@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC8 bloquea disco efímero en Render/Vercel/producción y verifica sobres cifrados y esquema mediante preflight READ ONLY sobre PostgreSQL 16 de CI PASS; faltan backup/restauración real, migración de archivos y verificación en DB del proveedor productivo.",
+      "reason": "RC9 incorpora respaldo PostgreSQL consistente y cifrado, verificación de integridad y restauración atómica a destino vacío; tests unitarios y simulacro CI desechable no sustituyen una restauración en DB del proveedor, migración file→PostgreSQL, backups externos ni ensayo RPO/RTO. HOLD.",
       "evidence": ""
     },
     {
