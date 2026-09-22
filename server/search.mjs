@@ -63,10 +63,11 @@ export async function openAlex(query) {
     openAlexAbstract(item.abstract_inverted_index) || item.primary_location?.source?.display_name || "Investigación académica", "OpenAlex", item.publication_date
   )).filter(item => item.title && urlAllowed(item.url));
 }
-export async function googleSearch(query, type = "web") {
+export async function googleSearch(query, type = "web", page = 1) {
   if (!process.env.GOOGLE_SEARCH_API_KEY || !process.env.GOOGLE_SEARCH_ENGINE_ID) return null;
   const u = new URL("https://www.googleapis.com/customsearch/v1");
   const params = { key: process.env.GOOGLE_SEARCH_API_KEY, cx: process.env.GOOGLE_SEARCH_ENGINE_ID, q: query, num: "10" };
+  if(type==="web" && page>1)params.start=String((page-1)*10+1);
   if (type === "images") params.searchType = "image";
   if (type === "news") params.q = query + " noticias actualidad";
   if (type === "videos") params.q = query + " site:youtube.com/watch";
@@ -79,15 +80,17 @@ export async function googleSearch(query, type = "web") {
   )).filter(item => item.title && urlAllowed(item.url));
 }
 // Optional independent web index. No API key is ever sent to the browser.
-export async function braveSearch(query, type = "web") {
+export async function braveSearch(query, type = "web", page = 1) {
   const token = process.env.BRAVE_SEARCH_API_KEY?.trim();
   if (!token) return null;
   const category = ["web", "images", "news", "videos"].includes(type) ? type : "web";
   const u = new URL("https://api.search.brave.com/res/v1/" + category + "/search");
-  u.search = new URLSearchParams({
+  const params={
     q: query, count: category === "web" ? "20" : "15", country: "MX",
     search_lang: "es", safesearch: "strict"
-  }).toString();
+  };
+  if(category==="web" && page>1)params.offset=String(page-1);
+  u.search = new URLSearchParams(params).toString();
   const response = await fetch(u, {
     headers: {accept: "application/json", "x-subscription-token": token},
     signal: AbortSignal.timeout(SOURCE_TIMEOUT)
@@ -215,13 +218,17 @@ export function dedupe(items) {
   });
 }
 const cache = new Map();
-export async function search(query, type = "all", { fresh = false } = {}) {
+export async function search(query, type = "all", { fresh = false, page = 1 } = {}) {
   const spec = parseQuery(normalizeQuery(query));
   const q = spec.query;
   if (spec.errors.length) return { error: spec.errors.join(" ") };
   if (q.length < 2) return { error: "Escribe al menos dos caracteres de búsqueda además de los filtros." };
   const selected = ["all", "images", "news", "videos", "research", "books"].includes(type) ? type : "all";
-  const key = selected + ":" + spec.input.toLocaleLowerCase("es");
+  if(!Number.isInteger(page)||page<1||page>5)
+    return {error:"La página de búsqueda debe estar entre 1 y 5."};
+  if(page>1 && selected!=="all")
+    return {error:"La paginación adicional solo está disponible para la búsqueda web."};
+  const key = selected + ":" + page + ":" + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
   if (!fresh && cached && cached.expires > Date.now()) return cached.value;
   const sources = selected === "books" ? [["Open Library", () => openLibrary(q)]]
@@ -233,22 +240,31 @@ export async function search(query, type = "all", { fresh = false } = {}) {
     ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "videos")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "videos")]]
     : selected === "research"
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Europe PMC", () => europePMC(q)], ["Wikipedia", () => wikipedia(q)]]
-    : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q)],
-       ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q)],
-       ["Wikipedia", () => wikipedia(q)], ["Wikidata", () => wikidata(q)]];
+    : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
+       ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
+       ...(page===1?[["Wikipedia", () => wikipedia(q)], ["Wikidata", () => wikidata(q)]]:[])];
   // The default SERP is a WEB search, not a mixed academic/book feed.
   // Crossref, OpenAlex and Europe PMC belong to Investigación; Open Library
   // belongs to Libros. General web coverage depends on a configured index.
   const settled = await Promise.allSettled(sources.map(async ([name, fn]) => ({ name, items: await fn() })));
   const errors = [], available = [], results = [];
+  let moreFromProviders=false;
   settled.forEach((entry, i) => {
     if (entry.status === "rejected") errors.push(sources[i][0]);
     else if (entry.value.items === null) available.push(sources[i][0] + " no configurado");
-    else { available.push(entry.value.name); results.push(...entry.value.items); }
+    else {
+      available.push(entry.value.name);
+      results.push(...entry.value.items);
+      if(selected==="all" && page<5 && (
+        (entry.value.name==="Brave" && entry.value.items.length>=20) ||
+        (entry.value.name==="Google" && entry.value.items.length>=10)
+      ))moreFromProviders=true;
+    }
   });
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
-    type: selected, results: rankResults(dedupe(results), spec, selected), sources: available,
+    type: selected, page, hasMore: selected==="all" && moreFromProviders,
+    results: rankResults(dedupe(results), spec, selected), sources: available,
     webCoverage: selected === "all"
       ? (available.some(name => name === "Brave" || name === "Google") ? "general-index" : "limited")
       : null,
