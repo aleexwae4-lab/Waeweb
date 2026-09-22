@@ -93,11 +93,11 @@ function createTab(input = null, activate = true) {
   tabs.set(id, tab);
   const wc = view.webContents;
   // Session-wide permission and download policies are installed once at startup.
-  wc.on("will-navigate", (event, url) => {
-    if (!security.safeDesktopTarget(url, shellOrigin)) event.preventDefault();
+  wc.on("will-navigate", (event, legacyUrl) => {
+    if (!security.safeDesktopTarget(event.url || legacyUrl, shellOrigin)) event.preventDefault();
   });
-  wc.on("will-redirect", (event, url) => {
-    if (!security.safeDesktopTarget(url, shellOrigin)) event.preventDefault();
+  wc.on("will-redirect", (event, legacyUrl) => {
+    if (!security.safeDesktopTarget(event.url || legacyUrl, shellOrigin)) event.preventDefault();
   });
   wc.setWindowOpenHandler(({ url }) => {
     const safe = security.safeDesktopTarget(url, shellOrigin);
@@ -195,8 +195,11 @@ async function start() {
       webSecurity: true, webviewTag: false
     }
   });
-  windowRef.webContents.on("will-navigate", (event, url) => {
-    if (url !== shellOrigin + "/" && url !== shellOrigin + "/index.html") event.preventDefault();
+  windowRef.webContents.on("will-navigate", (event, legacyUrl) => {
+    try {
+      const destination = new URL(event.url || legacyUrl);
+      if (destination.origin !== shellOrigin || !["/", "/index.html"].includes(destination.pathname)) event.preventDefault();
+    } catch { event.preventDefault(); }
   });
   windowRef.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   windowRef.on("resize", layout);
