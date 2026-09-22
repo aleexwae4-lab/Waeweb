@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "WAEWEB tiene adaptador API HTTP local y Connect v1 probado. Las cuotas Connect ya usan PostgreSQL compartido con CI multiproceso PASS; faltan build/ruteo real en Vercel, pruebas E2E de los tres Render y validación del runtime desplegado.",
+      "reason": "Adaptador Node y contrato real WAEWEB ↔ cliente Universal Core verificados con QA cross-repo PASS; fuentes simuladas, sin Render/Vercel LIVE. Faltan build/ruteo Vercel, pruebas E2E con los tres destinos, y certificar Green privado (jobs GitHub sin runner).",
       "evidence": ""
     },
     {
