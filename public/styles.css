@@ -91,3 +91,11 @@
 .business-desc{font-size:13px;color:#bbc7dd}.business-entry>.small-action{display:block;margin-top:14px}
 @media(max-width:800px){.business-layout{grid-template-columns:1fr}.business-form{max-width:100%}}
 @media(max-width:620px){.account-button{font-size:0;padding:9px}.account-button:before{content:"♙";font-size:18px}.topbar-right{gap:6px}.account-view{padding-top:22px}.hero-business{padding:20px}}
+
+/* Business publication is voluntary: default remains private. */
+.business-publish{display:flex!important;gap:11px;align-items:flex-start;padding:13px;border:1px solid rgba(142,165,232,.25);border-radius:13px;background:rgba(72,101,180,.10);font-weight:500!important;line-height:1.5}
+.business-publish input{width:17px!important;height:17px;flex:0 0 17px;margin:2px 0 0}
+.business-public-title{margin:5px 0 8px;font-size:21px;letter-spacing:-.025em}
+.public-business-card .link-button{display:inline-block;margin-top:14px}
+.public-business-card .eyebrow{font-size:11px;color:#9ebbf2;margin:0 0 10px}
+.business-entry .small-action{display:inline-block!important;margin-right:8px}
