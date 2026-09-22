@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "Adaptador Node y contrato WAEWEB ↔ Universal Core con QA PASS; RC8 bloquea almacenamiento efímero y preflight de prueba PASS. Faltan build/ruteo Vercel, tres Render LIVE y certificación Green privado (runner 0).",
+      "reason": "RC24 unifies search and inline HTTPS browsing with mobile layout, distinguishes public HTTP 401 from private vault authentication, keeps weather independent and hides disabled preview forms. GitHub-only QA is not an HTTP certification of the deployed domain; public API routing/auth cause, real provider failures, live mobile E2E and protected production remain unverified. Vercel untouched directly. HOLD.",
       "evidence": ""
     },
     {
