@@ -403,3 +403,8 @@ La recuperación de fotografías del Marketplace ahora conecta las cápsulas cif
 ## RC22 — cobertura completa de respaldos cifrados
 
 `npm run pg:verify-media-set -- <PG_BACKUP> <CAPSULA_0> <CAPSULA_1> ...` verifica offline que **todas** las imágenes referenciadas por ese backup PostgreSQL estén cubiertas exactamente una vez en cápsulas privadas autenticadas, sin huecos, duplicados ni solapamientos. Hasta 100 cápsulas por invocación; exige clave y backup correspondientes, rechaza alteraciones y no toca el proveedor de objetos. [Contrato y límites](docs/RC22_ARCHIVE_SET_COVERAGE.md). **Cobertura local autenticada NO equivale a recuperación productiva certificada. Vercel HOLD.**
+
+
+## RC23 — paquete portable de recuperación cifrada
+
+`npm run pg:export-portable -- <PG_BACKUP> <CAPSULA_0> ...` crea, **solo con autorización del operador y directorio privado absoluto fuera del repositorio y de las fuentes**, un paquete transportable con el respaldo PostgreSQL y todas las cápsulas cifradas verificadas de ese mismo snapshot. Incluye manifiesto SHA-256 por archivo y no contiene las claves de descifrado. `npm run pg:verify-portable -- <PACKAGE_NAME>` verifica la copia sin abrir los backups originales ni consultar PostgreSQL/S3; vuelve a autenticar el contenido cifrado y exige cobertura completa. [Seguridad y procedimiento](docs/RC23_PORTABLE_RECOVERY.md). **Una copia en otro directorio no demuestra otro dominio físico de fallo. Vercel HOLD.**
