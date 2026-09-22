@@ -86,6 +86,14 @@ function renderResult(item, index) {
   append(labels, element("div", "source-label", item.source || "Fuente"), element("div", "source-url", shortHost(url)));
   row.append(avatar, labels);
   const title = external(url, item.title, "result-title");
+  if (item.source === "Open Library" && safeUrl(item.image)) {
+    const cover = element("img", "book-cover");
+    cover.src = safeUrl(item.image);
+    cover.alt = "Portada de " + item.title;
+    cover.loading = "lazy";
+    cover.referrerPolicy = "no-referrer";
+    card.append(cover);
+  }
   append(card, row, title);
   if (item.snippet) card.append(element("p", "snippet", item.snippet));
   const meta = element("div", "meta-line");
