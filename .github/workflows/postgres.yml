@@ -48,7 +48,7 @@ jobs:
       WAE_ACCOUNTS_ENABLED: "true"
       WAE_ACCOUNTS_STORE: postgres
       WAE_VAULT_STORE: postgres
-      WAE_VAULT_KEYS_JSON: '{"org_alpha":"abababababababababababababababababababababababababababababababab","org_beta":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}'
+      WAE_VAULT_KEYS_JSON: '{"org_alpha":"abababababababababababababababababababababababababababababababab","org_beta":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}'
       WAE_ACCOUNTS_KEY: "abababababababababababababababababababababababababababababababab"
       WAE_ACCOUNTS_DATABASE_URL: postgresql://wae_test:local-ci-only-password@127.0.0.1:5432/wae_test
       WAE_POSTGRES_ALLOW_INSECURE_LOCAL_TEST: "true"
