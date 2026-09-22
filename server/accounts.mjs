@@ -386,8 +386,8 @@ export async function acceptPaidCheckout(event, subscription, config, base) {
       promotionLive(business)) return { applied: false };
     if (business.visibility !== "public") return { applied: false };
     business.promotion = {
-      subscriptionId: subscription.id, status: "active",
-      currentPeriodEnd: period.currentPeriodEnd, lastEventCreated: event.created,
+      subscriptionId: subscription.id, attemptId: pending.business.promotion.pending.attemptId,
+      status: "active", currentPeriodEnd: period.currentPeriodEnd, lastEventCreated: event.created,
       lastEventId: event.id
     };
     return { applied: true };
