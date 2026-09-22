@@ -479,8 +479,9 @@ function renderData(data) {
   resultsContainer.replaceChildren();
   // Weather races with federated search. A late result must not erase an early card.
   const count = state.results.length;
-  stats.textContent = count + " resultado" + (count === 1 ? "" : "s") + " visible" + (count === 1 ? "" : "s") +
-    " de " + allResults.length + " recuperados · " +
+  const visible = state.type==="all" ? Math.min(count,state.visibleCount) : count;
+  stats.textContent = (state.type==="all" ? "Mostrando "+visible+" de "+count : count+" resultado"+(count===1?"":"s"))+
+    " · "+(data.webCoverage==="limited"?"Cobertura web limitada · ":"")+
     (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
   renderPanel(data);
   if (state.type === "research" || state.type === "index") {
@@ -496,17 +497,42 @@ function renderData(data) {
     const grid = renderImages(state.results);
     if (grid.children.length) resultsContainer.append(grid);
   } else {
-    state.results.forEach((item, index) => {
+    if(state.type==="all" && state.results.length)
+      resultsContainer.append(element("h2","web-results-heading","Resultados web"));
+    const displayed=state.type==="all"
+      ?state.results.slice(0,state.visibleCount):state.results;
+    displayed.forEach((item, index) => {
       const card = renderResult(item, index);
       if (card) resultsContainer.append(card);
     });
+    if(state.type==="all" && state.visibleCount<state.results.length){
+      const remaining=state.results.length-state.visibleCount;
+      const more=button("Mostrar más resultados ("+Math.min(10,remaining)+")",()=>{
+        state.visibleCount+=10;
+        renderData(state.data);
+      },"web-results-more");
+      more.setAttribute("aria-label","Mostrar "+Math.min(10,remaining)+" resultados web adicionales ya recuperados");
+      resultsContainer.append(more);
+    }
   }
-  if (!resultsContainer.children.length) {
+  const hasResults=state.results.some(item=>safeUrl(item.url));
+  if (!hasResults) {
     const detail = data.warning || data.message ||
       (state.type === "news" || state.type === "videos"
         ? "No hay resultados recuperados de los proveedores disponibles para esta consulta. Prueba otros términos."
         : "No hubo coincidencias de las fuentes disponibles. Modifica los términos e inténtalo nuevamente.");
     resultsContainer.append(renderSearchFallback(state.query,detail));
+  }
+  if(state.type==="all" && data.webCoverage==="limited"){
+    const notice=element("aside","web-coverage-notice");
+    notice.setAttribute("role","status");
+    notice.append(
+      element("strong","","Cobertura web limitada"),
+      element("p","","No se recuperaron resultados de un índice web general. Se muestran únicamente fuentes públicas disponibles; no equivale a buscar todo Internet."),
+      external("https://www.google.com/search?q="+encodeURIComponent(state.query),
+        "↗ Continuar búsqueda en Google","link-button")
+    );
+    resultsContainer.prepend(notice);
   }
 }
 function renderSearchFallback(query,message){
