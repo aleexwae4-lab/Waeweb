@@ -11,12 +11,14 @@ export function videoIdentity(value){
       :parts[0]==="watch"?u.searchParams.get("v")
       :["shorts","live","embed"].includes(parts[0])?parts[1]:null;
     if(!videoId.test(id||""))return null;
-    return {platform:"YouTube",videoId:id,canonical:"https://www.youtube.com/watch?v="+id};
+    return {platform:"YouTube",videoId:id,canonical:parts[0]==="shorts"
+      ?"https://www.youtube.com/shorts/"+id
+      :"https://www.youtube.com/watch?v="+id};
   }
   if(host==="tiktok.com"||host.endsWith(".tiktok.com")){
     const m=u.pathname.match(/^\/@[^/]+\/video\/(\d{10,25})(?:\/|$)/);
     if(!m)return null;
-    return {platform:"TikTok",videoId:null,canonical:"https://www.tiktok.com"+u.pathname.replace(/\/$/,"")};
+    return {platform:"TikTok",videoId:m[1],canonical:"https://www.tiktok.com"+m[0].replace(/\/$/,"")};
   }
   return null;
 }
@@ -52,5 +54,20 @@ export async function youtubeDataVideos(query){
       source:"YouTube Data API",date:meta.publishedAt||null,
       image:safeUrl(thumbnail)?.href||null,platform:"YouTube",videoId:id
     }];
+  });
+}
+
+/* Match the underlying platform clip across Shorts/watch links and across
+   different TikTok author URL spellings. Keep the first (provider-ranked)
+   source attribution; never synthesize a clip or thumbnail. */
+export function dedupeVideoResults(items){
+  const seen=new Set();
+  return items.filter(item=>{
+    const identity=videoIdentity(item.url);
+    const key=identity?.platform+"|"+identity?.videoId ||
+      (typeof item.url==="string"?item.url:"");
+    if(!key||seen.has(key))return false;
+    seen.add(key);
+    return true;
   });
 }
