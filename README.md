@@ -384,3 +384,8 @@ Además de comprobar presencia, `npm run marketplace:media:integrity` recupera c
 ## RC20 — inventario privado de objetos
 
 `npm run marketplace:media:inventory` consulta mediante SigV4 y ListObjectsV2 únicamente el prefijo privado `marketplace/` y compara los objetos del proveedor con las referencias cifradas PostgreSQL y el journal de eliminación. Clasifica referencias presentes, eliminaciones pendientes, candidatos huérfanos, claves inesperadas y referencias ausentes; limita páginas/XML, detecta deriva y no imprime object keys ni ejecuta DELETE. [Alcance y seguridad](docs/RC20_OBJECT_INVENTORY.md). **Un huérfano es solo candidato a revisión; no autoriza borrado. Vercel continúa HOLD.**
+
+
+## RC21 — restauración offline sin sobrescritura
+
+La recuperación de fotografías del Marketplace ahora conecta las cápsulas cifradas RC20, un backup PostgreSQL autenticado y el estado exacto del destino restaurado. Antes de escribir comprueba todo el lote; cada objeto ausente se sube mediante `If-None-Match: *` firmado con AWS SigV4, y se valida con SHA-256 después del PUT. Nunca sobreescribe ni elimina imágenes. Los fallos a mitad de lote devuelven recuperación parcial y requieren revisión manual. CLI de operador `npm run pg:restore-media -- <media.backup.json> <pg.backup.json> --confirm-offline-media-restore` con ACK separado fuera de CI. [Procedimiento y límites](docs/RC21_OBJECT_RESTORE.md). **Vercel permanece HOLD.**
