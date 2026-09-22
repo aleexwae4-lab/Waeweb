@@ -8,6 +8,10 @@ on:
       - "server/accounts-postgres.mjs"
       - "server/vault.mjs"
       - "server/vault-postgres.mjs"
+      - "server/connect.mjs"
+      - "server/connect-postgres.mjs"
+      - "scripts/connect-pg-init.mjs"
+      - "tests/connect-postgres.integration.mjs"
       - "scripts/vault-pg-init.mjs"
       - "tests/vault-postgres.integration.mjs"
       - "server/crypto.mjs"
@@ -47,6 +51,9 @@ jobs:
       WAE_PG_INTEGRATION: "true"
       WAE_ACCOUNTS_ENABLED: "true"
       WAE_ACCOUNTS_STORE: postgres
+      WAE_CONNECT_ENABLED: "true"
+      WAE_CONNECT_ADMISSION_MODE: postgres
+      WAE_CONNECT_CLIENTS_JSON: '{"inteligenciauniversal":"ci-only-alpha-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","universal-core-vt3h":"ci-only-beta-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","waeosgreen":"ci-only-gamma-cccccccccccccccccccccccccccccccccccccccc"}'
       WAE_VAULT_STORE: postgres
       WAE_VAULT_KEYS_JSON: '{"org_alpha":"abababababababababababababababababababababababababababababababab","org_beta":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}'
       WAE_ACCOUNTS_KEY: "abababababababababababababababababababababababababababababababab"
@@ -65,3 +72,5 @@ jobs:
         run: npm run test:postgres
       - name: Test encrypted research vaults and cross-process isolation
         run: npm run test:vault:postgres
+      - name: Test shared WAEWEB Connect rate and concurrency quotas
+        run: npm run test:connect:postgres
