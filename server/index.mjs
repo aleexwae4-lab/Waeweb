@@ -21,9 +21,19 @@ import { accountsEnabled, listOwnerListings, addMarketListing, editMarketListing
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+const RELEASE_GATE=JSON.parse(readFileSync(new URL("../release-readiness.json",import.meta.url),"utf8"));
+const RELEASE_APPROVED=RELEASE_GATE.approval==="GO" &&
+  Array.isArray(RELEASE_GATE.checks) && RELEASE_GATE.checks.length>0 &&
+  RELEASE_GATE.checks.every(item=>item.status==="passed");
 // Isolated preview: never open live accounts, private vaults, writes, billing or Connect.
+// Until the independent release gate is GO, the Git-connected production
+// domain operates only the same public, isolated routes as a preview. This
+// prevents a Git promotion from exposing unfinished accounts, billing, vaults
+// and cross-system connectors through production environment credentials.
 const previewMode = () => process.env.WAE_PREVIEW_MODE === "true" ||
-  process.env.VERCEL_ENV === "preview";
+  process.env.VERCEL_ENV === "preview" ||
+  (process.env.VERCEL_ENV === "production" &&
+    !(RELEASE_APPROVED && process.env.WAE_PUBLIC_FULL_RELEASE === "GO"));
 const readerAvailable = () => process.env.WAE_READER_ENABLED === "true" &&
   vaultStorageReady() && encryptionReady(vaultConfig(), vaultKeysConfig());
 const files = new Map([
@@ -158,7 +168,9 @@ export async function handler(req, res) {
   if (u.pathname === "/api/health" || u.pathname === "/api/capabilities") {
     if (!["GET", "HEAD"].includes(req.method)) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   }
-  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: VERSION, previewMode:previewMode() });
+  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: VERSION, previewMode:previewMode(),
+    publicMode:previewMode() ? "isolated" : "full", 
+    revision: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,12) || null });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
     mapsEnabled: true, mapPrecision: "locality_centroid_or_user_coordinates",

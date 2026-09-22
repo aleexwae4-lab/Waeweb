@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC33 removes the blocked third-party map iframe in favor of WAEWEB-owned responsive, interactive geographic SVG with numeric coordinates, markers and verified provider route geometry; no street basemap is claimed. Translator keeps its input and controls responsive on API 401, offers reconnect, local browser Translation API when supported, and explicit-click server fallback. Production WAEWEB still on inaccessible/out-of-scope Vercel project; no proof published, no third-party street map or self-hosted translation model; direct Vercel/main unchanged, HOLD.",
+      "reason": "RC34 restores the complete frontend and named /api/* serverless source to Git production branch with a constrained public-isolated mode enforced whenever release-readiness approval is HOLD, even when deployment variables suggest GO. Live smoke workflow must confirm real waeweb.vercel.app returns JSON /api/health, /api/capabilities, /api/maps plus native-map.js/translator.js; production accessibility is not inferred from unit tests or Ready status. Protected previews and incomplete accounts, billing, vaults and connectors remain blocked. Full launch stays HOLD pending security and E2E.",
       "evidence": ""
     },
     {

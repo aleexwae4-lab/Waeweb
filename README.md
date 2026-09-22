@@ -413,3 +413,8 @@ La recuperación de fotografías del Marketplace ahora conecta las cápsulas cif
 ## RC24 — búsqueda unificada y vista web en resultados
 
 Ahora la búsqueda y la apertura de direcciones HTTPS comparten las mismas barras; una página se muestra **dentro de los resultados**, no en un producto o pantalla independiente. Una búsqueda pública no pide credenciales de bóveda por recibir HTTP 401: ese error se distingue de un token privado revocado y se ofrecen enlaces reales a fuentes externas si falla la API. El clima consulta su proveedor independientemente; se ocultan el índice privado y el registro cuando están desactivados en la vista previa. [Diagnóstico del video, pruebas y límites](docs/RC24_UNIFIED_SEARCH_UX.md). **Solo GitHub: no se tocó directamente Vercel ni se levantó HOLD.**
+
+
+## RC34 · Reparación de publicación Git
+
+La app completa (carpeta `public/` más funciones `api/`) se entrega junta desde Git para evitar una producción Vercel Drop con frontend pero sin API. Mientras `release-readiness.json` esté HOLD, el servidor Vercel de producción opera exclusivamente las rutas públicas aisladas: cuentas, bóvedas, cobros y conectores no se abren. `npm run test:live:public` verifica la versión y API **en el dominio real**; véase `docs/RC34_GIT_PRODUCTION_RECOVERY.md`. El lanzamiento comercial completo NO está aprobado.
