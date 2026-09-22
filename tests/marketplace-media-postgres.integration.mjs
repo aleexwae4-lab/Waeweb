@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { backupPostgres, backupMarketMediaForPostgres, verifyMarketMediaBackup, restoreMarketMediaForPostgres } from "../server/pg-recovery.mjs";
+import { backupPostgres, backupMarketMediaForPostgres, verifyMarketMediaBackup, restoreMarketMediaForPostgres, verifyMarketMediaArchiveSet } from "../server/pg-recovery.mjs";
 import { loginAccount, listBusinesses, addMarketListing, listOwnerListings,
   setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaPresence, auditMarketMediaIntegrity, auditMarketMediaInventory } from "../server/accounts.mjs";
 import { readAccountsPostgres, closeAccountsPostgres } from "../server/accounts-postgres.mjs";
@@ -170,6 +170,13 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     assert.equal(verifiedCapsule.verified,1);
     assert.equal(verifiedCapsule.referenceMatchesPostgres,true);
     assert.equal(verifiedCapsule.restoreCertified,false);
+    const mediaCoverage=await verifyMarketMediaArchiveSet(
+      pgBackup.filename,[objectBackup.filename]);
+    assert.equal(mediaCoverage.status,"complete_set_verified");
+    assert.equal(mediaCoverage.covered,1);
+    assert.equal(mediaCoverage.missing,0);
+    assert.equal(mediaCoverage.restoreCertified,false);
+    assert.equal(JSON.stringify(mediaCoverage).includes(saved.imageKey),false);
     const photoPath="/"+process.env.WAE_MEDIA_BUCKET+"/"+saved.imageKey;
     const originalPhoto=photos.get(photoPath);
     photos.delete(photoPath);
