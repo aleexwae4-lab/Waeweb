@@ -49,6 +49,7 @@
           <div id="tabs" class="tabs" role="tablist" aria-label="Tipo de resultados">
             <button type="button" class="tab active" role="tab" aria-selected="true" data-type="all">✧ Todo</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="research">◇ Investigación</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-type="index">⌕ Índice WAE</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="books">▤ Libros</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="images">▧ Imágenes</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="news">▤ Noticias</button>
@@ -59,6 +60,13 @@
         <div class="results-layout">
           <div class="results-main">
             <div class="statsbar"><p id="result-stats" role="status" aria-live="polite"></p><div class="results-controls"><label class="sr-only" for="source-filter">Filtrar por fuente</label><select id="source-filter" class="source-filter" aria-label="Filtrar por fuente"><option value="">Todas las fuentes</option></select><button type="button" id="copy-search" class="small-action" title="Copiar enlace de búsqueda">⧉ Compartir búsqueda</button></div></div>
+            <section id="reader-panel" class="reader-panel" hidden aria-label="Lector de páginas web">
+              <div class="reader-heading"><h2>⌕ WAE Web Reader</h2><span class="tag">Índice temporal · lectura bajo demanda</span></div>
+              <p>Lee una página HTTPS pública, respeta robots.txt y añade su texto recuperado al índice temporal. No ejecutes consultas con URLs privadas.</p>
+              <form id="reader-form" class="reader-form"><label class="sr-only" for="reader-url">URL pública HTTPS</label><input id="reader-url" type="url" placeholder="https://ejemplo.org/articulo" maxlength="1800" required><button type="submit" class="link-button">Leer e indexar</button></form>
+              <p id="reader-status" role="status" aria-live="polite"></p>
+              <div id="reader-output"></div>
+            </section>
             <div id="weather-slot"></div>
             <div id="answer-slot"></div>
             <div id="results-container" class="results-container" aria-live="polite"></div>
@@ -81,6 +89,7 @@
     <p>Motor de búsqueda federado en desarrollo. Consulta Wikipedia, Crossref, OpenAlex, Open Library, Wikimedia Commons y Open-Meteo. Google Programmable Search requiere configuración del servidor.</p>
     <p>Una fuente citada no implica que todas sus afirmaciones hayan sido verificadas independientemente. Las noticias y videos no se inventan cuando el proveedor no está configurado.</p>
     <p>El panorama de investigación reúne fragmentos atribuidos, pero no es una respuesta generada por IA ni una verificación independiente. Los filtros site:, after:, before:, source:, "frase" y -término operan sobre los resultados obtenidos. La biblioteca es local.</p>
+    <p>El lector propio es opt-in: únicamente páginas públicas HTTPS, con validación DNS, límites de tamaño y robots.txt; el índice se pierde al reiniciar el servidor. Ninguna página remota recibe permisos para ejecutar código en WAE WEB.</p>
     <p>Este desarrollo no está conectado a Vercel.</p>
   </dialog>
 </body>
