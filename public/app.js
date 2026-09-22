@@ -189,19 +189,23 @@ function renderResult(item, index) {
   row.append(avatar, labels);
   const title = button(item.title, () => openBrowser(url), "result-title browser-result-title");
   title.title = "Navegar en WAEWEB: " + shortHost(url);
-  if ((item.source === "Open Library" || state.type === "videos") && safeUrl(item.image)) {
+  if ((state.type === "books" || state.type === "videos" || item.source === "Open Library") && safeUrl(item.image)) {
     const cover = element("img", "book-cover");
     cover.src = safeUrl(item.image);
     cover.alt = (state.type === "videos" ? "Vista previa de " : "Portada de ") + item.title;
     cover.loading = "lazy";
     cover.referrerPolicy = "no-referrer";
+    cover.decoding = "async";
+    card.classList.add(state.type === "videos" ? "video-result" : "book-result");
     card.append(cover);
   }
   append(card, row, title);
+  if (state.type === "books") card.append(element("span", "tag media-context", "Ficha bibliográfica · Comprueba edición y disponibilidad en origen"));
+  if (state.type === "videos") card.append(element("span", "tag media-context", "Vídeo · Ver en la fuente original"));
   if (item.snippet) card.append(element("p", "snippet", item.snippet));
   const meta = element("div", "meta-line");
   if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
-  meta.append(button("◎ Navegar aquí", () => openBrowser(url), "save-button"));
+  meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Navegar aquí", () => openBrowser(url), "save-button"));
   const save = button(workspace.has(url) ? "◆ Guardado" : "◇ Guardar fuente", () => {
     const outcome = workspace.add(item);
     if (outcome.ok) {
@@ -219,16 +223,56 @@ function renderResult(item, index) {
   card.append(meta);
   return card;
 }
+// Gallery previews only genuine source images, not synthetic covers.
 function renderImages(items) {
-  const grid = element("div", "image-grid");
-  items.forEach(item => {
-    const link = safeUrl(item.url), image = safeUrl(item.image);
-    if (!link || !image) return;
-    const tile = external(link, "", "image-tile");
-    const img = element("img");
-    img.src = image; img.alt = item.title || "Imagen de búsqueda"; img.loading = "lazy";
-    img.referrerPolicy = "no-referrer";
-    append(tile, img, element("span", "", item.title || item.source));
+  const available=items.filter(item=>safeUrl(item.url)&&safeUrl(item.image));
+  const grid=element("div","image-grid image-gallery");
+  if(!available.length)return grid;
+  const dialog=element("dialog","image-lightbox");
+  dialog.setAttribute("aria-label","Vista ampliada de imagen");
+  const close=button("✕ Cerrar",()=>dialog.close(),"image-lightbox-close");
+  const display=element("img","image-lightbox-picture");
+  display.alt="";display.referrerPolicy="no-referrer";display.decoding="async";
+  const heading=element("h2","image-lightbox-title");
+  const source=element("p","image-lightbox-source");
+  const origin=external(safeUrl(available[0].url),"↗ Ver página original","link-button");
+  const prev=button("← Anterior",()=>show(current-1),"small-action");
+  const next=button("Siguiente →",()=>show(current+1),"small-action");
+  const controls=element("div","image-lightbox-actions");
+  controls.append(prev,next,origin);
+  const figure=element("figure","image-lightbox-figure");
+  figure.append(display,heading,source);
+  dialog.append(close,figure,controls);
+  let current=0;
+  function show(index){
+    current=(index+available.length)%available.length;
+    const item=available[current];
+    display.src=safeUrl(item.image);
+    display.alt=item.title||"Imagen de "+(item.source||"origen público");
+    heading.textContent=item.title||"Imagen";
+    source.textContent=(item.source||"Fuente identificada")+" · "+(current+1)+" / "+available.length;
+    origin.href=safeUrl(item.url);
+    prev.disabled=next.disabled=available.length<2;
+  }
+  dialog.addEventListener("keydown",event=>{
+    if(!dialog.open)return;
+    if(event.key==="ArrowRight"){event.preventDefault();show(current+1);}
+    if(event.key==="ArrowLeft"){event.preventDefault();show(current-1);}
+  });
+  dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close();});
+  dialog.addEventListener("close",()=>{display.removeAttribute("src");});
+  available.forEach((item,i)=>{
+    const tile=button("",()=>{
+      show(i);
+      if(!dialog.isConnected)document.body.append(dialog);
+      dialog.showModal();
+    },"image-tile image-gallery-tile");
+    tile.setAttribute("aria-label","Ampliar imagen: "+(item.title||item.source));
+    const img=element("img");
+    img.src=safeUrl(item.image);img.alt=item.title||"Imagen de "+item.source;
+    img.loading="lazy";img.decoding="async";img.referrerPolicy="no-referrer";
+    tile.append(img,element("span","image-gallery-caption",item.title||item.source),
+      element("small","image-gallery-source",item.source||"Fuente"));
     grid.append(tile);
   });
   return grid;
@@ -387,6 +431,7 @@ function renderData(data) {
   if (!options.includes(state.selectedSource)) state.selectedSource = "";
   sourceFilter.value = state.selectedSource;
   state.results = state.selectedSource ? allResults.filter(item => item.source === state.selectedSource) : allResults;
+  document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
   weatherSlot.replaceChildren();
   const count = state.results.length;
