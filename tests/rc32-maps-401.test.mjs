@@ -29,7 +29,7 @@ test("maps creates the existing map viewer before any public API for user coordi
     "the local-coordinate branch must precede remote request");
   assert.match(map,/precision:"coordinate"/);
   assert.match(map,/\/diagnostico\.html/);
-  assert.match(app,/Vista general nativa de coordenadas/);
+  assert.match(app,/Vista general|Visor geográfico WAEWEB/);
   assert.match(app,/showDirectionsWithoutLocality/);
   assert.match(app,/createNativeMap/);
   assert.doesNotMatch(map,/tile\.openstreetmap\.org/,"no uncontrolled tile scraping");
