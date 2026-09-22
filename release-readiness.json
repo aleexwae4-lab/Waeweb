@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC9 incorpora respaldo PostgreSQL consistente y cifrado, verificación de integridad y restauración atómica a destino vacío; tests unitarios y simulacro CI desechable no sustituyen una restauración en DB del proveedor, migración file→PostgreSQL, backups externos ni ensayo RPO/RTO. HOLD.",
+      "reason": "RC10: backup PostgreSQL consistente y cifrado; recuperación en CI PostgreSQL 16 PASS (run 35721587184), simulacro de rollback inyectado agregado. Falta evidencia PASS del último run, prueba de restauración en proveedor real, backup fuera del proveedor, migración desde archivos y objetivos RPO/RTO. HOLD.",
       "evidence": ""
     },
     {
