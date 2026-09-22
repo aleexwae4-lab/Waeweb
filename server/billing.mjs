@@ -34,7 +34,8 @@ export function paidPeriod(subscription, config, { now = Date.now() } = {}) {
   if (!Array.isArray(subscription.items?.data) || !subscription.items.data.some(item => item.price?.id === config.price)) return null;
   const invoice = subscription.latest_invoice;
   // Require a verifiably paid latest invoice, rather than a trial or "active" flag alone.
-  if (!invoice || typeof invoice !== "object" || invoice.status !== "paid" || invoice.paid !== true) return null;
+  if (!invoice || typeof invoice !== "object" || invoice.status !== "paid" || invoice.paid !== true ||
+    !Number.isSafeInteger(invoice.amount_paid) || invoice.amount_paid <= 0) return null;
   const ends = subscription.items.data.filter(item => item.price?.id === config.price)
     .map(item => item.current_period_end || subscription.current_period_end)
     .filter(Number.isSafeInteger);
