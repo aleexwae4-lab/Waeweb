@@ -4,6 +4,25 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js con c
 
 **Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
 
+## Fase 16 — RC7: resultados fiables y fuentes atribuidas
+
+Connect v1 distingue respuestas `complete` (incluye cero coincidencias verificadas
+con un proveedor accesible), `partial` (mantiene las fuentes existentes e informa
+fallos/no configuración), y `unavailable` (HTTP 503 / SSE `error` más
+`done:false` cuando ningún proveedor está utilizable). No se presentan caídas
+de proveedores como resultados vacíos exitosos.
+
+El saneamiento conserva nombres reales y caracteres Unicode, limita longitud de
+fragmentos, valida URLs web y retiene los panoramas extractivos asociados a
+citas. Una caída transitoria tampoco se almacena como cero resultados en la
+caché. Pruebas nuevas: `tests/search-availability.test.mjs`, casos de
+`tests/connect.test.mjs` y contrato real WAEWEB + Universal Core
+`tests/connect-consumers.integration.mjs`.
+
+**Todavía no LIVE:** resultados de fuentes sintéticas de QA, sin secretos
+productivos, Render o Vercel; Green privado no cuenta con CI ejecutada.
+El manifiesto continúa `HOLD` / `NO-GO`.
+
 ## Fase 15 — RC6: contrato entre repositorios y SSE robusto
 
 **Prueba entre repositorios, sin tocar servicios reales:** el workflow
