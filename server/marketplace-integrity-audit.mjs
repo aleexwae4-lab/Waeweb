@@ -59,7 +59,7 @@ export async function auditMediaDigests(db,{
     total:records.length,offset,checked:selected.length,nextOffset,
     ...counts,manifestFingerprint:fingerprint,databaseUnchanged:unchanged,
     bytesCompared:selected.length>0&&counts.verified===selected.length,
-    entireDatasetVerified:nextOffset===null&&offset===0&&!attention,
+    entireDatasetVerified:records.length>0&&nextOffset===null&&offset===0&&!attention,
     objectBackupVerified:false,objectVersionsVerified:false,
     orphanInventoryVerified:false,restoreCertified:false,
     noObjectKeysExposed:true,noDeletionPerformed:true
