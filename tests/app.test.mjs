@@ -30,8 +30,10 @@ test("federated search attributes real provider data and signals provider failur
     assert.equal(data.results[0].source, "Wikipedia");
     assert.equal(data.results[0].snippet, "Contenido rastreable");
     assert.match(data.results[0].url, /curid=123/);
-    assert.ok(data.failedSources.includes("Crossref"));
-    assert.ok(data.failedSources.includes("OpenAlex"));
+    assert.ok(data.failedSources.includes("Wikidata"));
+    assert.ok(!data.failedSources.includes("Crossref"));
+    assert.ok(!data.failedSources.includes("OpenAlex"));
+    assert.equal(data.webCoverage,"limited");
     assert.ok(!("estimatedHits" in data));
   } finally { globalThis.fetch = original; }
 });
