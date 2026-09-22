@@ -109,6 +109,16 @@ test("HTTP tenant endpoints deny missing auth, prevent cross-tenant reads, and r
   try {
     const unauthenticated = await fetch(base + "/api/index/search?q=Contenido");
     assert.equal(unauthenticated.status, 401);
+    // A missing encryption key MUST disable the private API, even with a valid bearer token.
+    const savedKeys = process.env.WAE_VAULT_KEYS_JSON;
+    delete process.env.WAE_VAULT_KEYS_JSON;
+    try {
+      assert.equal((await fetch(base + "/api/index/search?q=Contenido", {
+        headers: { authorization: "Bearer " + tokenA }
+      })).status, 503);
+      assert.equal((await (await fetch(base + "/api/capabilities")).json()).readerEnabled, false);
+    } finally { process.env.WAE_VAULT_KEYS_JSON = savedKeys; }
+
     assert.equal((await fetch(base + "/api/index/document?id=" + doc.id)).status, 401);
     const aHeaders = { authorization: "Bearer " + tokenA };
     const bHeaders = { authorization: "Bearer " + tokenB };
