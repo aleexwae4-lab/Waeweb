@@ -176,10 +176,15 @@ export async function wikimediaVideos(query){
     const video=page.imageinfo?.[0];
     if(!video||!/^video\/(webm|ogg|mp4|quicktime)$/.test(video.mime||""))return null;
     const url=video.descriptionurl||video.url;
-    return result(page.title?.replace(/^File:/,"")||"Video",
+    const item=result(page.title?.replace(/^File:/,"")||"Video",
       url,"Video de archivo multimedia abierto · "+video.mime,
       "Wikimedia Commons · Video",null,
       urlAllowed(video.thumburl)?video.thumburl:null);
+    // Only an actual video URL furnished by Commons may be played in-app.
+    // No guessed YouTube embeds or fabricated stream URLs.
+    if(/^https:\/\/upload\.wikimedia\.org\//.test(video.url||""))
+      item.mediaUrl=video.url;
+    return item;
   }).filter(item=>item&&urlAllowed(item.url));
 }
 export async function gdeltNews(query){
