@@ -25,11 +25,11 @@ function xmlText(xml,tag,required=false) {
   });
 }
 function parseList(xml){
-  if(!/^<\\?xml[^>]*>\\s*<ListBucketResult(?:\\s|>)/.test(xml) &&
-     !/^<ListBucketResult(?:\\s|>)/.test(xml))fail("media_inventory_xml");
+  if(!/^<\?xml[^>]*>\s*<ListBucketResult(?:\s|>)/.test(xml) &&
+     !/^<ListBucketResult(?:\s|>)/.test(xml))fail("media_inventory_xml");
   const truncated=xmlText(xml,"IsTruncated",true);
   if(!["true","false"].includes(truncated))fail("media_inventory_xml");
-  const blocks=[...xml.matchAll(/<Contents>([\\s\\S]*?)<\\/Contents>/g)];
+  const blocks=[...xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)];
   if(blocks.length>100)fail("media_inventory_overflow");
   const keys=blocks.map(block=>xmlText(block[1],"Key",true));
   const cursor=xmlText(xml,"NextContinuationToken");
@@ -49,7 +49,7 @@ async function limitedText(response){
 async function listPage(config,cursor,transport,now){
   if(!config)fail("media_inventory_provider_required");
   const {amz,day}=(()=>{const date=new Date(now).toISOString()
-    .replace(/[-:]/g,"").replace(/\\.\\d{3}Z$/,"Z");
+    .replace(/[-:]/g,"").replace(/\.\d{3}Z$/,"Z");
     return {amz:date,day:date.slice(0,8)};})();
   const scope=day+"/"+config.region+"/s3/aws4_request";
   const query=[["list-type","2"],["max-keys","100"],["prefix","marketplace/"]];
@@ -58,11 +58,11 @@ async function listPage(config,cursor,transport,now){
     a[0]<b[0]?-1:a[0]>b[0]?1:0).map(pair=>pair.join("=")).join("&");
   const path="/"+esc(config.bucket),hostname=new URL(config.origin).host;
   const empty=hex(Buffer.alloc(0));
-  const headers="host:"+hostname+"\\nx-amz-content-sha256:"+empty+
-    "\\nx-amz-date:"+amz+"\\n";
+  const headers="host:"+hostname+"\nx-amz-content-sha256:"+empty+
+    "\nx-amz-date:"+amz+"\n";
   const signed="host;x-amz-content-sha256;x-amz-date";
-  const canonical="GET\\n"+path+"\\n"+qs+"\\n"+headers+"\\n"+signed+"\\n"+empty;
-  const signedText="AWS4-HMAC-SHA256\\n"+amz+"\\n"+scope+"\\n"+hex(canonical);
+  const canonical="GET\n"+path+"\n"+qs+"\n"+headers+"\n"+signed+"\n"+empty;
+  const signedText="AWS4-HMAC-SHA256\n"+amz+"\n"+scope+"\n"+hex(canonical);
   let signing=hmac("AWS4"+config.secret,day);
   for(const part of [config.region,"s3","aws4_request"])signing=hmac(signing,part);
   const signature=createHmac("sha256",signing).update(signedText).digest("hex");
