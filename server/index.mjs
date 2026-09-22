@@ -17,6 +17,9 @@ import { accountsEnabled, listOwnerListings, addMarketListing, editMarketListing
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+// Isolated preview: never open live accounts, private vaults, writes, billing or Connect.
+const previewMode = () => process.env.WAE_PREVIEW_MODE === "true" ||
+  process.env.VERCEL_ENV === "preview";
 const readerAvailable = () => process.env.WAE_READER_ENABLED === "true" &&
   vaultStorageReady() && encryptionReady(vaultConfig(), vaultKeysConfig());
 const files = new Map([
@@ -94,28 +97,42 @@ export async function handler(req, res) {
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
+  // Allow anonymous navigation and federated research in preview, but no
+  // private data reads, mutations, signups, checkout or integration gateway.
+  // VERCEL_ENV=preview is supplied by Vercel; WAE_PREVIEW_MODE=true permits
+  // identical local tests. This check precedes ALL API handlers.
+  if (previewMode() && u.pathname.startsWith("/api/") &&
+      (!["GET","HEAD"].includes(req.method) ||
+        !["/api/health","/api/capabilities","/api/search",
+          "/api/weather","/api/marketplace"].includes(u.pathname)))
+    return write(res,503,{error:"Vista previa: cuentas, pagos y APIs privadas desactivados.",
+      previewMode:true});
+  if (previewMode() && u.pathname==="/api/marketplace")
+    return write(res,200,{items:[],total:0,hasMore:false,
+      previewMode:true,note:"Catálogo vacío de vista previa; no se utilizan datos reales."});
   if (u.pathname === "/api/health" || u.pathname === "/api/capabilities") {
     if (!["GET", "HEAD"].includes(req.method)) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   }
-  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: VERSION });
+  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: VERSION, previewMode:previewMode() });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
-    readerEnabled: readerAvailable(),
+    readerEnabled: !previewMode() && readerAvailable(),
     vaultRequired: true,
-    indexPersistence: !readerAvailable() ? "disabled" :
+    indexPersistence: previewMode() || !readerAvailable() ? "disabled" :
       process.env.WAE_VAULT_STORE === "postgres" ?
         "encrypted_postgres_per_vault" : "encrypted_local_disk_per_vault",
     encryption: "AES-256-GCM",
-    accountsEnabled: accountsEnabled(),
-    promotionsEnabled: Boolean(billingConfig()) && accountsEnabled(),
-    businessRegistration: accountsEnabled() ? "owner_controlled_self_declared" : "disabled",
-    publicBusinessProfiles: accountsEnabled(),
-    marketplaceEnabled: accountsEnabled(),
-    marketplaceObjectMedia: Boolean(mediaConfig()) && process.env.WAE_ACCOUNTS_STORE === "postgres" && accountsEnabled(),
-    connectApi: Boolean(connectConfig()),
+    accountsEnabled: !previewMode() && accountsEnabled(),
+    promotionsEnabled: !previewMode() && Boolean(billingConfig()) && accountsEnabled(),
+    businessRegistration: !previewMode() && accountsEnabled() ? "owner_controlled_self_declared" : "disabled",
+    publicBusinessProfiles: !previewMode() && accountsEnabled(),
+    marketplaceEnabled: !previewMode() && accountsEnabled(),
+    marketplaceObjectMedia: !previewMode() && Boolean(mediaConfig()) && process.env.WAE_ACCOUNTS_STORE === "postgres" && accountsEnabled(),
+    connectApi: !previewMode() && Boolean(connectConfig()),
+    previewMode:previewMode(),
     deploymentConnected: false
   });
   if (u.pathname.startsWith("/api/connect/")) return handleConnect(req,res);
