@@ -474,3 +474,10 @@
  .book-result .book-cover{max-width:32%}
  .image-lightbox-actions .small-action,.image-lightbox-actions .link-button{flex:1 1 105px}
 }
+
+/* User-initiated video playback for source-verified Commons files only. */
+.video-native-player{display:block;width:100%;max-height:clamp(220px,48dvh,550px);object-fit:contain;background:#050910;border-radius:14px;margin:14px 0 8px}
+.video-native-player[hidden]{display:none!important}
+.video-playback-status{font-size:12px;color:#c4d7f6;margin:5px 0;line-height:1.5}
+.video-playback-status:empty{display:none}
+.video-result>.save-button{display:inline-flex;align-items:center;min-height:44px;margin-top:12px}
