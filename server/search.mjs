@@ -1,5 +1,5 @@
 import { parseQuery, rankResults, researchBrief } from "./intelligence.mjs";
-import {videoIdentity, verifiedVideoResults, youtubeDataVideos} from "./video-discovery.mjs";
+import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResults} from "./video-discovery.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -304,7 +304,14 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, page, hasMore: selected==="all" && moreFromProviders,
-    results: rankResults(dedupe(results), spec, selected), sources: available,
+    results: rankResults(selected==="videos"
+      ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected),
+    sources: available,
+    videoCoverage: selected==="videos"?{
+      youtubeApi:available.includes("YouTube"),
+      webIndex:available.some(name=>/^(Brave|Google) · /.test(name)),
+      providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length
+    }:null,
     webCoverage: selected === "all"
       ? (available.some(name => name === "Brave" || name === "Google") ? "general-index" : "limited")
       : null,
