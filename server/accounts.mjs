@@ -526,6 +526,8 @@ export async function setMarketListingVisibility(header, businessId, listingId, 
     // Publishing requires a separate, explicit owner decision. Business must be public.
     if (published && business.visibility !== "public")
       fail("business_private","Publica primero el perfil de tu empresa.",409);
+    if (published && listing.moderation === "blocked")
+      fail("listing_blocked", "Esta publicación requiere revisión antes de volver a publicarse.", 409);
     listing.visibility=published?"public":"owner_only";
     listing.updatedAt=new Date().toISOString();
     return listing;
@@ -619,4 +621,42 @@ export async function reportMarketListing(header, businessId, listingId, input, 
     // Reports only queue for manual review. Never auto-unpublish on allegations.
     return { received: true, status: "pending_review" };
   }, base);
+}
+
+function requireMarketModerator() {
+  if (process.env.WAE_MARKET_MODERATOR_ACK !== "manual-review-authorized")
+    fail("moderator_not_authorized", "Revisión operativa no autorizada.", 403);
+}
+export async function listMarketReports(base) {
+  requireMarketModerator();
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  const db=await readDb(base);
+  // No reporter names, emails, or bearer credentials in operator output.
+  return { scope:"operator_only", releaseApproval:"not_evaluated",
+    cases:(db.marketReports||[]).filter(report=>report.status==="pending_review")
+      .map(report=>({id:report.id,businessId:report.businessId,
+        listingId:report.listingId,reason:report.reason,createdAt:report.createdAt})) };
+}
+export async function reviewMarketReport(reportId, decision, { manualConfirmed = false, base } = {}) {
+  requireMarketModerator();
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  if (!validId(reportId) || !["dismiss","hide"].includes(decision) || manualConfirmed !== true)
+    fail("moderator_confirmation", "Requiere un expediente y confirmación manual.", 422);
+  return mutate(db=>{
+    const report=(db.marketReports||[]).find(item=>item.id===reportId);
+    if(!report || report.status!=="pending_review")
+      fail("report_missing", "Reporte pendiente no encontrado.", 404);
+    const business=db.users.flatMap(user=>user.businesses)
+      .find(item=>item.id===report.businessId);
+    const listing=business?.listings?.find(item=>item.id===report.listingId);
+    if(decision==="hide") {
+      if(!listing)fail("listing_missing","La publicación ya no existe.",404);
+      listing.visibility="owner_only";
+      listing.moderation="blocked";
+      listing.updatedAt=new Date().toISOString();
+    }
+    report.status=decision==="hide"?"actioned":"dismissed";
+    report.reviewedAt=new Date().toISOString();
+    return { reviewed:true,decision,listingHidden:decision==="hide" };
+  },base);
 }
