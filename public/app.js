@@ -192,11 +192,15 @@ function renderResult(item, index) {
   const url = safeUrl(item.url);
   if (!url) return null;
   const card = element("article", "result-card");
+  if(state.type==="all")card.classList.add("web-result");
   card.style.animationDelay = Math.min(index * .035, .5) + "s";
   const row = element("div", "source-row");
-  const avatar = element("span", "source-avatar", (item.source || "?").slice(0, 1).toUpperCase());
+  const avatar = element("span", "source-avatar",
+    (state.type==="all"?shortHost(url):item.source||"?").slice(0,1).toUpperCase());
   const labels = element("div");
-  append(labels, element("div", "source-label", item.source || "Fuente"), element("div", "source-url", displayResultUrl(url)));
+  append(labels,
+    element("div","source-label",state.type==="all"?shortHost(url):item.source||"Fuente"),
+    element("div","source-url",displayResultUrl(url)));
   row.append(avatar, labels);
   // General web results open the actual destination, like a conventional
   // SERP. The separate WAEWEB action keeps integrated browsing available.
@@ -247,6 +251,8 @@ function renderResult(item, index) {
   }
   const meta = element("div", "meta-line");
   if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
+  if (state.type==="all" && item.source)
+    meta.append(element("span","source-engine","Índice: "+item.source));
   meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Explorar dentro", () => openBrowser(url), "save-button"));
   const save = button(workspace.has(url) ? "◆ Guardado" : "◇ Guardar fuente", () => {
     const outcome = workspace.add(item);
