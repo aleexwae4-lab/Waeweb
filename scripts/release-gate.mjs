@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 export function assessVercelRelease(manifest, version) {
   const required = [
@@ -26,7 +28,7 @@ export function assessVercelRelease(manifest, version) {
   return { approved: blockers.length === 0, blockers, version, target: "vercel-public-web" };
 }
 
-const invoked = process.argv[1] && import.meta.url === new URL("file://" + process.argv[1]).href;
+const invoked = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 if (invoked) {
   const manifest = JSON.parse(await readFile(new URL("../release-readiness.json", import.meta.url), "utf8"));
   const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
