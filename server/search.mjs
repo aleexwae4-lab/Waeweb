@@ -309,7 +309,8 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
     sources: available,
     videoCoverage: selected==="videos"?{
       youtubeApi:available.includes("YouTube"),
-      webIndex:available.some(name=>/^(Brave|Google) · /.test(name)),
+      webIndex:available.some(name=>/^(Brave|Google) · /.test(name) &&
+        !name.endsWith(" no configurado")),
       providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length
     }:null,
     webCoverage: selected === "all"
