@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: WAEWEB Connect API
-  version: 1.0.0-rc.4
+  version: 1.0.0-rc.7
   description: >
     Opt-in server-to-server public web search and SSE. No remote Chromium,
     no browser-visible credentials and no production deployment.
@@ -54,6 +54,12 @@ components:
       properties:
         ok: {const: true}
         contract: {const: waeweb-connect/v1}
+        status:
+          type: string
+          enum: [complete, partial]
+          description: >
+            Complete means available sources answered, including zero hits.
+            Partial means at least one source failed or was not configured.
         query: {type: string}
         type: {type: string}
         results:
@@ -63,6 +69,10 @@ components:
         failedSources: {type: array, items: {type: string}}
         fetchedAt: {type: string, format: date-time}
         freshness: {type: string}
+        brief:
+          type: [object, "null"]
+          description: Bounded extractive source-attributed notes, never independent verification.
+        disclaimer: {type: string}
 paths:
   /api/connect/v1/status:
     get:
@@ -87,8 +97,9 @@ paths:
               schema: {$ref: "#/components/schemas/SearchOutput"}
         "401": {description: Invalid credentials}
         "422": {description: Rejected query}
-        "429": {description: Per-process admission limit}
-        "502": {description: Upstream unavailable}
+        "429": {description: Shared PostgreSQL per-client quota or concurrency admission}
+        "502": {description: Search operation failed}
+        "503": {description: No configured and responding sources; not a successful zero-hit search}
   /api/connect/v1/stream:
     post:
       summary: SSE ready, results/error, done; NOT remote browsing pixels
@@ -99,7 +110,7 @@ paths:
             schema: {$ref: "#/components/schemas/SearchInput"}
       responses:
         "200":
-          description: Server-sent events
+          description: Server-sent ready then results/error and terminal done (false for unavailable sources)
           content:
             text/event-stream:
               schema: {type: string}
