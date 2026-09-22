@@ -10,7 +10,8 @@ import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError, v
 import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
 import { billingConfig, createStripeCheckout, retrieveStripeSubscription, verifyStripeEvent, BillingError } from "./billing.mjs";
 import { MarketplaceError } from "./marketplace.mjs";
-import { accountsEnabled, listOwnerListings, addMarketListing, editMarketListing, setMarketListingVisibility, deleteMarketListing, getPublicMarketCatalog, browseMarketplace, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
+import { MarketplaceTrustError } from "./marketplace-trust.mjs";
+import { accountsEnabled, listOwnerListings, addMarketListing, editMarketListing, setMarketListingVisibility, deleteMarketListing, getPublicMarketCatalog, browseMarketplace, getMarketInquiries, sendMarketInquiry, reportMarketListing, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -124,7 +125,9 @@ export async function handler(req, res) {
   const catalogOwner = u.pathname.match(/^\/api\/businesses\/([0-9a-f-]{36})\/listings$/i);
   const catalogItem = u.pathname.match(/^\/api\/businesses\/([0-9a-f-]{36})\/listings\/([0-9a-f-]{36})(\/visibility)?$/i);
   const catalogPublic = u.pathname.match(/^\/api\/businesses\/public\/([0-9a-f-]{36})\/listings$/i);
-  if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname) && !businessCheckout && !catalogOwner)
+  const marketInquiries = u.pathname.match(/^\/api\/businesses\/([0-9a-f-]{36})\/inquiries$/i);
+  const marketInteraction = u.pathname.match(/^\/api\/marketplace\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/(inquiries|reports)$/i);
+  if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname) && !businessCheckout && !catalogOwner && !marketInteraction)
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (req.method === "PATCH" && !businessDelete && !businessEdit && !catalogItem) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (req.method === "DELETE" && !businessDelete && !catalogItem)
@@ -132,7 +135,7 @@ export async function handler(req, res) {
   if (u.pathname.startsWith("/api/")) {
     if (limited(req)) return write(res, 429, { error: "Demasiadas consultas. Intenta de nuevo en un minuto." }, { "retry-after": "60" });
     try {
-      if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile || businessCheckout || businessPromotion || catalogOwner || catalogItem || catalogPublic) {
+      if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile || businessCheckout || businessPromotion || catalogOwner || catalogItem || catalogPublic || marketInquiries || marketInteraction) {
         if (!accountsEnabled()) return write(res, 503, { error: "Cuentas desactivadas. Configura WAE_ACCOUNTS_ENABLED y WAE_ACCOUNTS_KEY en el servidor." });
         if (u.pathname === "/api/marketplace" && req.method === "GET") {
           return write(res,200,await browseMarketplace({
@@ -158,6 +161,15 @@ export async function handler(req, res) {
         }
         if (catalogItem && !catalogItem[3] && req.method === "DELETE")
           return write(res,200,await deleteMarketListing(req.headers.authorization,catalogItem[1],catalogItem[2]));
+        if (marketInquiries && req.method === "GET")
+          return write(res, 200, await getMarketInquiries(req.headers.authorization, marketInquiries[1]));
+        if (marketInteraction && req.method === "POST") {
+          const body = await jsonBody(req, 1100);
+          const result = marketInteraction[3] === "inquiries"
+            ? await sendMarketInquiry(req.headers.authorization, marketInteraction[1], marketInteraction[2], body)
+            : await reportMarketListing(req.headers.authorization, marketInteraction[1], marketInteraction[2], body);
+          return write(res, 201, result);
+        }
         if (u.pathname === "/api/promotions/search" && req.method === "GET") {
           if (!billingConfig()) return write(res, 200, { sponsored: [], label: "Patrocinado" });
           const q = u.searchParams.get("q") || "";
@@ -329,6 +341,7 @@ export async function handler(req, res) {
     } catch (error) {
       if (error instanceof BillingError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof MarketplaceError) return write(res,error.status,{error:error.message,code:error.code});
+      if (error instanceof MarketplaceTrustError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof AccountError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
       if (error instanceof VaultError) return write(res, 503, { error: error.message, code: error.code });
