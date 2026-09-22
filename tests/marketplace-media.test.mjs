@@ -12,7 +12,7 @@ import {
   registerAccount, addBusiness, updateBusinessVisibility,
   addMarketListing, setMarketListingVisibility, listOwnerListings,
   uploadMarketPhoto, getMarketPhotoLink, getPublicMarketPhotoLink,
-  removeMarketPhoto, deleteBusiness
+  removeMarketPhoto, deleteBusiness, inspectMarketMediaQueue, drainMarketMediaQueue, deleteMarketListing
 } from "../server/accounts.mjs";
 
 const media={origin:"https://storage.example.test",bucket:"wae-market-photos",
@@ -132,7 +132,9 @@ test("owner-only upload stages object, stores only key, blocks private public UR
       {code:"listing_missing"});
     const removed=await removeMarketPhoto(bearer,company.id,item.id,dir,{media,transport});
     assert.equal(removed.removed,true);
-    assert.equal(deletes,1);
+    assert.equal(removed.objectQueued,true);
+    assert.equal(deletes,0);
+    assert.equal((await inspectMarketMediaQueue(dir)).queued,1);
     assert.equal((await listOwnerListings(bearer,company.id,dir)).items[0].imageKey,null);
     await assert.rejects(()=>getMarketPhotoLink(bearer,company.id,item.id,dir,{media}),
       {code:"media_not_found"});
@@ -155,6 +157,63 @@ test("provider failure never leaves a photo reference in account record",async()
     assert.equal((await listOwnerListings(bearer,company.id,dir)).items[0].imageKey,undefined);
   }finally {await rm(dir,{recursive:true,force:true});}
 });
+
+test("encrypted journal survives photo replacement, delete listing and delete business; cleanup retries safely",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"wae-media-journal-"));
+  const previousAck=process.env.WAE_MARKET_MEDIA_CLEANUP_ACK;
+  const objects=new Set();
+  let failDelete=true;
+  const transport=async(url,request)=>{
+    const key=new URL(url).pathname;
+    if(request.method==="PUT"){objects.add(key);return {status:200};}
+    if(request.method==="DELETE"){
+      if(failDelete)return {status:503};
+      objects.delete(key);return {status:204};
+    }
+    throw Error("unexpected_method");
+  };
+  try {
+    const owner=await registerAccount({
+      name:"Negocio",email:"journal-owner@example.test",
+      password:"Safe-test-passphrase-2026-for-journal"
+    },dir);
+    const bearer="Bearer "+owner.token;
+    const business=await addBusiness(bearer,{
+      name:"Empresa",category:"Moda",city:"Zapopan"},dir);
+    const first=await addMarketListing(bearer,business.id,listing,dir);
+    await uploadMarketPhoto(bearer,business.id,first.id,{imageDataUrl},dir,{media,transport});
+    await uploadMarketPhoto(bearer,business.id,first.id,{imageDataUrl},dir,{media,transport});
+    assert.equal(objects.size,2);
+    assert.equal((await inspectMarketMediaQueue(dir)).queued,1);
+    const second=await addMarketListing(bearer,business.id,listing,dir);
+    await uploadMarketPhoto(bearer,business.id,second.id,{imageDataUrl},dir,{media,transport});
+    await deleteMarketListing(bearer,business.id,second.id,dir);
+    await deleteBusiness(bearer,business.id,dir);
+    assert.equal((await inspectMarketMediaQueue(dir)).queued,3);
+    const envelope=await readFile(join(dir,"accounts.encrypted.json"),"utf8");
+    for(const key of objects)assert.equal(envelope.includes(key),false);
+    await assert.rejects(()=>drainMarketMediaQueue({base:dir,media,transport,
+      confirm:true,now:Date.now()+360000}),{code:"media_cleanup_not_authorized"});
+    process.env.WAE_MARKET_MEDIA_CLEANUP_ACK="reviewed-object-deletions";
+    const failed=await drainMarketMediaQueue({base:dir,media,transport,confirm:true,
+      now:Date.now()+360000});
+    assert.equal(failed.failed,3);
+    assert.equal(failed.remaining,3);
+    assert.equal(objects.size,3);
+    failDelete=false;
+    const completed=await drainMarketMediaQueue({base:dir,media,transport,confirm:true,
+      now:Date.now()+360000});
+    assert.equal(completed.removed,3);
+    assert.equal(completed.remaining,0);
+    assert.equal(objects.size,0);
+    assert.equal((await inspectMarketMediaQueue(dir)).queued,0);
+  } finally {
+    if(previousAck===undefined)delete process.env.WAE_MARKET_MEDIA_CLEANUP_ACK;
+    else process.env.WAE_MARKET_MEDIA_CLEANUP_ACK=previousAck;
+    await rm(dir,{recursive:true,force:true});
+  }
+});
+
 test.after(()=>{
   for(const [key,val] of Object.entries(prev)){
     if(val===undefined)delete process.env[key];else process.env[key]=val;
