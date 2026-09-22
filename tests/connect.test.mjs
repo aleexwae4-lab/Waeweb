@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { handler } from "../server/index.mjs";
 import { connectConfig, authorizeConnect, connectRequest, handleConnect, CONNECT_VERSION } from "../server/connect.mjs";
+import { connectAdmissionReady, connectAdmissionConfig } from "../server/connect-postgres.mjs";
 
 const clients={
   inteligenciauniversal:"alpha-test-"+ "a".repeat(40),
@@ -111,4 +112,19 @@ test("Connect is correctly mounted in WAEWEB Node routing, not a public search r
     const h=await fetch(url+"/api/health");
     assert.equal(h.status,200);
   }finally{await new Promise(resolve=>server.close(resolve));}
+});
+
+test("production, Render and Vercel Connect require verified shared admission rather than per-process rate counters",()=>{
+  const base={
+    WAE_CONNECT_ENABLED:"true",
+    WAE_CONNECT_CLIENTS_JSON:JSON.stringify(clients)
+  };
+  for(const prod of [{NODE_ENV:"production"},{VERCEL:"1"},{RENDER:"true"},{RENDER_SERVICE_ID:"srv-test"}]){
+    assert.equal(connectAdmissionReady({...base,...prod}),false);
+    assert.equal(connectConfig({...base,...prod}),null);
+  }
+  assert.equal(connectAdmissionReady({...base,NODE_ENV:"test"}),true);
+  assert.equal(connectAdmissionReady({...base,WAE_CONNECT_ADMISSION_MODE:"unknown"}),false);
+  assert.equal(connectAdmissionReady({...base,WAE_CONNECT_ADMISSION_MODE:"postgres"}),false);
+  assert.equal(connectAdmissionConfig({...base,WAE_CONNECT_ADMISSION_MODE:"postgres"}),null);
 });
