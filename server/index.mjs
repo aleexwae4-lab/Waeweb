@@ -99,7 +99,7 @@ export async function handler(req, res) {
           if (q.length > 180) return write(res, 400, { error: "La consulta supera 180 caracteres." });
           const data = searchIndex(q, records);
           return write(res, data.error ? 400 : 200, {
-            ...data, persistence: "local_disk_per_vault",
+            ...data, persistence: "encrypted_local_disk_per_vault",
             warning: "Búsqueda en el espacio autorizado. No representa un índice global de Internet."
           });
         }
