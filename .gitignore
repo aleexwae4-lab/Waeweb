@@ -4,3 +4,7 @@ node_modules/
 !.env.example
 coverage/
 .DS_Store
+
+# Local private vaults; NEVER commit indexed content or auth secrets
+.wae-private-vaults/
+*.vault.json
