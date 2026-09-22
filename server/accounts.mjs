@@ -227,7 +227,8 @@ export async function addBusiness(header, data, base) {
     const user = userWithSession(db, header);
     if (user.businesses.length >= MAX_BUSINESSES) fail("business_limit", "Límite de 20 negocios por cuenta.", 409);
     const business = { id: randomUUID(), ...values, status: "self_declared",
-      visibility: "owner_only", createdAt: new Date().toISOString() };
+      visibility: data.publish === true ? "public" : "owner_only",
+      createdAt: new Date().toISOString() };
     user.businesses.push(business);
     return business;
   }, base);
@@ -242,4 +243,37 @@ export async function deleteBusiness(header, id, base) {
     if (user.businesses.length === old) fail("business_missing", "Negocio no encontrado en tu cuenta.", 404);
     return { ok: true };
   }, base);
+}
+
+export async function updateBusinessVisibility(header, id, published, base) {
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id) || typeof published !== "boolean") {
+    fail("invalid_business", "La visibilidad del negocio debe ser un valor booleano.");
+  }
+  return mutate(db => {
+    const user = userWithSession(db, header);
+    const business = user.businesses.find(item => item.id === id);
+    if (!business) fail("business_missing", "Negocio no encontrado en tu cuenta.", 404);
+    business.visibility = published ? "public" : "owner_only";
+    return business;
+  }, base);
+}
+export async function listPublicBusinesses(query = "", base) {
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  if (typeof query !== "string" || query.length > 100) fail("invalid_query", "Consulta de negocio demasiado larga.");
+  const phrase = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const db = await readDb(base || basePath());
+  const matching = db.users.flatMap(user => user.businesses)
+    .filter(business => business.visibility === "public" && (
+      !phrase || [business.name, business.category, business.city, business.description]
+        .join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(phrase)));
+  return {
+    businesses: matching.slice(0, 25).map(business => ({
+      id: business.id, name: business.name, category: business.category, city: business.city,
+      description: business.description, website: business.website,
+      verification: "self_declared"
+    })),
+    resultCount: Math.min(matching.length, 25),
+    limitedTo: 25, disclaimer: "Fichas publicadas voluntariamente y no verificadas por WAE WEB."
+  };
 }
