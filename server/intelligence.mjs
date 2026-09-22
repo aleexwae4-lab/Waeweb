@@ -88,11 +88,29 @@ export function scoreResult(item, query, type = "all") {
   }
   return score;
 }
+// Domain diversity is applied only to general web results and only when
+// multiple hosts exist. It never drops pages or changes explicit site: searches.
+export function diversifyWebResults(items, {limit=12,maxPerHost=2}={}) {
+  const counts=new Map(), featured=[], deferred=[];
+  for(const item of items){
+    let host="";
+    try{host=new URL(item.url).hostname.toLowerCase().replace(/^www\./,"");}catch{}
+    const count=counts.get(host)||0;
+    if(featured.length<limit && count<maxPerHost){
+      featured.push(item);
+      counts.set(host,count+1);
+    }else deferred.push(item);
+  }
+  return [...featured,...deferred];
+}
 export function rankResults(items, spec, type = "all") {
-  return items.filter(item => eligible(item, spec))
+  const ranked=items.filter(item => eligible(item, spec))
     .map((item, i) => ({ ...item, _score: scoreResult(item, spec.query, type), _order: i }))
     .sort((a, b) => b._score - a._score || a._order - b._order)
     .map(({ _score, _order, ...item }) => item);
+  return type==="all" && !spec.site && !spec.source
+    ? diversifyWebResults(ranked)
+    : ranked;
 }
 function extractSentence(text) {
   const normalized = String(text || "").replace(/\s+/g, " ").trim();
