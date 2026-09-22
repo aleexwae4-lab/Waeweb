@@ -64,8 +64,9 @@ export function dedupeVideoResults(items){
   const seen=new Set();
   return items.filter(item=>{
     const identity=videoIdentity(item.url);
-    const key=identity?.platform+"|"+identity?.videoId ||
-      (typeof item.url==="string"?item.url:"");
+    const key=identity
+      ?identity.platform+"|"+identity.videoId
+      :(typeof item.url==="string"?item.url:"");
     if(!key||seen.has(key))return false;
     seen.add(key);
     return true;
