@@ -109,3 +109,36 @@
 /* Local cover thumbnail: author-provided file stays in this browser. */
 .book-cover-placeholder.has-cover{background-color:#111b30;background-size:cover;background-position:center;background-repeat:no-repeat}
 .book-cover-placeholder.has-cover > *{opacity:0}
+
+/* WAEWEB LIBROS · Premium editorial finish. Preserve honest publication
+   availability and the local-only author studio workflow. */
+.book-page{background:radial-gradient(ellipse 95% 30% at 50% -8%,#163158 0%,transparent 76%),#040811;color:#f4f8ff}
+.book-topbar{border-bottom:1px solid rgba(151,184,238,.13)}
+.book-topnav a{color:#d1dff1}
+.book-topnav a:focus-visible,.book-page button:focus-visible,.book-page input:focus-visible,.book-page select:focus-visible{outline:3px solid #a1ceff;outline-offset:3px}
+.book-topnav .book-top-cta{min-height:44px;display:inline-flex;align-items:center;background:#1c385c;border-color:rgba(144,189,255,.47);color:#eef5ff}
+.book-hero{position:relative}
+.book-hero:before{content:"";pointer-events:none;position:absolute;inset:7% 2% 0;background:radial-gradient(ellipse at 72% 47%,rgba(48,105,189,.16),transparent 54%);z-index:0}
+.book-hero h1{color:#f5f9ff}
+.book-hero-copy>p{color:#bfd0e8}
+.book-eyebrow{color:#b6d2ff}
+.book-primary{background:linear-gradient(135deg,#c5e0ff,#89b9ff);box-shadow:0 11px 35px rgba(62,120,218,.2)}
+.book-secondary{background:#152c49;border-color:rgba(154,189,243,.4)}
+.book-trustbar{border-color:rgba(148,184,237,.2);color:#c9d8ee}
+.book-section-heading h2,.book-split-section h2{letter-spacing:-.05em;color:#f5f9ff}
+.book-section-heading p,.book-split-section>div>p{color:#bbcee8}
+.book-filter-row input,.book-filter-row select{min-height:48px;font-size:16px;background:#0b1c32;color:#f3f8ff;border-color:rgba(156,191,244,.35)}
+.book-catalog-empty{background:linear-gradient(150deg,#10213a,#081527);border-color:rgba(145,188,248,.34);box-shadow:0 18px 52px rgba(0,7,23,.4)}
+.book-cover-front{background:linear-gradient(155deg,#f1f4ff 0%,#b8d3f9 57%,#779cd1);color:#102441;box-shadow:16px 23px 55px rgba(0,0,0,.48),inset 6px 0 rgba(255,255,255,.36)}
+.book-cover-back{background:linear-gradient(135deg,#1f457d,#293b74)}
+.book-floating-tag{background:#132d4a;border-color:#8db9f48c}
+.book-preview-card{border-color:rgba(148,182,240,.3);box-shadow:0 15px 55px rgba(0,7,24,.42)}
+.book-bottom-cta{background:radial-gradient(ellipse 65% 80% at 50% 100%,rgba(31,81,156,.15),transparent 80%)}
+@media(max-width:580px){
+  .book-page .book-hero{padding-top:42px}
+  .book-hero h1{font-size:clamp(38px,11vw,49px)}
+  .book-topnav .book-top-cta{min-height:44px}
+  .book-primary,.book-secondary{min-height:46px}
+  .book-cover-front{filter:none}
+}
+@media(prefers-reduced-motion:reduce){.book-page *, .book-page *:before,.book-page *:after{animation:none!important;transition:none!important}}
