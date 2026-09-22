@@ -28,7 +28,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all" };
 let activeDirections=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
@@ -207,10 +207,14 @@ function renderResult(item, index) {
   row.append(avatar, labels);
   // General web results open the actual destination, like a conventional
   // SERP. The separate WAEWEB action keeps integrated browsing available.
+  const directVideo=state.type==="videos" &&
+    (item.platform==="YouTube"||item.platform==="TikTok");
   const title = state.type === "all"
     ? external(url,item.title,"result-title web-result-title")
-    : button(item.title, () => openBrowser(url), "result-title browser-result-title");
-  title.title = state.type === "all"
+    : directVideo
+      ? external(url,item.title,"result-title browser-result-title")
+      : button(item.title, () => openBrowser(url), "result-title browser-result-title");
+  title.title = state.type === "all" || directVideo
     ? "Abrir sitio original: "+shortHost(url)
     : "Navegar en WAEWEB: "+shortHost(url);
   if ((state.type === "books" || state.type === "videos" || item.source === "Open Library") && safeUrl(item.image)) {
@@ -283,7 +287,7 @@ function renderResult(item, index) {
   if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
   if (state.type==="all" && item.source)
     meta.append(element("span","source-engine","Índice: "+item.source));
-  meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Explorar dentro", () => openBrowser(url), "save-button"));
+  if(!directVideo)meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Explorar dentro", () => openBrowser(url), "save-button"));
   const save = button(workspace.has(url) ? "◆ Guardado" : "◇ Guardar fuente", () => {
     const outcome = workspace.add(item);
     if (outcome.ok) {
@@ -513,7 +517,14 @@ function renderData(data) {
   options.forEach(name => sourceFilter.add(new Option(name, name)));
   if (!options.includes(state.selectedSource)) state.selectedSource = "";
   sourceFilter.value = state.selectedSource;
-  state.results = state.selectedSource ? allResults.filter(item => item.source === state.selectedSource) : allResults;
+  const sourceResults = state.selectedSource
+    ? allResults.filter(item => item.source === state.selectedSource):allResults;
+  if(state.type==="videos" && state.videoPlatform!=="all" &&
+    !sourceResults.some(item=>(item.platform||"Web")===state.videoPlatform))
+    state.videoPlatform="all";
+  state.results=state.type==="videos" && state.videoPlatform!=="all"
+    ?sourceResults.filter(item=>(item.platform||"Web")===state.videoPlatform)
+    :sourceResults;
   document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
   // Weather races with federated search. A late result must not erase an early card.
@@ -537,6 +548,23 @@ function renderData(data) {
     if (grid.children.length) resultsContainer.append(grid);
   } else {
     if(state.type==="videos" && state.query){
+      const platforms=[...new Set(sourceResults.map(item=>item.platform||"Web"))];
+      if(platforms.length){
+        const controls=element("nav","video-platform-filters");
+        controls.setAttribute("aria-label","Filtrar vídeos por plataforma");
+        for(const platform of ["all","YouTube","TikTok","Wikimedia Commons","Web"]){
+          if(platform!=="all"&&!platforms.includes(platform))continue;
+          const amount=platform==="all"?sourceResults.length
+            :sourceResults.filter(item=>(item.platform||"Web")===platform).length;
+          const label=platform==="all"?"Todos":platform;
+          const control=button(label+" · "+amount,()=>{
+            state.videoPlatform=platform;renderData(state.data);
+          },"video-platform-filter");
+          control.setAttribute("aria-pressed",String(state.videoPlatform===platform));
+          controls.append(control);
+        }
+        resultsContainer.append(controls);
+      }
       const links=element("nav","video-platform-links");
       links.setAttribute("aria-label","Búsqueda directa de clips");
       links.append(
@@ -574,15 +602,25 @@ function renderData(data) {
   }
   // A provider can return a URL without a usable image thumbnail. In that
   // case the gallery is empty and must still show the honest fallback.
+  // Navigation/filter controls are not clips: an empty video query must
+  // still show its real zero-result state and direct-platform alternatives.
   const hasResults=state.type==="images"||state.type==="businesses"
-    ? resultsContainer.children.length>0
-    : state.results.some(item=>safeUrl(item.url));
+    ?resultsContainer.children.length>0
+    :state.results.some(item=>safeUrl(item.url));
   if (!hasResults) {
     const detail = data.warning || data.message ||
       (state.type === "news" || state.type === "videos"
         ? "No hay resultados recuperados de los proveedores disponibles para esta consulta. Prueba otros términos."
         : "No hubo coincidencias de las fuentes disponibles. Modifica los términos e inténtalo nuevamente.");
     resultsContainer.append(renderSearchFallback(state.query,detail));
+  }
+  if(state.type==="videos" && data.videoCoverage && !data.videoCoverage.youtubeApi &&
+    !data.videoCoverage.webIndex){
+    const notice=element("aside","video-coverage-notice");
+    notice.setAttribute("role","status");
+    notice.append(element("strong","","Cobertura de plataformas limitada"),
+      element("p","","Los índices de YouTube, Brave y Google no están disponibles en esta consulta. Solo aparecen clips recuperados de fuentes que sí respondieron. Puedes continuar en YouTube o TikTok mediante sus botones de búsqueda."));
+    resultsContainer.prepend(notice);
   }
   if(state.type==="all" && data.webCoverage==="limited"){
     const notice=element("aside","web-coverage-notice");
@@ -1013,7 +1051,7 @@ async function performSearch(query, type = "all", push = true) {
   state.query = q; state.type = type;
   state.selectedSource = "";
   state.visibleCount = 10;
-  state.page = 1; state.loadingMore = false;
+  state.page = 1; state.loadingMore = false; state.videoPlatform = "all";
   hero.hidden = true; resultsView.hidden = false;
   heroInput.value = q; resultsInput.value = q; setTab(type);
   if (push) updateAddress(q, type);
@@ -1146,6 +1184,7 @@ document.querySelectorAll("[data-type]").forEach(tab => tab.addEventListener("cl
 byId("copy-search").addEventListener("click", () => copyText(location.href));
 sourceFilter.addEventListener("change", () => {
   state.selectedSource = sourceFilter.value;
+  state.videoPlatform="all";
   if (state.data) renderData(state.data);
 });
 byId("library-button").addEventListener("click", () => { drawLibrary(); byId("library-dialog").showModal(); });
