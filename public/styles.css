@@ -220,3 +220,33 @@
   padding: 10px 16px; border: 1px solid #bd8b4c; border-radius: 12px;
   background: #241a0e; color: #ffdc9a; font-size: .84rem;
   line-height: 1.5; text-align: center; }
+
+
+/* Search-integrated web pane: the result list and URL share one work area. */
+.unified-search-hint{color:#99accd;font-size:12px;line-height:1.65;max-width:520px;margin:14px auto 0}
+.results-main .browser-view{width:100%;max-width:100%;margin:0 0 24px;padding:0;scroll-margin-top:110px}
+.results-main .browser-heading{padding:0 0 9px;align-items:center}
+.results-main .browser-heading h2{font-size:clamp(16px,3vw,22px);margin:6px 0 0;letter-spacing:-.025em}
+.results-main .browser-disclaimer{margin:2px 0 12px}
+.results-main .browser-privacy{margin:10px 2px;font-size:11px}
+.results-main .browser-stage{background:#101827;min-height:clamp(290px,56vh,650px)}
+.results-main .browser-frame{height:clamp(290px,56vh,650px)}
+.results-main .browser-stage.is-empty{min-height:150px;background:linear-gradient(145deg,#152238,#101729)}
+.results-main .browser-stage.is-empty .browser-empty{min-height:150px;padding:18px 12px;color:#e5efff}
+.results-main .browser-empty>span{font-size:26px;color:#a4c5ff}
+.results-main .browser-empty h2{font-size:18px;margin:3px 0}
+.results-main .browser-empty p{font-size:12px;margin:5px 0;color:#b7c9e5}
+.results-main .browser-chrome{border-radius:16px 16px 0 0}
+.browser-view[hidden],.browser-frame[hidden],.browser-empty[hidden],
+.tab[hidden],#account-auth[hidden],#account-unavailable[hidden]{display:none!important}
+@media(max-width:550px){
+ .unified-search-hint{font-size:11px;padding:0 8px}
+ .results-main .browser-view{scroll-margin-top:95px}
+ .results-main .browser-heading{gap:6px}
+ .results-main .browser-disclaimer{font-size:11px;line-height:1.4}
+ .results-main .browser-stage,.results-main .browser-frame{min-height:310px;height:clamp(310px,52vh,520px)}
+ .results-main .browser-stage.is-empty,.results-main .browser-stage.is-empty .browser-empty{min-height:150px;height:auto}
+ .results-main .browser-form{min-width:0}
+ .results-main .browser-form input{min-width:0;font-size:12px}
+ .results-main .browser-tabs{max-width:100%}
+}
