@@ -62,7 +62,7 @@
             <div class="statsbar"><p id="result-stats" role="status" aria-live="polite"></p><div class="results-controls"><label class="sr-only" for="source-filter">Filtrar por fuente</label><select id="source-filter" class="source-filter" aria-label="Filtrar por fuente"><option value="">Todas las fuentes</option></select><button type="button" id="copy-search" class="small-action" title="Copiar enlace de búsqueda">⧉ Compartir búsqueda</button></div></div>
             <section id="reader-panel" class="reader-panel" hidden aria-label="Lector de páginas web">
               <div class="reader-heading"><h2>⌕ WAE Web Reader</h2><span class="tag">Bóveda privada · disco local</span><button id="vault-connect" type="button" class="link-button">Conectar bóveda</button><button id="vault-disconnect" type="button" class="link-button" hidden>Desconectar</button></div>
-              <p>Lee páginas públicas HTTPS con robots.txt y guarda el texto en tu bóveda local autenticada. Esta edición no cifra los datos en disco ni sincroniza dispositivos.</p>
+              <p>Lee páginas públicas HTTPS con robots.txt y guarda el texto en tu bóveda local autenticada. Los archivos de la bóveda se cifran con AES-256-GCM en el servidor; la biblioteca local del navegador es independiente y no se sincroniza.</p>
               <form id="reader-form" class="reader-form"><label class="sr-only" for="reader-url">URL pública HTTPS</label><input id="reader-url" type="url" placeholder="https://ejemplo.org/articulo" maxlength="1800" required><button type="submit" class="link-button">Leer e indexar</button></form>
               <p id="reader-status" role="status" aria-live="polite"></p>
               <div id="reader-output"></div>
@@ -90,7 +90,7 @@
     <p>Motor de búsqueda federado en desarrollo. Consulta Wikipedia, Crossref, OpenAlex, Open Library, Wikimedia Commons y Open-Meteo. Google Programmable Search requiere configuración del servidor.</p>
     <p>Una fuente citada no implica que todas sus afirmaciones hayan sido verificadas independientemente. Las noticias y videos no se inventan cuando el proveedor no está configurado.</p>
     <p>El panorama de investigación reúne fragmentos atribuidos, pero no es una respuesta generada por IA ni una verificación independiente. Los filtros site:, after:, before:, source:, "frase" y -término operan sobre los resultados obtenidos. La biblioteca es local.</p>
-    <p>El lector propio es opt-in: únicamente páginas públicas HTTPS, con validación DNS, límites de tamaño y robots.txt. Las páginas se guardan en disco por bóveda autenticada, sin cifrado en reposo; requiere entorno con HTTPS para uso remoto. Ninguna página remota recibe permisos para ejecutar código en WAE WEB.</p>
+    <p>El lector propio es opt-in: únicamente páginas públicas HTTPS, con validación DNS, límites de tamaño y robots.txt. Las páginas se guardan cifradas en disco por bóveda autenticada con AES-256-GCM. Los respaldos son offline y cifrados. Se necesita TLS para acceso remoto, claves seguras y almacenamiento duradero. Ninguna página remota recibe permisos para ejecutar código en WAE WEB.</p>
     <p>Este desarrollo no está conectado a Vercel.</p>
   </dialog>
 </body>
