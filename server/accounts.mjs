@@ -10,7 +10,7 @@ import { createListing, validateListing, publicCatalog, searchMarketplace, valid
 import { mediaConfig, mediaSelected, decodeMarketPhoto, makeMediaKey, putMarketImage, deleteMarketImage, presignedMarketImage, ownerImageUrl, MarketMediaError } from "./marketplace-media.mjs";
 import { validId, validateInquiry, validateReport, newInquiry, newReport, publicInquiryReceipt, MarketplaceTrustError } from "./marketplace-trust.mjs";
 import { queueMediaDeletion, pendingMedia, referencedMedia, mediaJournalSummary, mediaReferenceManifest, MediaJournalError } from "./marketplace-lifecycle.mjs";
-import { probeMediaReferences, verifyMediaIntegrity } from "./marketplace-recovery.mjs";
+import { probeMediaReferences } from "./marketplace-recovery.mjs";
 import { auditMediaDigests } from "./marketplace-integrity-audit.mjs";
 
 const scrypt = promisify(scryptCb);
