@@ -40,7 +40,9 @@ test("AES-256-GCM round-trip random IV and AAD reject wrong key, wrong vault and
   const bytes = Buffer.from(a.ciphertext, "base64");
   bytes[0] ^= 1;
   assert.throws(() => openVaultEnvelope("org_alpha", { ...a, ciphertext: bytes.toString("base64") }), { code: "decrypt_failed" });
-  assert.throws(() => openVaultEnvelope("org_alpha", { ...a, iv: a.iv.replace(/.$/, "x") }), EncryptionError);
+  const modifiedIv = Buffer.from(a.iv, "base64");
+  modifiedIv[0] ^= 1; // Always modify the IV bytes: replacing a random final base64 character can be a no-op.
+  assert.throws(() => openVaultEnvelope("org_alpha", { ...a, iv: modifiedIv.toString("base64") }), EncryptionError);
 });
 test("legacy plaintext v1 fails closed without destructive automatic migration", async () => {
   const base = await mkdtemp(join(tmpdir(), "wae-legacy-"));
