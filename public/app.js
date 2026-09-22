@@ -14,6 +14,8 @@ const readerStatus = byId("reader-status");
 const readerOutput = byId("reader-output");
 let readerEnabled = false;
 let readerBusy = false;
+let vaultToken = null;
+const vaultDialog = byId("vault-dialog");
 const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
@@ -69,12 +71,64 @@ function updateAddress(query, type) {
   u.search = new URLSearchParams({ q: query, type }).toString();
   history.pushState({ query, type }, "", u);
 }
-async function getJSON(path, signal) {
-  const response = await fetch(path, { signal, headers: { accept: "application/json" } });
+async function getJSON(path, signal, request = {}) {
+  const headers = { accept: "application/json", ...request.headers };
+  if (path.startsWith("/api/index/") || path === "/api/read") {
+    if (!vaultToken) throw new Error("Conecta una bóveda autorizada antes de consultar el índice.");
+    headers.authorization = "Bearer " + vaultToken;
+  }
+  const response = await fetch(path, {
+    method: request.method || "GET", body: request.body,
+    signal, headers, cache: "no-store", credentials: "omit"
+  });
   const data = await response.json();
+  if (response.status === 401) {
+    vaultToken = null;
+    updateVaultUI();
+    throw new Error("Credencial inválida o revocada. Conecta tu bóveda nuevamente.");
+  }
   if (!response.ok) throw new Error(data.error || "El servicio no respondió.");
   return data;
 }
+function updateVaultUI() {
+  byId("vault-connect").hidden = Boolean(vaultToken);
+  byId("vault-disconnect").hidden = !vaultToken;
+  if (readerEnabled) readerStatus.textContent = vaultToken
+    ? "Bóveda conectada en esta pestaña. El índice se guarda en el disco del servidor."
+    : "Conecta tu bóveda para habilitar lectura e índice privado.";
+}
+function openVaultDialog() {
+  if (!readerEnabled) { readerStatus.textContent = "Lector desactivado o sin bóvedas configuradas."; return; }
+  byId("vault-status").textContent = "";
+  vaultDialog.showModal();
+}
+byId("vault-connect").addEventListener("click", openVaultDialog);
+byId("vault-disconnect").addEventListener("click", () => {
+  vaultToken = null; byId("vault-token").value = "";
+  readerOutput.replaceChildren();
+  state.data = null;
+  resultsContainer.replaceChildren();
+  answer.replaceChildren();
+  updateVaultUI();
+});
+byId("vault-close").addEventListener("click", () => vaultDialog.close());
+byId("vault-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const candidate = byId("vault-token").value;
+  if (candidate.length < 32) { byId("vault-status").textContent = "Se requiere un token de al menos 32 caracteres."; return; }
+  vaultToken = candidate;
+  byId("vault-token").value = "";
+  try {
+    await getJSON("/api/index/search?q=wae");
+    updateVaultUI();
+    vaultDialog.close();
+    if (state.type === "index" && state.query) performSearch(state.query, "index", false);
+  } catch (error) {
+    vaultToken = null;
+    updateVaultUI();
+    byId("vault-status").textContent = error.message;
+  }
+});
 function formatDate(value) {
   if (!value) return "";
   const d = new Date(value);
@@ -352,9 +406,14 @@ async function performSearch(query, type = "all", push = true) {
     const url = type === "index"
       ? "/api/index/search?q=" + encodeURIComponent(q)
       : "/api/search?q=" + encodeURIComponent(q) + "&type=" + encodeURIComponent(type);
+    if (type === "index" && !vaultToken) {
+      resultsContainer.replaceChildren(stateCard("Índice privado", "Conecta tu bóveda para buscar documentos autorizados."));
+      openVaultDialog();
+      return;
+    }
     const data = await getJSON(url, signal);
     if (type === "index") {
-      data.sources = ["Índice WAE · memoria temporal"];
+      data.sources = ["Índice WAE · bóveda autenticada"];
       data.failedSources = [];
       data.fetchedAt = new Date().toISOString();
     }
@@ -372,7 +431,7 @@ function showReadDocument(data) {
   const card = element("article", "reader-document");
   append(card, element("h3", "", data.title),
     element("p", "reader-note", "Fuente recuperada: " + data.url),
-    element("p", "reader-note", "Huella SHA-256: " + data.fingerprint + " · Índice: " + data.indexSize + " documento(s) · temporal"));
+    element("p", "reader-note", "Huella SHA-256: " + data.fingerprint + " · Índice: " + data.indexSize + " documento(s) · bóveda persistente"));
   const excerpt = element("p", "reader-content", data.text);
   card.append(excerpt);
   const actions = element("div", "answer-actions");
@@ -390,16 +449,19 @@ function showReadDocument(data) {
 }
 async function requestRead(url) {
   if (readerBusy) { readerStatus.textContent = "Hay una lectura en curso."; return; }
-  if (!readerEnabled) { readerStatus.textContent = "Activa WAE_READER_ENABLED=true en el servidor local para utilizar el lector."; return; }
+  if (!readerEnabled) { readerStatus.textContent = "Activa el lector y configura bóvedas en el servidor local."; return; }
+  if (!vaultToken) { readerStatus.textContent = "Conecta tu bóveda primero."; openVaultDialog(); return; }
   readerBusy = true;
   readerPanel.hidden = false;
   readerPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   readerStatus.textContent = "Validando DNS y robots.txt, recuperando texto público…";
   readerOutput.replaceChildren();
   try {
-    const data = await getJSON("/api/read?url=" + encodeURIComponent(url));
+    const data = await getJSON("/api/read", undefined, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url })
+    });
     showReadDocument(data);
-    readerStatus.textContent = "Documento incorporado al índice temporal.";
+    readerStatus.textContent = "Documento guardado en la bóveda autorizada.";
   } catch (error) {
     readerStatus.textContent = error.message || "No se pudo leer la página.";
   } finally { readerBusy = false; }
@@ -415,7 +477,7 @@ async function loadReaderCapability() {
     const info = await getJSON("/api/capabilities");
     readerEnabled = info.readerEnabled === true;
     readerPanel.hidden = !readerEnabled;
-    if (readerEnabled) readerStatus.textContent = "Lector seguro habilitado. El índice se pierde al reiniciar el servidor.";
+    if (readerEnabled) updateVaultUI();
   } catch {
     readerEnabled = false;
     readerPanel.hidden = true;
