@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createBrowserState, normalizeBrowserUrl, MAX_BROWSER_TABS, MAX_BROWSER_HISTORY } from "../public/browser-core.js";
+import { createBrowserState, normalizeBrowserUrl, browserInputTarget, MAX_BROWSER_TABS, MAX_BROWSER_HISTORY } from "../public/browser-core.js";
 
 test("Browser Core resolves HTTPS domains and preserves ordinary secure paths", () => {
   assert.equal(normalizeBrowserUrl("example.org"), "https://example.org/");
@@ -55,4 +55,12 @@ test("Browser UI and HTML keep third party content isolated and provide escape h
   assert.doesNotMatch(browser, /allow-same-origin/);
   assert.match(browser, /referrerPolicy = "no-referrer"/);
   assert.match(html, /algunos sitios impiden esta vista/i);
+});
+
+test("Browser omnibox searches natural language and navigates explicit domains", () => {
+  assert.deepEqual(browserInputTarget("inteligencia artificial"), {kind:"search",value:"inteligencia artificial"});
+  assert.deepEqual(browserInputTarget("clima en Guadalajara"), {kind:"search",value:"clima en Guadalajara"});
+  assert.equal(browserInputTarget("openai.com").kind, "url");
+  assert.equal(browserInputTarget("https://example.org/docs").value, "https://example.org/docs");
+  assert.equal(browserInputTarget("javascript:alert(1)").kind, "invalid");
 });
