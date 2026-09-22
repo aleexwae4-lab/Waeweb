@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC17 read-only signed HEAD audit checks presence and size of private objects referenced by encrypted PostgreSQL. Does NOT verify bytes, backups, real IAM, provider inventory, joint restore, versioning or RPO/RTO. HOLD.",
+      "reason": "RC18 stores SHA-256+byte length atomically with PostgreSQL-encrypted media references and supports operator-only bounded GET integrity auditing in CI with synthetic S3. Does not prove real provider, correct backup, historical photos, joint PostgreSQL+bucket restore, versioning or RPO/RTO. HOLD.",
       "evidence": ""
     },
     {
@@ -41,7 +41,7 @@
     {
       "id": "marketplace",
       "status": "blocked",
-      "reason": "RC17 read-only object presence audit extends RC16 lifecycle journal. Missing real provider certification, orphan inventory, object integrity, PostgreSQL+bucket restore, legacy migration, E2E mobile, privacy, payments and external security. HOLD."
+      "reason": "RC18 encrypted JPEG digest and private read-only byte check extend RC17 HEAD and RC16 cleanup journal. Still missing real provider validation, orphan inventory, recoverable objects and joint restore, legacy migration, E2E mobile, privacy, monetization and security certification. HOLD."
     }
   ]
 }
