@@ -8,3 +8,8 @@ coverage/
 # Local private vaults; NEVER commit indexed content or auth secrets
 .wae-private-vaults/
 *.vault.json
+
+# Encrypted backups and transient local storage; keep them out of source control
+.wae-private-backups/
+*.backup.json
+*.tmp
