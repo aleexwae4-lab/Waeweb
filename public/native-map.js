@@ -39,6 +39,14 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
   root.append(toolbar,area,details,footer);
   let center={latitude:23.6,longitude:-102.5},level=0,point=null,geometry=null,label="",disposed=false,streetsEnabled=true;
   let places=[],selectedIndex=-1;
+  // Keep raster elements alive across drag and zoom; recreating every SVG image
+  // on each pointer move causes flashes and repeated requests on mobile.
+  const rasterCache=new Map();
+  let drawFrame=0;
+  function scheduleDraw(){
+    if(drawFrame||disposed)return;
+    drawFrame=requestAnimationFrame(()=>{drawFrame=0;draw();});
+  }
   const spans=[{lat:40,lon:78},{lat:14,lon:28},{lat:4.5,lon:9},{lat:1.4,lon:2.8},{lat:.4,lon:.8},{lat:.1,lon:.2},{lat:.025,lon:.05}];
   function project(lon,lat){
     const span=spans[level];
@@ -68,12 +76,24 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
     bg.setAttribute("fill","url(#wae-map-gradient)");svg.append(bg);
     if(streetsEnabled){
       for(const tile of visibleStreetTiles(center,spans[level])){
-        const image=el("image");
-        image.setAttribute("href",tile.url);
+        let image=rasterCache.get(tile.url);
+        if(!image){
+          image=el("image");
+          image.setAttribute("href",tile.url);
+          image.setAttribute("preserveAspectRatio","none");
+          image.setAttribute("referrerpolicy","strict-origin-when-cross-origin");
+          rasterCache.set(tile.url,image);
+        }
         for(const prop of ["x","y","width","height"])image.setAttribute(prop,String(tile[prop]));
-        image.setAttribute("preserveAspectRatio","none");
-        image.setAttribute("referrerpolicy","strict-origin-when-cross-origin");
         svg.append(image);
+      }
+      // A bounded cache avoids new downloads when the user pans back.
+      if(rasterCache.size>96){
+        const keep=new Set(visibleStreetTiles(center,spans[level]).map(tile=>tile.url));
+        for(const key of rasterCache.keys()){
+          if(rasterCache.size<=72)break;
+          if(!keep.has(key))rasterCache.delete(key);
+        }
       }
       svg.setAttribute("aria-label","Mapa con cartografía de OpenStreetMap, marcador y ruta cuando está disponible.");
     }else svg.setAttribute("aria-label","Coordenadas geográficas, puntos seleccionados y ruta cuando está disponible. Pulsa Calles para ver calles reales.");
@@ -216,10 +236,11 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
       longitude:normLon(drag.center.longitude-(e.clientX-drag.x)/rect.width*spans[level].lon),
       latitude:clamp(drag.center.latitude+(e.clientY-drag.y)/rect.height*spans[level].lat,-89,89)
     };
-    draw();
+    scheduleDraw();
   });
   for(const name of ["pointerup","pointercancel"])svg.addEventListener(name,e=>{
     pointers.delete(e.pointerId);drag=null;
+    if(drawFrame){cancelAnimationFrame(drawFrame);drawFrame=0;draw();}
     if(pointers.size<2)gesture=null;
   });
   svg.addEventListener("keydown",e=>{
@@ -236,5 +257,5 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
     }else if(e.key==="+"){changeZoom(1);}else if(e.key==="-"){changeZoom(-1);}
   });
   draw();
-  return {root,setView,setPlaces,setWorld,setRoute,changeZoom,toggleStreets,dispose(){disposed=true;drag=null;gesture=null;pointers.clear();}};
+  return {root,setView,setPlaces,setWorld,setRoute,changeZoom,toggleStreets,dispose(){disposed=true;drag=null;gesture=null;pointers.clear();if(drawFrame)cancelAnimationFrame(drawFrame);rasterCache.clear();}};
 }
