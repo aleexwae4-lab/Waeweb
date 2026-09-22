@@ -175,7 +175,8 @@ async function checkRobots(url, options) {
 export async function readPage(input, options = {}) {
   const url = safeReaderUrl(input);
   await checkRobots(url, options);
-  const response = await guardedFetch(url.href, options);
+  // Do not follow document redirects: otherwise the destination path could bypass its robots rules.
+  const response = await guardedFetch(url.href, { ...options, redirects: 0 });
   if (response.status !== 200) reject("not_found", "Documento no encontrado.");
   const mime = String(response.headers?.["content-type"] || "").toLowerCase().split(";")[0].trim();
   if (!["text/html", "text/plain"].includes(mime)) reject("unsupported_media", "Solo se admite HTML o texto.");
