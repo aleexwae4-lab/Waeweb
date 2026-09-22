@@ -1,9 +1,9 @@
 {
   "name": "waeweb",
-  "version": "1.0.0-rc.10",
+  "version": "1.0.0-rc.11",
   "private": true,
   "type": "module",
-  "description": "WAEWEB — guarded PostgreSQL recovery drills and atomic rollback verification",
+  "description": "WAEWEB — verified PostgreSQL rollback and private encrypted backup storage",
   "engines": {
     "node": ">=20"
   },
