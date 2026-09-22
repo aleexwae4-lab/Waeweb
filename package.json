@@ -1,9 +1,9 @@
 {
   "name": "waeweb",
-  "version": "1.0.0-rc.6",
+  "version": "1.0.0-rc.7",
   "private": true,
   "type": "module",
-  "description": "WAEWEB — encrypted multi-tenant backend and Connect API with cross-repository contract QA",
+  "description": "WAEWEB — Connect API with attributed partial-result semantics, cross-repository contracts and distributed admission",
   "engines": {
     "node": ">=20"
   },
