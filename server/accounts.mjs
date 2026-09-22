@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { sealVault, openVaultEnvelope, EncryptionError } from "./crypto.mjs";
 import { billingConfig, paidPeriod, subscriptionMatchesAttempt } from "./billing.mjs";
 import { postgresAccountsSelected, postgresAccountsConfig, readAccountsPostgres, mutateAccountsPostgres } from "./accounts-postgres.mjs";
+import { requiresDurableStorage } from "./hosting.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -28,7 +29,7 @@ export function accountsEnabled() {
   // An ephemeral serverless instance MUST NOT accept signups into its own local disk.
   // PostgreSQL is an explicit opt-in; a misconfigured DB never falls back to files.
   return process.env.WAE_ACCOUNTS_ENABLED === "true" && Boolean(accountKey()) &&
-    (store === "file" && process.env.VERCEL !== "1" ||
+    (store === "file" && !requiresDurableStorage() ||
       store === "postgres" && Boolean(postgresAccountsConfig()));
 }
 function basePath(root = process.env.WAE_ACCOUNTS_DIR || ".wae-private-accounts") {
@@ -64,7 +65,7 @@ function decodeDb(raw) {
   }
 }
 async function readDb(base) {
-  if (base === undefined && process.env.VERCEL === "1" && !postgresAccountsSelected())
+  if (base === undefined && requiresDurableStorage() && !postgresAccountsSelected())
     fail("storage_config", "No se permite leer cuentas desde almacenamiento efímero.", 503);
   if (!accountKey()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
   if (base === undefined && postgresAccountsSelected()) {
@@ -109,7 +110,7 @@ async function writeDb(db, base) {
   }
 }
 async function mutate(operation, base) {
-  if (base === undefined && process.env.VERCEL === "1" && !postgresAccountsSelected())
+  if (base === undefined && requiresDurableStorage() && !postgresAccountsSelected())
     fail("storage_config", "No se permiten escrituras en almacenamiento efímero.", 503);
   if (base === undefined && postgresAccountsSelected()) {
     if (!postgresAccountsConfig()) fail("storage_config", "PostgreSQL de cuentas no configurado.", 503);
