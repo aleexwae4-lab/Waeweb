@@ -27,7 +27,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "" };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10 };
 let activeDirections=null;
 let activeInlineVideo=null;
 function stopInlineVideo(){
@@ -67,6 +67,13 @@ function safeUrl(value) {
 }
 function shortHost(value) {
   try { return new URL(value).hostname.replace(/^www\./, ""); } catch { return ""; }
+}
+function displayResultUrl(value) {
+  try{
+    const u=new URL(value);
+    const path=u.pathname!=="/"?decodeURI(u.pathname).slice(0,70):"";
+    return u.hostname.replace(/^www\./,"")+(path?" › "+path:"");
+  }catch{return "";}
 }
 function stateCard(title, message, loading = false) {
   const card = element("div", "state-card");
@@ -189,10 +196,16 @@ function renderResult(item, index) {
   const row = element("div", "source-row");
   const avatar = element("span", "source-avatar", (item.source || "?").slice(0, 1).toUpperCase());
   const labels = element("div");
-  append(labels, element("div", "source-label", item.source || "Fuente"), element("div", "source-url", shortHost(url)));
+  append(labels, element("div", "source-label", item.source || "Fuente"), element("div", "source-url", displayResultUrl(url)));
   row.append(avatar, labels);
-  const title = button(item.title, () => openBrowser(url), "result-title browser-result-title");
-  title.title = "Navegar en WAEWEB: " + shortHost(url);
+  // General web results open the actual destination, like a conventional
+  // SERP. The separate WAEWEB action keeps integrated browsing available.
+  const title = state.type === "all"
+    ? external(url,item.title,"result-title web-result-title")
+    : button(item.title, () => openBrowser(url), "result-title browser-result-title");
+  title.title = state.type === "all"
+    ? "Abrir sitio original: "+shortHost(url)
+    : "Navegar en WAEWEB: "+shortHost(url);
   if ((state.type === "books" || state.type === "videos" || item.source === "Open Library") && safeUrl(item.image)) {
     const cover = element("img", "book-cover");
     cover.src = safeUrl(item.image);
@@ -234,7 +247,7 @@ function renderResult(item, index) {
   }
   const meta = element("div", "meta-line");
   if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
-  meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Navegar aquí", () => openBrowser(url), "save-button"));
+  meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Explorar dentro", () => openBrowser(url), "save-button"));
   const save = button(workspace.has(url) ? "◆ Guardado" : "◇ Guardar fuente", () => {
     const outcome = workspace.add(item);
     if (outcome.ok) {
@@ -245,7 +258,8 @@ function renderResult(item, index) {
     } else stats.textContent = outcome.reason;
   }, "save-button");
   save.disabled = workspace.has(url);
-  meta.append(save, external(url, "↗ Abrir sitio original", "save-button"));
+  meta.append(save);
+  if(state.type !== "all")meta.append(external(url, "↗ Abrir sitio original", "save-button"));
   if (readerEnabled && url.startsWith("https://")) {
     meta.append(button("⌕ Leer e indexar", () => requestRead(url), "save-button"));
   }
@@ -469,7 +483,7 @@ function renderData(data) {
     " de " + allResults.length + " recuperados · " +
     (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
   renderPanel(data);
-  if (state.type === "all" || state.type === "research" || state.type === "index") {
+  if (state.type === "research" || state.type === "index") {
     const filteredBrief = state.selectedSource ? {
       ...data, brief: { ...data.brief, notes: (data.brief?.notes || []).filter(note => note.source === state.selectedSource) }
     } : data;
@@ -867,6 +881,7 @@ async function performSearch(query, type = "all", push = true) {
   const sequence = ++state.sequence;
   state.query = q; state.type = type;
   state.selectedSource = "";
+  state.visibleCount = 10;
   hero.hidden = true; resultsView.hidden = false;
   heroInput.value = q; resultsInput.value = q; setTab(type);
   if (push) updateAddress(q, type);
