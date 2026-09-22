@@ -41,3 +41,22 @@ export function isTrustedShellSender(event, shellContents, shellOrigin) {
     return url.origin === shellOrigin && url.pathname === "/";
   } catch { return false; }
 }
+
+/**
+ * Protect the local desktop HTTP shell from DNS rebinding, hostile Host headers
+ * and cross-site requests. This policy is ONLY applied to Electron's loopback
+ * server; it does not change the public Node web server.
+ */
+export function desktopRequestAllowed(req, shellOrigin) {
+  let expected;
+  try { expected = new URL(shellOrigin); } catch { return false; }
+  const host = req?.headers?.host;
+  if (typeof host !== "string" || host !== expected.host) return false;
+  const origin = req.headers.origin;
+  if (origin !== undefined && origin !== shellOrigin) return false;
+  const site = req.headers["sec-fetch-site"];
+  if (site && !["same-origin", "none"].includes(site)) return false;
+  const method = String(req.method || "GET").toUpperCase();
+  if (!["GET", "HEAD", "OPTIONS"].includes(method) && origin !== shellOrigin) return false;
+  return true;
+}
