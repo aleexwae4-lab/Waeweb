@@ -10,8 +10,8 @@ import { vaultKeysConfig, encryptionReady, openVaultEnvelope } from "./crypto.mj
 import { mediaConfig } from "./marketplace-media.mjs";
 import { assessRestoredMarketplaceMedia, sameRecoveryData, backupMediaRecords } from "./marketplace-restored-audit.mjs";
 import { mediaIntegrityManifest } from "./marketplace-integrity-audit.mjs";
-import { createMarketMediaArchive, openMarketMediaArchive,
-  restoreMarketMediaArchive } from "./marketplace-object-archive.mjs";
+import { createMarketMediaArchive, openMarketMediaArchive } from "./marketplace-object-archive.mjs";
+import { restoreArchivedMarketMedia } from "./marketplace-object-restore.mjs";
 import { saveMarketMediaArchive, loadMarketMediaArchive } from "./marketplace-object-archive-io.mjs";
 import { restoreArchivedMarketMedia } from "./marketplace-object-restore.mjs";
 
@@ -299,19 +299,16 @@ export async function restoreMarketMediaForPostgres(mediaFilename,postgresFilena
   media=mediaConfig(),transport=fetch,confirm=false
 }={}){
   if(!confirm)reject("media_restore_confirmation_required");
+  if(process.env.NODE_ENV!=="test"&&
+     process.env.WAE_MARK_MEDIA_RESTORE_ACK!=="reviewed-offline-missing-objects-only")
+    reject("media_restore_not_authorized");
   if(!media)reject("media_restore_provider_required");
   const {snapshot:source}=await readSnapshot(postgresFilename);
   const current=(await consistentSnapshot()).snapshot;
   if(!sameRecoveryData(source,current))reject("media_restore_target_mismatch");
-  const db=backupMediaRecords(source,accountKey());
   const archive=await loadMarketMediaArchive(mediaFilename);
-  return restoreMarketMediaArchive(db,archive,{
-    key:accountKey(),postgresChecksum:source.checksum,
-    media,transport,confirm,
-    readCurrent:async()=>{
-      const latest=(await consistentSnapshot()).snapshot;
-      if(!sameRecoveryData(source,latest))reject("media_restore_database_changed");
-      return backupMediaRecords(latest,accountKey());
-    }
+  return restoreArchivedMarketMedia(source,current,archive,{
+    key:accountKey(),media,transport,
+    readCurrent:async()=>(await consistentSnapshot()).snapshot
   });
 }
