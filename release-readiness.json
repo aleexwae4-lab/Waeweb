@@ -1,0 +1,42 @@
+{
+  "target": "vercel-public-web",
+  "approval": "HOLD",
+  "checks": [
+    {
+      "id": "web-runtime",
+      "status": "blocked",
+      "reason": "El servidor Node HTTP persistente no tiene adaptador ni rutas API de produccion verificadas para Vercel.",
+      "evidence": ""
+    },
+    {
+      "id": "durable-storage",
+      "status": "blocked",
+      "reason": "Cuentas, negocios y bovedas usan archivos locales; falta persistencia multi-instancia, respaldo y recuperacion.",
+      "evidence": ""
+    },
+    {
+      "id": "identity-and-abuse",
+      "status": "blocked",
+      "reason": "Faltan verificacion de correo, recuperacion de contrasena y controles antiabuso distribuidos.",
+      "evidence": ""
+    },
+    {
+      "id": "monetization",
+      "status": "blocked",
+      "reason": "Las promociones y pagos requieren prueba E2E, configuracion productiva y reconciliacion auditada.",
+      "evidence": ""
+    },
+    {
+      "id": "web-e2e-and-security",
+      "status": "blocked",
+      "reason": "Faltan E2E reales en navegadores moviles y desktop, accesibilidad, carga y auditoria independiente.",
+      "evidence": ""
+    },
+    {
+      "id": "privacy-and-operations",
+      "status": "blocked",
+      "reason": "Faltan privacidad/terminos, monitoreo de produccion, rollback y respuesta a incidentes.",
+      "evidence": ""
+    }
+  ]
+}
