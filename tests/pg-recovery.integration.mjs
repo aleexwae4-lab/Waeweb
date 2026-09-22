@@ -12,7 +12,15 @@ test("disposable PostgreSQL encrypted snapshot verifies, rejects tampering and r
   skip: process.env.WAE_PG_INTEGRATION !== "true"
 }, async () => {
   assert.equal(process.env.NODE_ENV, "test");
-  assert.ok(postgresAccountsConfig());
+  const config = postgresAccountsConfig();
+  assert.ok(config);
+  // This test deletes rows: NEVER run it against a hosted or non-disposable DB.
+  assert.equal(config.host, "127.0.0.1", "recovery drill requires local isolated PostgreSQL");
+  assert.equal(config.database, "wae_test", "recovery drill requires a disposable CI database");
+  assert.equal(config.user, "wae_test", "recovery drill requires the CI-only database user");
+  assert.equal(config.ssl, false, "recovery drill must not contact a hosted TLS database");
+  assert.equal(process.env.WAE_POSTGRES_ALLOW_INSECURE_LOCAL_TEST, "true");
+  assert.equal(process.env.WAE_PG_RECOVERY_CI_ACK, "disposable-wae-test-only");
   const backupDir = await mkdtemp(join(tmpdir(), "wae-pg-recovery-"));
   const old = process.env.WAE_PG_BACKUP_DIR;
   process.env.WAE_PG_BACKUP_DIR = backupDir;
