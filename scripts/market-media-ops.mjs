@@ -12,7 +12,7 @@ try {
   }else if(action==="manifest" && !confirmation){
     const result=await auditMarketMediaReferences();
     console.log(JSON.stringify({mode:"read_only",...result},null,2));
-  }else if(action==="probe" && (!confirmation || /^--offset=(0|[1-9]\\d{0,5})$/.test(confirmation))){
+  }else if(action==="probe" && (!confirmation || /^--offset=(0|[1-9]\d{0,5})$/.test(confirmation))){
     const offset=confirmation?Number(confirmation.slice("--offset=".length)):0;
     const result=await auditMarketMediaPresence({offset});
     console.log(JSON.stringify(result,null,2));
