@@ -39,7 +39,7 @@ export async function assessRestoredMarketplaceMedia(source,current,{
   if(!media)reject("media_recovery_provider_required");
   if(!sameRecoveryData(source,current))
     return {mode:"read_only_restored_media_check",status:"target_mismatch",
-      restoredDatabaseMatchesBackup:false,restoreCertified:false,
+      targetSnapshotMatchesBackup:false,restoreCertified:false,
       noDeletionPerformed:true,noObjectKeysExposed:true};
   const db=backupMediaRecords(source,key);
   const audit=await auditMediaDigests(db,{media,transport,offset,limit,
@@ -54,8 +54,8 @@ export async function assessRestoredMarketplaceMedia(source,current,{
   return {
     ...audit, mode:"read_only_restored_media_check",
     status:audit.status==="attention_required"?"attention_required":
-      audit.nextOffset!==null?"partial":"restored_reference_batch_verified",
-    restoredDatabaseMatchesBackup:true,
+      audit.nextOffset!==null?"partial":"matching_target_batch_verified",
+    targetSnapshotMatchesBackup:true,
     objectBackupVerified:false,objectVersionsVerified:false,
     orphanInventoryVerified:false,restoreCertified:false,
     noObjectKeysExposed:true,noDeletionPerformed:true
