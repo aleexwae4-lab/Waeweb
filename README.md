@@ -4,6 +4,33 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Aplicación Node.js indepe
 
 **Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
 
+
+## Estado actual — Fase 5 (v0.5): WAE Encrypted Research Vault
+
+La versión actual combina búsqueda web federada, lector de páginas públicas bajo demanda y memoria de investigación **cifrada en reposo** por bóveda. La lectura/indexación no está habilitada sin configuración explícita. Los apartados v0.3 y v0.4 más abajo son un historial de desarrollo; esta sección describe el comportamiento vigente.
+
+**Seguridad de datos:** cada bóveda utiliza una clave simétrica AES-256-GCM independiente de su token de acceso. Se genera un IV aleatorio de 12 bytes en cada escritura; se valida una etiqueta de autenticación de 16 bytes y se vincula criptográficamente el ID de bóveda como dato adicional autenticado. El archivo de disco contiene únicamente el sobre cifrado, sin texto de artículos ni credenciales. El índice en memoria durante una petición, la biblioteca opcional de localStorage del navegador y las respuestas de API no están cifrados extremo a extremo.
+
+**Configurar en entorno de desarrollo aislado (fuera de GitHub):**
+
+- WAE_READER_ENABLED=true activa el lector bajo demanda.
+- WAE_VAULTS_JSON asocia IDs de bóveda con tokens independientes de acceso de 32 a 256 caracteres ASCII imprimibles.
+- WAE_VAULT_KEYS_JSON asocia exactamente los mismos IDs con una clave hexadecimal de 64 caracteres (32 bytes) por bóveda; no repetir claves ni usar los tokens como claves. Ambas variables son necesarias; sin una de ellas el lector y el índice responden 503.
+- Genera cada token y cada clave por separado con un generador criptográfico. Con Node.js local, una clave se genera con node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))". No copies el resultado en Git, tickets o logs.
+- WAE_VAULT_DIR y WAE_BACKUP_DIR apuntan a dos directorios privados, persistentes y separados, fuera de public/. Por defecto: .wae-private-vaults y .wae-private-backups. No uses un sistema de archivos efímero si necesitas conservar información.
+- Este proyecto no carga automáticamente archivos .env. Configura las variables por el mecanismo seguro del proceso anfitrión.
+
+**Respaldos operados fuera de línea con el mismo mapa de claves:**
+
+1. npm run vault:backup -- org_alpha — crea una copia CIFRADA, devuelve el nombre y suma SHA-256, nunca el texto de los documentos.
+2. npm run vault:verify -- org_alpha NOMBRE_DEL_ARCHIVO — verifica suma, etiqueta AES-GCM y estructura del índice con la clave correspondiente.
+3. Detén el servidor; restaura **solo en destino vacío** con npm run vault:restore -- org_alpha NOMBRE_DEL_ARCHIVO --confirm-empty-target. Nunca reemplaza una bóveda existente. Si necesitas un ensayo de recuperación, utiliza otro directorio privado y aislado.
+4. Almacena copias adicionales fuera del servidor de forma segura, con política de retención y comprobaciones periódicas; el script NO programa respaldos ni envía copias a ningún servicio externo.
+
+**Advertencias de recuperación:** perder una clave hace inaccesible la bóveda y sus respaldos. Cambiarla sin un procedimiento de rotación también impide la apertura. No hay rotación automatizada ni gestión centralizada de claves. Los archivos antiguos de Fase 4 (version: 1, sin cifrar) **no se migran automáticamente**: se rechazan con migration_required y quedan intactos; conserva de manera segura cualquier archivo antiguo hasta disponer de una migración offline probada. No subas datos antiguos a GitHub.
+
+**Limitaciones de seguridad y producto:** el cifrado en reposo no reemplaza TLS, controles del sistema operativo, separación de procesos, auditoría, gestión de sesiones ni cifrado de la biblioteca del navegador. La persistencia por archivos no soporta escrituras simultáneas desde múltiples procesos o réplicas. El respaldo local no es una copia externa de recuperación ante desastres. La restauración se diseñó para un proceso DETENIDO. No exponer públicamente el lector sin revisión de seguridad, pruebas E2E, controles de egreso de red, aislamiento real de usuarios y respaldo/recuperación operativos. Esto todavía no es un índice global ni un navegador con motor de renderizado propio. Vercel no se utiliza ni se modifica.
+
 ## Inicio local
 
 Se requiere Node.js 20 o superior. Ejecuta npm run check, npm test y npm start. Abre http://localhost:3000. El servidor escucha en PORT o 3000.
@@ -104,7 +131,7 @@ LIMITACIONES: la extracción es textual y sencilla, no comprende páginas JavaSc
 
 Las pruebas usan un transporte DNS simulado únicamente en CI para confirmar denegación de rangos privados, rechazo de redirecciones, cumplimiento de robots, extracción, límite de memoria y apagado por defecto. Las pruebas no prueban la Internet real. No se ha conectado Vercel.
 
-## WAE Private Research Vault — Fase 4 (v0.4, reemplaza la API de índice de v0.3)
+## WAE Private Research Vault — Fase 4 (v0.4, histórico: sustituido por cifrado de v0.5)
 
 El índice temporal global de la Fase 3 fue sustituido EN LA API por bóvedas separadas autenticadas y almacenadas en disco. El texto anterior describe un hito histórico y no el comportamiento actual de estas rutas. La búsqueda federada pública continúa siendo independiente.
 
