@@ -389,3 +389,12 @@ Además de comprobar presencia, `npm run marketplace:media:integrity` recupera c
 ## RC21 — restauración offline sin sobrescritura
 
 La recuperación de fotografías del Marketplace ahora conecta las cápsulas cifradas RC20, un backup PostgreSQL autenticado y el estado exacto del destino restaurado. Antes de escribir comprueba todo el lote; cada objeto ausente se sube mediante `If-None-Match: *` firmado con AWS SigV4, y se valida con SHA-256 después del PUT. Nunca sobreescribe ni elimina imágenes. Los fallos a mitad de lote devuelven recuperación parcial y requieren revisión manual. CLI de operador `npm run pg:restore-media -- <media.backup.json> <pg.backup.json> --confirm-offline-media-restore` con ACK separado fuera de CI. [Procedimiento y límites](docs/RC21_OBJECT_RESTORE.md). **Vercel permanece HOLD.**
+
+
+## RC20 — cápsulas privadas cifradas de medios
+
+`pg:backup-media` exporta hasta cinco JPEGs referenciados por lote a un archivo privado AES-256-GCM vinculado al checksum del backup cifrado PostgreSQL; `pg:verify-media-backup` comprueba autenticidad y correspondencia con ese snapshot. No se suben archivos a GitHub ni se imprimen claves, fotos o URLs. **El operador debe custodiar copias independientes fuera del servidor; la copia local no prueba recuperación ante desastres.**
+
+## RC21 — recuperación offline sin sobrescrituras
+
+`pg:restore-media` exige autorización y confirmación manual, PostgreSQL idéntico al backup, journal de borrados reconciliado y destino de objetos ausente; firma `If-None-Match: *` para bloquear carreras de sobrescritura y verifica SHA-256 tras cada PUT. Puede quedar una restauración parcial que exige intervención; nunca elimina objetos para deshacerla. [Procedimiento](docs/RC21_OBJECT_RESTORE.md). **Vercel sigue HOLD; sin proveedor S3 real certificado.**
