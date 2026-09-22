@@ -1,0 +1,118 @@
+name: WAEWEB Encrypted PostgreSQL Integration
+
+on:
+  push:
+    branches: ["feat/**"]
+    paths:
+      - "server/accounts.mjs"
+      - "server/marketplace-media.mjs"
+      - "server/marketplace-recovery.mjs"
+      - "server/marketplace-integrity.mjs"
+      - "server/marketplace-integrity-audit.mjs"
+      - "server/marketplace-object-inventory.mjs"
+      - "server/marketplace-object-archive.mjs"
+      - "server/marketplace-object-archive-io.mjs"
+      - "server/marketplace-object-restore.mjs"
+      - "server/marketplace-archive-set.mjs"
+      - "server/portable-recovery.mjs"
+      - "tests/portable-recovery.test.mjs"
+      - "tests/marketplace-archive-set.test.mjs"
+      - "tests/marketplace-object-restore.test.mjs"
+      - "tests/marketplace-object-archive.test.mjs"
+      - "tests/marketplace-object-inventory.test.mjs"
+      - "server/marketplace-restored-audit.mjs"
+      - "tests/marketplace-restored-audit.test.mjs"
+      - "tests/marketplace-integrity.test.mjs"
+      - "server/marketplace-lifecycle.mjs"
+      - "tests/marketplace-recovery.test.mjs"
+      - "scripts/market-media-ops.mjs"
+      - "server/marketplace.mjs"
+      - "server/index.mjs"
+      - "tests/vercel-preview.test.mjs"
+      - "tests/marketplace-media-postgres.integration.mjs"
+      - "server/accounts-postgres.mjs"
+      - "server/vault.mjs"
+      - "server/vault-postgres.mjs"
+      - "server/hosting.mjs"
+      - "server/storage-preflight.mjs"
+      - "scripts/storage-preflight.mjs"
+      - "tests/storage-preflight.test.mjs"
+      - "tests/hosted-storage.test.mjs"
+      - "server/connect.mjs"
+      - "server/connect-postgres.mjs"
+      - "scripts/connect-pg-init.mjs"
+      - "tests/connect-postgres.integration.mjs"
+      - "scripts/vault-pg-init.mjs"
+      - "tests/vault-postgres.integration.mjs"
+      - "server/crypto.mjs"
+      - "server/pg-recovery.mjs"
+      - "scripts/pg-recovery.mjs"
+      - "tests/pg-recovery.integration.mjs"
+      - "scripts/accounts-pg-init.mjs"
+      - "tests/postgres.integration.mjs"
+      - ".github/workflows/postgres.yml"
+      - "package.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: accounts-postgres-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: wae_test
+          POSTGRES_PASSWORD: local-ci-only-password
+          POSTGRES_DB: wae_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wae_test -d wae_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      WAE_PG_INTEGRATION: "true"
+      WAE_PG_RECOVERY_CI_ACK: disposable-wae-test-only
+      WAE_ACCOUNTS_ENABLED: "true"
+      WAE_ACCOUNTS_STORE: postgres
+      WAE_CONNECT_ENABLED: "true"
+      WAE_CONNECT_ADMISSION_MODE: postgres
+      WAE_CONNECT_CLIENTS_JSON: '{"inteligenciauniversal":"ci-only-alpha-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","universal-core-vt3h":"ci-only-beta-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","waeosgreen":"ci-only-gamma-cccccccccccccccccccccccccccccccccccccccc"}'
+      WAE_VAULT_STORE: postgres
+      WAE_READER_ENABLED: "true"
+      WAE_VAULTS_JSON: '{"org_alpha":"ci-only-alpha-vault-token-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","org_beta":"ci-only-beta-vault-token-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'
+      WAE_VAULT_KEYS_JSON: '{"org_alpha":"abababababababababababababababababababababababababababababababab","org_beta":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}'
+      WAE_ACCOUNTS_KEY: "abababababababababababababababababababababababababababababababab"
+      WAE_ACCOUNTS_DATABASE_URL: postgresql://wae_test:local-ci-only-password@127.0.0.1:5432/wae_test
+      WAE_POSTGRES_ALLOW_INSECURE_LOCAL_TEST: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install database client
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Verify syntax
+        run: npm run check
+      - name: Test actual PostgreSQL transactions and encrypted persistence
+        run: npm run test:postgres
+      - name: Test encrypted research vaults and cross-process isolation
+        run: npm run test:vault:postgres
+      - name: Test private Marketplace media with disposable PostgreSQL and local S3 fixture
+        run: npm run test:marketplace:media:pg
+      - name: Test shared WAEWEB Connect rate and concurrency quotas
+        run: npm run test:connect:postgres
+      - name: Read-only encrypted PostgreSQL storage preflight
+        run: npm run storage:preflight
+      - name: Restore encrypted snapshot in disposable CI database
+        run: npm run test:pg:recovery

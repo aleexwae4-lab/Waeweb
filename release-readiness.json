@@ -1,0 +1,47 @@
+{
+  "target": "vercel-public-web",
+  "approval": "HOLD",
+  "checks": [
+    {
+      "id": "web-runtime",
+      "status": "blocked",
+      "reason": "RC34 restores the complete frontend and named /api/* serverless source to Git production branch with a constrained public-isolated mode enforced whenever release-readiness approval is HOLD, even when deployment variables suggest GO. Live smoke workflow must confirm real waeweb.vercel.app returns JSON /api/health, /api/capabilities, /api/maps plus native-map.js/translator.js; production accessibility is not inferred from unit tests or Ready status. Protected previews and incomplete accounts, billing, vaults and connectors remain blocked. Full launch stays HOLD pending security and E2E.",
+      "evidence": ""
+    },
+    {
+      "id": "durable-storage",
+      "status": "blocked",
+      "reason": "RC23 prepares a complete, PostgreSQL-bound encrypted media package in an explicitly selected private directory and re-verifies its hashes, PG envelopes and capsule bytes without original source files in disposable CI. A second directory does not demonstrate independent hardware/failure domain or real offsite custody. Real-provider IAM/versioning restore, external key custody, full RPO/RTO, and cross-store transaction remain unproven. HOLD.",
+      "evidence": ""
+    },
+    {
+      "id": "identity-and-abuse",
+      "status": "blocked",
+      "reason": "Connect v1 tiene tokens distintos, admisión PostgreSQL global y proxy Universal Core con secreto entrante separado, pero faltan correo/recovery, controles distribuidos por usuario para login/registro/consumidores y pruebas de abuso en infraestructura real.",
+      "evidence": ""
+    },
+    {
+      "id": "monetization",
+      "status": "blocked",
+      "reason": "RC12 incorpora huella de checkout verificado y conciliación a demanda READ ONLY entre estado cifrado de cuentas y Stripe, con tests de deriva, dueño, duplicación y fallo de proveedor. Faltan evidencia E2E Stripe test→PostgreSQL, reconciliación de facturas/reembolsos, auditoría operativa y configuración productiva. HOLD.",
+      "evidence": ""
+    },
+    {
+      "id": "web-e2e-and-security",
+      "status": "blocked",
+      "reason": "Faltan E2E reales en navegadores moviles y desktop, accesibilidad, carga y auditoria independiente.",
+      "evidence": ""
+    },
+    {
+      "id": "privacy-and-operations",
+      "status": "blocked",
+      "reason": "RC14 introduce mensajes de compradores cifrados y reportes internos; antes del despliegue se requieren aviso de privacidad, retención/borrado y acceso a datos, supervisión de moderación, monitoreo, respuesta a incidentes y rollback. HOLD.",
+      "evidence": ""
+    },
+    {
+      "id": "marketplace",
+      "status": "blocked",
+      "reason": "RC23 verifies portable full-set encrypted backup package independent of original PG and media files in synthetic CI; RC21 restores only missing media without overwrite. Still missing real provider rehearsal and independent offsite custody, legacy migration, E2E mobile, privacy, payments and external security validation. HOLD."
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#030407">
+<meta name="robots" content="noindex,nofollow">
+<title>Estado y diagnóstico · WAEWEB</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/diagnostico.css">
+<script type="module" src="/diagnostico.js"></script>
+</head>
+<body>
+<div class="ambient" aria-hidden="true"><div class="blob one"></div><div class="blob two"></div></div>
+<div class="app-shell">
+<header class="topbar"><a class="brand-small diag-brand" href="/">wae<span class="brand-dot">.</span></a><span class="tag">DIAGNÓSTICO · WAEWEB</span></header>
+<main class="diag-main">
+<section class="diag-head"><span class="tag">CONEXIÓN Y RUTAS</span><h1>Descubre por qué aparece <em>HTTP 401</em></h1><p>Comprueba si la aplicación pública puede llegar a sus módulos. No solicita credenciales, no entra en tus cuentas y no necesita claves de la bóveda privada.</p></section>
+<section class="diag-card"><h2>Comprobación de la versión publicada</h2>
+<p>La página puede cargar aunque las API estén bloqueadas. Una verificación con <strong>x-waeweb-api: 1</strong> distingue las respuestas del backend de un 401 generado antes de llegar a él.</p>
+<button id="run-diagnostics" class="diag-primary" type="button">⌕ Comprobar conexión y módulos</button>
+<div id="diag-status" role="status" aria-live="polite">Las pruebas de red solo se ejecutan al pulsar el botón.</div>
+<div id="diag-results" class="diag-results" aria-live="polite"></div>
+</section>
+<section class="diag-card" id="diag-help"><h2>Qué significa cada resultado</h2>
+<div class="diag-guidance"><div><strong>HTTP 401 sin marca WAEWEB</strong><p>La solicitud probablemente se detuvo antes de llegar al backend. Comprueba el acceso del despliegue, el dominio público y que <code>/api/*</code> llegue a las funciones de WAEWEB.</p></div>
+<div><strong>API disponible, módulo bloqueado</strong><p>El backend responde, pero la capacidad puede estar desactivada. Rutas y direcciones precisas necesitan la configuración del proveedor; Índice WAE es privado y requiere autorización aparte.</p></div>
+<div><strong>Mapas sin cartografía</strong><p>El mapa incrustado depende de OpenStreetMap: si un tercero rechaza o impide la vista, no se puede forzar desde WAEWEB. El enlace al mapa original sigue disponible.</p></div>
+<div><strong>Versión anterior</strong><p>Si la versión es anterior al código de GitHub, primero hay que confirmar la rama de producción y el despliegue. Un commit en un PR en borrador no actualiza necesariamente tu dominio.</p></div></div>
+</section>
+<section class="diag-actions"><a href="/" class="diag-primary">← Volver a WAEWEB</a><a href="/?q=20.6767%2C-103.3475&type=maps" class="diag-secondary">Probar mapa con coordenadas →</a></section>
+<p class="diag-note">No compartas credenciales ni claves API en capturas. Este diagnóstico no comprueba sesiones privadas.</p>
+</main>
+<footer class="footer"><span>WAEWEB · WAE OS ENTERPRISE</span><span>Datos reales, errores explícitos</span></footer>
+</div>
+</body>
+</html>

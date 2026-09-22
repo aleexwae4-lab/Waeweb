@@ -1,0 +1,22 @@
+node_modules/
+.env
+.env.*
+!.env.example
+coverage/
+.DS_Store
+
+# Local private vaults; NEVER commit indexed content or auth secrets
+.wae-private-vaults/
+*.vault.json
+
+# Encrypted backups and transient local storage; keep them out of source control
+.wae-private-backups/
+*.backup.json
+*.tmp
+
+# Private account records (emails, password verifiers, sessions, business data)
+.wae-private-accounts/
+*.encrypted.json
+
+# Full encrypted PostgreSQL recovery bundles (operator-only)
+.wae-private-pg-backups/
