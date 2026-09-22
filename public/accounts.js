@@ -1,0 +1,171 @@
+const $ = id => document.getElementById(id);
+const view = $("account-view");
+const alertBox = $("account-alert");
+let enabled = false;
+let session = null; // Deliberately not stored in localStorage, cookies, URLs or HTML.
+let profile = null;
+const text = (node, value) => { node.textContent = String(value ?? ""); return node; };
+function make(tag, className = "", value) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (value !== undefined) text(node, value);
+  return node;
+}
+function say(message, success = false) {
+  alertBox.textContent = message || "";
+  alertBox.classList.toggle("success", success);
+}
+function showAccount() {
+  $("hero").hidden = true;
+  $("results-view").hidden = true;
+  view.hidden = false;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (!enabled) say("Las cuentas todavía no están activadas en este servidor. El registro real se habilita mediante la configuración privada del operador.");
+  else if (session) refreshBusinesses().catch(error => say(error.message));
+  else say("Puedes crear tu cuenta o iniciar sesión. Esta etapa no publica negocios automáticamente.");
+}
+function goBack() {
+  view.hidden = true;
+  $("results-view").hidden = true;
+  $("hero").hidden = false;
+}
+function setAuthMode(mode) {
+  $("register-form").hidden = mode !== "register";
+  $("login-form").hidden = mode !== "login";
+  $("show-register").classList.toggle("active", mode === "register");
+  $("show-login").classList.toggle("active", mode === "login");
+  say("");
+}
+function setSignedIn(result) {
+  session = result.token;
+  profile = result.user;
+  $("account-auth").hidden = true;
+  $("business-dashboard").hidden = false;
+  text($("business-greeting"), "¡Hola, " + profile.name + "!");
+  text($("business-email"), profile.email);
+  say("Sesión iniciada. Tus negocios son visibles solo en tu cuenta.", true);
+}
+function signedOut() {
+  session = null; profile = null;
+  $("account-auth").hidden = false;
+  $("business-dashboard").hidden = true;
+  $("business-list").replaceChildren();
+  text($("business-count"), 0);
+  $("register-form").reset(); $("login-form").reset(); $("business-form").reset();
+  setAuthMode("login");
+}
+async function api(path, { method = "GET", payload, auth = false } = {}) {
+  const headers = { accept: "application/json" };
+  if (payload) headers["content-type"] = "application/json";
+  if (auth) {
+    if (!session) throw Error("Inicia sesión para continuar.");
+    headers.authorization = "Bearer " + session;
+  }
+  let response;
+  try {
+    response = await fetch(path, {
+      method, headers, body: payload ? JSON.stringify(payload) : undefined,
+      cache: "no-store", credentials: "omit"
+    });
+  } catch { throw Error("No se pudo conectar con WAE WEB. Comprueba el servidor."); }
+  let data;
+  try { data = await response.json(); } catch { throw Error("El servidor respondió sin datos válidos."); }
+  if (!response.ok) {
+    if (response.status === 401 && auth) signedOut();
+    throw Error(data.error || "No se pudo completar la operación.");
+  }
+  return data;
+}
+function busy(form, value) {
+  for (const element of form.querySelectorAll("button,input,textarea")) element.disabled = value;
+}
+async function submitForm(form, action) {
+  if (!enabled) { say("Registro desactivado en este servidor."); return; }
+  if (!form.reportValidity()) return;
+  const data = Object.fromEntries(new FormData(form).entries());
+  busy(form, true);
+  try {
+    const result = await api("/api/account/" + action, { method: "POST", payload: data });
+    form.reset();
+    setSignedIn(result);
+    await refreshBusinesses();
+  } catch (error) { say(error.message); }
+  finally { busy(form, false); }
+}
+function businessCard(business) {
+  const article = make("article", "business-entry");
+  const heading = make("div", "business-entry-heading");
+  heading.append(make("h3", "", business.name), make("span", "tag", "Declarado por el usuario"));
+  article.append(heading, make("p", "business-meta", business.category + " · " + business.city));
+  if (business.description) article.append(make("p", "business-desc", business.description));
+  if (business.website) {
+    const a = make("a", "link-button", "↗ Sitio del negocio");
+    a.href = business.website;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    article.append(a);
+  }
+  const remove = make("button", "small-action", "Eliminar ficha");
+  remove.type = "button";
+  remove.addEventListener("click", async () => {
+    if (!window.confirm("¿Eliminar esta ficha de negocio de tu cuenta?")) return;
+    remove.disabled = true;
+    try {
+      await api("/api/businesses/" + encodeURIComponent(business.id), { method: "DELETE", auth: true });
+      await refreshBusinesses();
+      say("Ficha eliminada de tu cuenta.", true);
+    } catch (error) { say(error.message); remove.disabled = false; }
+  });
+  article.append(remove);
+  return article;
+}
+async function refreshBusinesses() {
+  const { businesses } = await api("/api/businesses", { auth: true });
+  const list = $("business-list");
+  list.replaceChildren();
+  text($("business-count"), businesses.length);
+  if (!businesses.length) list.append(make("p", "business-empty",
+    "Todavía no has registrado negocios. Utiliza el formulario para crear tu primera ficha."));
+  for (const business of businesses) list.append(businessCard(business));
+}
+async function loadCapability() {
+  try {
+    const result = await api("/api/capabilities");
+    enabled = result.accountsEnabled === true;
+  } catch { enabled = false; }
+  if (!enabled) say("Registro no disponible en este servidor: necesita configuración y almacenamiento seguro.");
+}
+$("account-button").addEventListener("click", showAccount);
+$("hero-account-button").addEventListener("click", showAccount);
+$("account-back").addEventListener("click", goBack);
+$("home-button").addEventListener("click", () => { view.hidden = true; });
+$("hero-form").addEventListener("submit", () => { view.hidden = true; });
+$("results-form").addEventListener("submit", () => { view.hidden = true; });
+$("show-register").addEventListener("click", () => setAuthMode("register"));
+$("show-login").addEventListener("click", () => setAuthMode("login"));
+$("register-form").addEventListener("submit", event => {
+  event.preventDefault(); submitForm(event.currentTarget, "register");
+});
+$("login-form").addEventListener("submit", event => {
+  event.preventDefault(); submitForm(event.currentTarget, "login");
+});
+$("business-logout").addEventListener("click", async () => {
+  try { if (session) await api("/api/account/logout", { method: "POST", auth: true }); }
+  catch (error) { say(error.message); }
+  finally { signedOut(); say("Sesión cerrada en esta pestaña.", true); }
+});
+$("business-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  const body = Object.fromEntries(new FormData(form).entries());
+  busy(form, true);
+  try {
+    await api("/api/businesses", { method: "POST", payload: body, auth: true });
+    form.reset();
+    await refreshBusinesses();
+    say("Negocio registrado en tu panel privado.", true);
+  } catch (error) { say(error.message); }
+  finally { busy(form, false); }
+});
+loadCapability();
