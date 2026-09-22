@@ -485,12 +485,14 @@ async function performSearch(query, type = "all", push = true) {
   if (type === "maps") { renderMap(q); return; }
   if (type === "index" && !readerEnabled) {
     stats.textContent="Índice privado desactivado en esta vista.";
+    panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
     resultsContainer.replaceChildren(stateCard("Índice privado no disponible",
       "La búsqueda pública no necesita bóveda. Vuelve a Todo o Investigación para consultar fuentes abiertas."));
     return;
   }
   if (type === "businesses" && !businessSearchEnabled) {
     stats.textContent="Registro de negocios desactivado en esta vista.";
+    panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
     resultsContainer.replaceChildren(stateCard("Negocios aún no disponibles",
       "El Marketplace de pruebas no contiene empresas reales. Consulta las fuentes públicas desde Todo."));
     return;
