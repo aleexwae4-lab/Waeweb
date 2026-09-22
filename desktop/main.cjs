@@ -5,7 +5,6 @@ const { app, BrowserWindow, WebContentsView, ipcMain, session, shell } = require
 const http = require("node:http");
 const { join } = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { isIP } = require("node:net");
 
 app.enableSandbox();
 
@@ -93,9 +92,7 @@ function createTab(input = null, activate = true) {
   const tab = { id, view, target: null, title: target ? new URL(target).hostname : "Nueva pestaña", error: "" };
   tabs.set(id, tab);
   const wc = view.webContents;
-  wc.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
-  wc.session.setPermissionCheckHandler(() => false);
-  wc.session.on("will-download", event => event.preventDefault());
+  // Session-wide permission and download policies are installed once at startup.
   wc.on("will-navigate", (event, url) => {
     if (!security.safeDesktopTarget(url, shellOrigin)) event.preventDefault();
   });
