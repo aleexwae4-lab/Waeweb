@@ -2,6 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, rename, open, lstat, unlink } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { EncryptionError, encryptionReady, keyForVault, openVaultEnvelope, sealVault } from "./crypto.mjs";
+import { vaultPostgresSelected, vaultPostgresConfig, readVaultPostgres, mutateVaultPostgres } from "./vault-postgres.mjs";
 
 const MAX_DOCS = 80;
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
@@ -100,9 +101,27 @@ export async function readEncryptedFile(id, base = vaultRoot()) {
   decodeEncryptedVault(id, content);
   return { bytes, envelope: content };
 }
-export async function loadVault(id, base = vaultRoot()) {
-  keyForVault(id); // Fail closed if encryption key was removed, even for an empty vault.
-  const entry = await readEncryptedFile(id, base);
+export function vaultStorageReady() {
+  const mode = process.env.WAE_VAULT_STORE || "file";
+  return mode === "postgres" ? Boolean(vaultPostgresConfig()) :
+    mode === "file" && process.env.VERCEL !== "1";
+}
+export async function loadVault(id, base) {
+  keyForVault(id); // Missing keys always fail even when storage is empty.
+  if (base === undefined && vaultPostgresSelected()) {
+    if (!vaultPostgresConfig()) fail("invalid_storage", "PostgreSQL de bóvedas no configurado.");
+    let raw;
+    try { raw = await readVaultPostgres(id); }
+    catch { fail("storage_failure", "No se pudo abrir la bóveda en PostgreSQL."); }
+    if (raw === null) return new Map();
+    let envelope;
+    try { envelope = JSON.parse(raw); }
+    catch { fail("corrupt_vault", "Sobre de bóveda no válido."); }
+    return decodeEncryptedVault(id, envelope);
+  }
+  if (base === undefined && !vaultStorageReady())
+    fail("invalid_storage", "Almacenamiento persistente de bóvedas no disponible.");
+  const entry = await readEncryptedFile(id, base ?? vaultRoot());
   return entry ? decodeEncryptedVault(id, entry.envelope) : new Map();
 }
 async function writeAtomic(path, bytes) {
@@ -129,8 +148,41 @@ async function writeVault(id, records, base) {
   if (bytes.length > MAX_FILE_BYTES) fail("vault_full", "El índice supera el límite de almacenamiento.");
   await writeAtomic(path, bytes);
 }
-export async function storeDocument(id, document, base = vaultRoot()) {
+export async function storeDocument(id, document, base) {
   if (!validDocument(document)) fail("invalid_document", "Documento sin integridad verificable.");
+  if (base === undefined && vaultPostgresSelected()) {
+    if (!vaultPostgresConfig()) fail("invalid_storage", "PostgreSQL de bóvedas no configurado.");
+    try {
+      return await mutateVaultPostgres(id, async raw => {
+        let records = new Map();
+        if (raw !== null) {
+          let envelope;
+          try { envelope = JSON.parse(raw); }
+          catch { fail("corrupt_vault", "Sobre de bóveda no válido."); }
+          records = decodeEncryptedVault(id, envelope);
+        } else { keyForVault(id); }
+        records.delete(document.id);
+        while (records.size >= MAX_DOCS) records.delete(records.keys().next().value);
+        records.set(document.id, {
+          id: document.id, url: document.url, title: document.title,
+          text: document.text, source: "Índice WAE", fingerprint: document.fingerprint,
+          fetchedAt: document.fetchedAt
+        });
+        const envelope = JSON.stringify(sealVault(id, {
+          version: 2, id, documents: [...records.values()]
+        }));
+        if (Buffer.byteLength(envelope) > MAX_FILE_BYTES)
+          fail("vault_full", "El índice supera el límite de almacenamiento.");
+        return { envelope, result: { record: records.get(document.id), records } };
+      });
+    } catch (error) {
+      if (error instanceof VaultError) throw error;
+      fail("storage_failure", "No se pudo guardar la bóveda PostgreSQL.");
+    }
+  }
+  if (base === undefined && !vaultStorageReady())
+    fail("invalid_storage", "Almacenamiento persistente de bóvedas no disponible.");
+  base ??= vaultRoot();
   const path = vaultFilePath(id, base);
   const prev = queues.get(path) || Promise.resolve();
   const operation = prev.catch(() => {}).then(async () => {
@@ -170,6 +222,6 @@ export async function installEncryptedVault(id, envelope, base = vaultRoot()) {
     fail("storage_failure", "No se pudo instalar la bóveda recuperada.");
   }
 }
-export async function vaultStatus(id, base = vaultRoot()) {
+export async function vaultStatus(id, base) {
   return (await loadVault(id, base)).size;
 }
