@@ -452,12 +452,55 @@ async function renderWeather(query, signal, sequence) {
     if (e.name !== "AbortError" && sequence === state.sequence) weatherSlot.append(stateCard("Clima no disponible", e.message));
   }
 }
+function createMapQuickSearch(initial="") {
+  const form=element("form","map-search-form");
+  form.setAttribute("role","search");
+  const input=element("input","map-search-input");
+  input.type="search";input.name="place";input.maxLength=180;
+  input.autocomplete="off";input.placeholder="Ciudad, negocio, calle o coordenadas";
+  input.value=initial;
+  input.setAttribute("aria-label","Buscar ciudad, negocio, calle o coordenadas");
+  const search=element("button","map-search-submit","Buscar");
+  search.type="submit";
+  const locate=button("⌖ Mi ubicación",()=>{
+    if(!navigator.geolocation){
+      feedback.textContent="Este navegador no permite consultar tu ubicación.";return;
+    }
+    locate.disabled=true;feedback.textContent="Solicitando permiso de ubicación…";
+    navigator.geolocation.getCurrentPosition(position=>{
+      locate.disabled=false;
+      const {latitude,longitude}=position.coords;
+      if(!Number.isFinite(latitude)||!Number.isFinite(longitude)){
+        feedback.textContent="No se pudo determinar una ubicación válida.";return;
+      }
+      const coordinates=latitude.toFixed(6)+", "+longitude.toFixed(6);
+      input.value=coordinates;
+      feedback.textContent="Ubicación obtenida. Abriendo mapa…";
+      void performSearch(coordinates,"maps");
+    },error=>{
+      locate.disabled=false;
+      feedback.textContent=error.code===1
+        ?"Permiso denegado. Puedes buscar una dirección manualmente."
+        :"No se pudo obtener tu ubicación. Busca una dirección o inténtalo de nuevo.";
+    },{enableHighAccuracy:false,timeout:12000,maximumAge:60000});
+  },"map-action map-locate");
+  const feedback=element("p","map-search-status");
+  feedback.setAttribute("role","status");feedback.setAttribute("aria-live","polite");
+  form.append(input,search,locate,feedback);
+  form.addEventListener("submit",event=>{
+    event.preventDefault();
+    const q=input.value.trim();
+    if(q.length<2){feedback.textContent="Escribe al menos dos caracteres o usa Mi ubicación.";input.focus();return;}
+    void performSearch(q,"maps");
+  });
+  return form;
+}
 function showDirectionsWithoutLocality(){
   stopDirections();
   const map=createNativeMap();
   const stage=map.root;
-  const note=element("p","map-description",
-    "Mapa interactivo con calles reales. Busca un lugar, arrastra el mapa, acerca o aleja y calcula rutas cuando el proveedor esté disponible.");
+  const section=element("section","map-explorer");
+  section.append(element("h2","","Explora el mapa"),createMapQuickSearch());
   const footnote=element("p","map-attribution",
     "WAEWEB Mapas · cartografía © OpenStreetMap contributors · búsqueda precisa si hay proveedor configurado.");
   const directions=createDirections({getJSON,element,button,external,copyText,
@@ -468,9 +511,10 @@ function showDirectionsWithoutLocality(){
     onRoute:route=>map.setRoute(route.geometry)
   });
   activeDirections=directions;
-  resultsContainer.append(note,stage,footnote,directions.root);
-  resultsContainer.append(external("https://www.openstreetmap.org/#map=5/23.6/-102.5",
+  section.append(stage,footnote,directions.root);
+  section.append(external("https://www.openstreetmap.org/#map=5/23.6/-102.5",
     "↗ Abrir mapa original","link-button"));
+  resultsContainer.append(section);
 }
 function renderMapPlaces(data) {
   stopDirections();
@@ -497,37 +541,21 @@ function renderMapPlaces(data) {
       : data.precision === "address_or_place"
         ? "Coincidencias de direcciones y lugares; selecciona el punto correcto antes de trazar una ruta."
         : "Localidades geocodificadas. El marcador representa un centro aproximado, no una dirección exacta."));
-  const newSearch = button("⌕ Otra ubicación",()=>{resultsInput.focus();resultsInput.select();},"small-action");
+  const mapSearch=createMapQuickSearch();
+  const mapSearchInput=mapSearch.querySelector("input");
+  const newSearch=button("⌕ Otro lugar",()=>{mapSearchInput.focus();mapSearchInput.scrollIntoView({behavior:"smooth",block:"center"});},"small-action");
   heading.append(headText,newSearch);
-  section.append(heading);
-  // Search lives beside the map, not in a detached browser or a second screen.
-  const mapSearch=element("form","map-search-form");
-  mapSearch.setAttribute("role","search");
-  const mapSearchInput=element("input","map-search-input");
-  mapSearchInput.type="search";mapSearchInput.name="place";mapSearchInput.maxLength=180;
-  mapSearchInput.autocomplete="off";mapSearchInput.placeholder="Buscar otro lugar, negocio o dirección";
-  mapSearchInput.setAttribute("aria-label","Buscar otro lugar o dirección en WAEWEB Mapas");
-  const mapSearchButton=element("button","map-search-submit","⌕ Buscar en mapa");
-  mapSearchButton.type="submit";
-  mapSearch.append(mapSearchInput,mapSearchButton);
-  mapSearch.addEventListener("submit",event=>{
-    event.preventDefault();
-    if(mapSearchInput.value.trim().length<2){mapSearchInput.focus();return;}
-    performSearch(mapSearchInput.value,"maps");
-  });
-  section.append(mapSearch);
+  section.append(heading,mapSearch);
 
   const placeTitle = element("h3","map-place-title");
   const placeDetail = element("p","map-place-detail");
   const coords = element("p","map-coordinates");
   const toolbar = element("div","map-toolbar");
-  const zoomOut = button("− Alejar",()=>changeZoom(-1),"map-action");
-  const zoomIn = button("+ Acercar",()=>changeZoom(1),"map-action");
   const copy = button("⧉ Copiar coordenadas",()=>copyText(
     (mapOverride||places[selected]).latitude.toFixed(6) + ", " +
     (mapOverride||places[selected]).longitude.toFixed(6)),"map-action");
   const visit = external("https://www.openstreetmap.org/","↗ Abrir mapa completo","map-action map-original");
-  toolbar.append(zoomOut,zoomIn,copy,visit);
+  toolbar.append(copy,visit);
 
   const map=createNativeMap({onSelectPlace:index=>select(index)});
   const directions=createDirections({getJSON,element,button,external,copyText,
@@ -571,7 +599,6 @@ function renderMapPlaces(data) {
     placeDetail.textContent=(place.detail||"Ubicación geográfica")+" · "+accuracy;
     coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
     visit.href=osmPlaceUrl(place);
-    zoomIn.disabled=zoom>=4; zoomOut.disabled=zoom<=0;
     options.forEach((option,i)=>{
       option.classList.toggle("is-active",!mapOverride&&i===selected);
       option.setAttribute("aria-pressed",String(!mapOverride&&i===selected));
@@ -585,13 +612,11 @@ function renderMapPlaces(data) {
     mapOverride=null;
     refresh();
   }
-  function changeZoom(delta){
-    zoom=Math.max(0,Math.min(4,zoom+delta));map.changeZoom(delta);refresh();
-  }
   const details=element("div","map-place");
   details.append(placeTitle,placeDetail,coords,toolbar);
-  section.append(details,stage,footnote,directions.root);
+  section.append(stage,details,footnote);
   if(places.length>1)section.append(element("h3","map-picks-title","Elegir ubicación"),picks);
+  section.append(directions.root);
   resultsContainer.append(section);
   directions.setDestination(places[selected]);
   mapOverride=null;
@@ -649,8 +674,6 @@ async function renderMap(query,signal,sequence) {
     const card=stateCard("No se pudo mostrar el mapa",error.message);
     card.append(external("https://www.openstreetmap.org/search?query="+encodeURIComponent(query),
       "↗ Abrir búsqueda en el mapa original","link-button"));
-    card.append(external("/diagnostico.html",
-      "⌕ Diagnosticar HTTP 401 y conexión de los módulos","link-button"));
     resultsContainer.replaceChildren(card);
     showDirectionsWithoutLocality();
   }
@@ -728,8 +751,7 @@ async function performSearch(query, type = "all", push = true) {
       answer.replaceChildren(); weatherSlot.replaceChildren(); panel.replaceChildren();
       state.data=null;state.results=[];state.selectedSource="";
       sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
-      resultsContainer.replaceChildren(stateCard("Explorar mapas",
-        "Busca una localidad en WAEWEB o usa «Buscar origen / destino» para elegir direcciones y lugares precisos. También puedes escribir coordenadas."));
+      resultsContainer.replaceChildren();
       showDirectionsWithoutLocality();
       stats.textContent = "Mapas · Escribe un lugar para comenzar.";
       resultsInput.focus();
