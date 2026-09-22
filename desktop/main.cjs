@@ -220,6 +220,34 @@ async function start() {
   ipcMain.handle("wae:desktop:action", command);
   await windowRef.loadURL(shellOrigin + "/");
   emitState();
+  // A real Electron smoke run validates preload, IPC, Node API and window.
+  // No third-party browsing or secrets are needed for this local check.
+  if (process.argv.includes("--smoke")) {
+    try {
+      const check = await windowRef.webContents.executeJavaScript(`(async () => {
+        const response = await fetch("/api/health");
+        const health = await response.json();
+        const initial = await window.waeDesktop.getState();
+        const opened = await window.waeDesktop.open(null, true);
+        const closed = await window.waeDesktop.close(opened.activeId);
+        return {
+          bridge: window.waeDesktop?.isNative === true,
+          address: !!document.getElementById("browser-address"),
+          api: response.ok && health.product === "WAE WEB",
+          before: initial.tabs.length,
+          during: opened.tabs.length,
+          after: closed.tabs.length
+        };
+      })()`);
+      if (!check.bridge || !check.address || !check.api || check.before !== 0 ||
+          check.during !== 1 || check.after !== 0) throw new Error("Smoke assertion: " + JSON.stringify(check));
+      console.log("WAEWEB_NATIVE_SMOKE_PASS", JSON.stringify(check));
+    } catch (error) {
+      process.exitCode = 1;
+      console.error("WAEWEB_NATIVE_SMOKE_FAIL", error.message);
+    }
+    app.quit();
+  }
 }
 app.whenReady().then(start).catch(error => {
   console.error("WAEWEB desktop startup failed:", error.message);
