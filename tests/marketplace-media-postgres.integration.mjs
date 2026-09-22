@@ -173,16 +173,18 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     const photoPath="/"+process.env.WAE_MEDIA_BUCKET+"/"+saved.imageKey;
     const originalPhoto=photos.get(photoPath);
     photos.delete(photoPath);
-    process.env.WAE_MARK_MEDIA_RESTORE_ACK="reviewed-offline-empty-object-restore";
+    process.env.WAE_MARK_MEDIA_RESTORE_ACK="reviewed-offline-missing-objects-only";
     const restored=await restoreMarketMediaForPostgres(
       objectBackup.filename,pgBackup.filename,{confirm:true});
     assert.equal(restored.restored,1);
-    assert.equal(restored.providerObjectsCheckedAfterWrite,true);
+    assert.equal(restored.status,"batch_restored_and_verified");
+    assert.equal(restored.verified,1);
     assert.equal(restored.restoreCertified,false);
     assert.deepEqual(photos.get(photoPath),originalPhoto);
-    await assert.rejects(()=>restoreMarketMediaForPostgres(
-      objectBackup.filename,pgBackup.filename,{confirm:true}),
-      {code:"media_restore_target_not_empty"});
+    const repeat=await restoreMarketMediaForPostgres(
+      objectBackup.filename,pgBackup.filename,{confirm:true});
+    assert.equal(repeat.reason,"destination_not_empty");
+    assert.equal(repeat.noExistingObjectsOverwritten,true);
     const tamperedPhoto=Buffer.from(originalPhoto);
     tamperedPhoto[5]^=1;
     photos.set(photoPath,tamperedPhoto);
