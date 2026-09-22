@@ -128,7 +128,7 @@ async function mutate(operation, base) {
         return { envelope: encrypted, result };
       });
     } catch (error) {
-      if (error instanceof AccountError) throw error;
+      if (error instanceof AccountError || error instanceof MediaJournalError) throw error;
       fail("storage_failure", "No se pudo guardar el registro de cuentas.", 503);
     }
   }
