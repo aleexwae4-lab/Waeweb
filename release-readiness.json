@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC20 adds bounded signed ListObjectsV2 inventory under marketplace/ and compares private provider objects with encrypted PostgreSQL references and the deletion journal. Complete synthetic inventory can identify missing and orphan candidates without deletion or key exposure. It does NOT create/restore an independent object backup or prove real provider/versioning/RPO/RTO. HOLD.",
+      "reason": "RC21 adds encrypted bounded media archives bound to authenticated PostgreSQL backup plus offline no-overwrite restoration using signed conditional PUT, read-before-write and post-write SHA-256 verification in disposable CI. Partial batches/failures are never full restore certification. Independent real provider recovery, retention, key custody, versioning, complete backup coverage and RPO/RTO remain unproven. HOLD.",
       "evidence": ""
     },
     {
@@ -41,7 +41,7 @@
     {
       "id": "marketplace",
       "status": "blocked",
-      "reason": "RC20 classifies referenced objects, queued deletions, orphan candidates, unexpected keys and missing references through read-only private inventory with drift detection. No automatic orphan deletion is approved. Real object backup/restore, provider/IAM validation, legacy migration, E2E mobile, privacy, payments and independent security certification remain blocked. HOLD."
+      "reason": "RC21 supports explicitly confirmed, PostgreSQL-bound media recovery from encrypted private archives without overwrites or deletion; drift, occupied objects, tampered archive and corrupt post-write bytes block certification. Missing real full-bucket recovery, legacy migration, provider/IAM tests, E2E mobile, privacy, monetization and independent security certification. HOLD."
     }
   ]
 }
