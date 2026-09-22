@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/styles.css">
   <script type="module" src="/app.js"></script>
   <script type="module" src="/accounts.js"></script>
+  <script type="module" src="/business-profile.js"></script>
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><div class="blob one"></div><div class="blob two"></div><div class="blob three"></div></div>
@@ -40,6 +41,10 @@
         <div class="hero-business"><span class="tag">WAE WEB para negocios</span><h2>Tu empresa también tiene un espacio aquí.</h2><p>Crea tu cuenta y administra las fichas de tus negocios desde un panel privado.</p><button id="hero-account-button" class="business-primary" type="button">Crear cuenta o registrar negocio →</button></div>
         <p class="honest-caption">Resultados identificados por fuente. Sin cifras inventadas ni respuestas simuladas.</p>
       </section>
+      <section id="business-profile-view" class="account-view" hidden aria-label="Perfil público de negocio">
+        <div class="business-head"><div><span class="tag">WAE WEB BUSINESS</span><h1>Perfil de negocio</h1><p>Información comercial publicada voluntariamente, sin verificación de WAE WEB.</p></div><a href="/" class="small-action">← Volver al buscador</a></div>
+        <div id="business-profile-content" class="business-profile-content" role="status" aria-live="polite"></div>
+      </section>
       <section id="account-view" class="account-view" hidden aria-label="Tu cuenta y negocios">
         <div class="business-head"><div><span class="tag">WAE WEB BUSINESS</span><h1>Tu cuenta. Tus negocios.</h1><p>Registra tus empresas y administra tus fichas desde tu cuenta. Son privadas por defecto; solo se publican con tu autorización y no se verifican automáticamente.</p></div><button id="account-back" type="button" class="small-action">← Volver al buscador</button></div>
         <p id="account-alert" class="account-alert" role="status" aria-live="polite"></p>
@@ -50,7 +55,7 @@
             <label for="register-name">Nombre completo</label><input id="register-name" name="name" type="text" autocomplete="name" minlength="2" maxlength="100" required>
             <label for="register-email">Correo electrónico</label><input id="register-email" name="email" type="email" autocomplete="email" maxlength="254" required>
             <label for="register-password">Contraseña (mínimo 12 caracteres)</label><input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
-            <button class="business-primary" type="submit">Crear cuenta</button><p class="business-fineprint">En esta etapa no hay verificación de correo ni publicación pública de negocios. Nunca registres datos de terceros sin autorización.</p>
+            <button class="business-primary" type="submit">Crear cuenta</button><p class="business-fineprint">En esta etapa no hay verificación de correo. Las fichas permanecen privadas hasta que el titular decide publicarlas. Nunca registres datos de terceros sin autorización.</p>
           </form>
           <form id="login-form" class="business-form" hidden autocomplete="on">
             <h2>Bienvenido de nuevo</h2>
@@ -62,14 +67,15 @@
         <div id="business-dashboard" hidden>
           <div class="business-user"><div><span class="tag">Sesión privada</span><h2 id="business-greeting"></h2><p id="business-email"></p></div><button id="business-logout" type="button" class="small-action">Cerrar sesión</button></div>
           <div class="business-layout"><form id="business-form" class="business-form">
-            <h2>Registrar un negocio</h2><p class="business-fineprint">Será privado a menos que marques la publicación voluntaria. Es una ficha declarada por su propietario, no una verificación oficial.</p>
+            <h2 id="business-form-title">Registrar un negocio</h2><p class="business-fineprint" id="business-form-hint">Será privado a menos que marques la publicación voluntaria. Es una ficha declarada por su propietario, no una verificación oficial.</p>
             <label for="business-name">Nombre comercial</label><input id="business-name" name="name" type="text" minlength="2" maxlength="130" required>
             <label for="business-category">Categoría o sector</label><input id="business-category" name="category" type="text" minlength="2" maxlength="80" placeholder="Ej. tecnología, comercio, salud" required>
             <label for="business-city">Ciudad</label><input id="business-city" name="city" type="text" minlength="2" maxlength="100" required>
             <label for="business-website">Sitio web HTTPS (opcional)</label><input id="business-website" name="website" type="url" maxlength="320" placeholder="https://miempresa.com">
             <label for="business-description">Descripción (opcional)</label><textarea id="business-description" name="description" maxlength="800" rows="4"></textarea>
             <label class="business-publish" for="business-publish"><input type="checkbox" id="business-publish" name="publish"><span>Quiero mostrar públicamente esta ficha en la búsqueda de negocios de WAE WEB. Entiendo que aparecerá como negocio no verificado.</span></label>
-            <button class="business-primary" type="submit">+ Guardar mi negocio</button>
+            <button class="business-primary" id="business-save" type="submit">+ Guardar mi negocio</button>
+            <button class="small-action" id="business-cancel-edit" type="button" hidden>Cancelar edición</button>
           </form><div class="business-list-wrap"><div class="business-list-head"><h2>Mis negocios <span id="business-count">0</span></h2><span class="tag">Bajo tu control</span></div><div id="business-list" class="business-list"></div></div></div>
         </div>
       </section>
