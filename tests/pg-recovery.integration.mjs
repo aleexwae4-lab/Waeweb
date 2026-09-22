@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { tmpdir } from "node:os";
-import { backupPostgres, verifyPostgresBackup, restorePostgresBackup, verifyRestoredMarketplaceMedia } from "../server/pg-recovery.mjs";
+import { backupPostgres, verifyPostgresBackup, restorePostgresBackup, verifyRestoredMarketplaceMedia, backupMarketMediaForPostgres, verifyMarketMediaBackup, restoreMarketMediaForPostgres } from "../server/pg-recovery.mjs";
 import { postgresAccountsConfig } from "../server/accounts-postgres.mjs";
 import { loadVault } from "../server/vault.mjs";
 import { listPublicBusinesses, loginAccount, listBusinesses, addMarketListing, uploadMarketPhoto } from "../server/accounts.mjs";
@@ -24,7 +24,10 @@ test("disposable PostgreSQL encrypted snapshot verifies, rejects tampering and r
   assert.equal(process.env.WAE_PG_RECOVERY_CI_ACK, "disposable-wae-test-only");
   const backupDir = await mkdtemp(join(tmpdir(), "wae-pg-recovery-"));
   const old = process.env.WAE_PG_BACKUP_DIR;
+  const mediaDir = await mkdtemp(join(tmpdir(), "wae-media-recovery-"));
+  const oldMediaDir = process.env.WAE_MEDIA_BACKUP_DIR;
   process.env.WAE_PG_BACKUP_DIR = backupDir;
+  process.env.WAE_MEDIA_BACKUP_DIR = mediaDir;
   const { default: pg } = await import("pg");
   const db = new pg.Client(postgresAccountsConfig());
   try {
@@ -39,8 +42,15 @@ test("disposable PostgreSQL encrypted snapshot verifies, rejects tampering and r
       methods.push(options.method);
       const path=new URL(url).pathname;
       if(options.method==="PUT"){
+        if(options.headers["if-none-match"]==="*" && objects.has(path))
+          return {status:412};
         objects.set(path,Buffer.from(options.body));
         return {status:200};
+      }
+      if(options.method==="HEAD"){
+        const bytes=objects.get(path);
+        return bytes?{status:200,headers:new Headers({
+          "content-length":String(bytes.length)})}:{status:404};
       }
       if(options.method==="GET"){
         const bytes=objects.get(path);
@@ -79,6 +89,16 @@ test("disposable PostgreSQL encrypted snapshot verifies, rejects tampering and r
     assert.equal(snapshot.accountsPresent, true);
     assert.equal(snapshot.vaults, vaultsBefore.rows.length);
     assert.equal((await verifyPostgresBackup(snapshot.filename)).checksum, snapshot.checksum);
+    // RC21 independent encrypted media archive, coupled to this PG checksum.
+    const mediaCapsule=await backupMarketMediaForPostgres(snapshot.filename,
+      {media:fakeMedia,transport});
+    const archiveReport=await verifyMarketMediaBackup(
+      mediaCapsule.filename,snapshot.filename);
+    assert.equal(archiveReport.referenceMatchesPostgres,true);
+    assert.equal(archiveReport.verified,1);
+    const archiveRaw=await readFile(join(mediaDir,mediaCapsule.filename),"utf8");
+    assert.equal(archiveRaw.includes(jpeg.toString("base64")),false);
+    assert.equal(archiveRaw.includes("marketplace/"),false);
     const originalBytes=[...objects.values()][0];
     const verified=await verifyRestoredMarketplaceMedia(snapshot.filename,
       {media:fakeMedia,transport});
@@ -142,6 +162,26 @@ test("disposable PostgreSQL encrypted snapshot verifies, rejects tampering and r
     assert.equal(afterRestore.restoreCertified,false);
     assert.equal(methods.filter(m=>m==="PUT").length,1,
       "recovery checks must not write any objects");
+    // CI-only simulated object loss: recover from the independently saved
+    // encrypted capsule. The object PUT is conditional and never overwrites.
+    objects.delete(objectPath);
+    const offlineRestore=await restoreMarketMediaForPostgres(
+      mediaCapsule.filename,snapshot.filename,
+      {media:fakeMedia,transport,offlineConfirmed:true});
+    assert.equal(offlineRestore.status,"batch_restored_and_verified");
+    assert.equal(offlineRestore.restored,1);
+    assert.deepEqual(objects.get(objectPath),jpeg);
+    assert.equal(methods.filter(m=>m==="PUT").length,2);
+    const existing=await restoreMarketMediaForPostgres(
+      mediaCapsule.filename,snapshot.filename,
+      {media:fakeMedia,transport,offlineConfirmed:true});
+    assert.equal(existing.reason,"destination_not_empty");
+    assert.equal(methods.filter(m=>m==="PUT").length,2);
+    await assert.rejects(()=>restoreMarketMediaForPostgres(
+      mediaCapsule.filename,snapshot.filename,
+      {media:fakeMedia,transport,offlineConfirmed:false}),
+      {code:"media_restore_not_authorized"});
+
 
     assert.equal((await loadVault("org_alpha")).size, originalVaultCount);
     const after = await db.query(
@@ -156,6 +196,9 @@ test("disposable PostgreSQL encrypted snapshot verifies, rejects tampering and r
   } finally {
     await db.end().catch(() => {});
     await rm(backupDir, { recursive: true, force: true });
+    await rm(mediaDir, { recursive: true, force: true });
+    if (oldMediaDir === undefined) delete process.env.WAE_MEDIA_BACKUP_DIR;
+    else process.env.WAE_MEDIA_BACKUP_DIR = oldMediaDir;
     if (old === undefined) delete process.env.WAE_PG_BACKUP_DIR;
     else process.env.WAE_PG_BACKUP_DIR = old;
   }
