@@ -21,7 +21,7 @@ function packageRoot(raw,{sourceRoots=[]}={}){
   if(typeof raw!=="string"||!isAbsolute(raw)||raw.includes("\0"))
     reject("portable_directory_required");
   const dir=resolve(raw),repo=resolve(process.cwd());
-  const forbidden=[repo,...sourceRoots.filter(Boolean).map(resolve)];
+  const forbidden=[repo,...sourceRoots.filter(Boolean).map(path=>resolve(path))];
   if(forbidden.some(root=>dir===root||dir.startsWith(root+sep)||
      root.startsWith(dir+sep)))reject("portable_directory_unsafe");
   return dir;
