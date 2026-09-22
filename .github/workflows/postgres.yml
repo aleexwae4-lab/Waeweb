@@ -6,6 +6,10 @@ on:
     paths:
       - "server/accounts.mjs"
       - "server/accounts-postgres.mjs"
+      - "server/vault.mjs"
+      - "server/vault-postgres.mjs"
+      - "scripts/vault-pg-init.mjs"
+      - "tests/vault-postgres.integration.mjs"
       - "server/crypto.mjs"
       - "scripts/accounts-pg-init.mjs"
       - "tests/postgres.integration.mjs"
@@ -43,6 +47,8 @@ jobs:
       WAE_PG_INTEGRATION: "true"
       WAE_ACCOUNTS_ENABLED: "true"
       WAE_ACCOUNTS_STORE: postgres
+      WAE_VAULT_STORE: postgres
+      WAE_VAULT_KEYS_JSON: '{"org_alpha":"abababababababababababababababababababababababababababababababab","org_beta":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}'
       WAE_ACCOUNTS_KEY: "abababababababababababababababababababababababababababababababab"
       WAE_ACCOUNTS_DATABASE_URL: postgresql://wae_test:local-ci-only-password@127.0.0.1:5432/wae_test
       WAE_POSTGRES_ALLOW_INSECURE_LOCAL_TEST: "true"
@@ -57,3 +63,5 @@ jobs:
         run: npm run check
       - name: Test actual PostgreSQL transactions and encrypted persistence
         run: npm run test:postgres
+      - name: Test encrypted research vaults and cross-process isolation
+        run: npm run test:vault:postgres
