@@ -1,6 +1,6 @@
 {
   "name": "waeweb",
-  "version": "1.0.0-rc.4",
+  "version": "1.0.0-rc.5",
   "private": true,
   "type": "module",
   "description": "WAEWEB — encrypted PostgreSQL backend, native desktop and authenticated realtime Connect API",
@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node server/index.mjs",
     "test": "node --test",
-    "check": "node --check server/index.mjs && node --check server/search.mjs && node --check server/intelligence.mjs && node --check server/reader.mjs && node --check public/app.js && node --check public/browser.js && node --check public/browser-core.js && node --check public/workspace.js && node --check server/vault.mjs && node --check server/crypto.mjs && node --check server/backup.mjs && node --check scripts/vault-ops.mjs && node --check server/accounts.mjs && node --check public/accounts.js && node --check server/maintenance.mjs && node --check scripts/vault-maintenance.mjs && node --check public/business-profile.js && node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check desktop/security.mjs && node --check scripts/release-gate.mjs && node --check server/accounts-postgres.mjs && node --check scripts/accounts-pg-init.mjs && node --check server/vault-postgres.mjs && node --check scripts/vault-pg-init.mjs && node --check 'api/[...path].js' && node --check server/connect.mjs",
+    "check": "node --check server/index.mjs && node --check server/search.mjs && node --check server/intelligence.mjs && node --check server/reader.mjs && node --check public/app.js && node --check public/browser.js && node --check public/browser-core.js && node --check public/workspace.js && node --check server/vault.mjs && node --check server/crypto.mjs && node --check server/backup.mjs && node --check scripts/vault-ops.mjs && node --check server/accounts.mjs && node --check public/accounts.js && node --check server/maintenance.mjs && node --check scripts/vault-maintenance.mjs && node --check public/business-profile.js && node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check desktop/security.mjs && node --check scripts/release-gate.mjs && node --check server/accounts-postgres.mjs && node --check scripts/accounts-pg-init.mjs && node --check server/vault-postgres.mjs && node --check scripts/vault-pg-init.mjs && node --check 'api/[...path].js' && node --check server/connect.mjs && node --check server/connect-postgres.mjs && node --check scripts/connect-pg-init.mjs",
     "vault:backup": "node scripts/vault-ops.mjs backup",
     "vault:verify": "node scripts/vault-ops.mjs verify",
     "vault:restore": "node scripts/vault-ops.mjs restore",
@@ -22,7 +22,9 @@
     "accounts:pg:init": "node scripts/accounts-pg-init.mjs --confirm-schema",
     "test:postgres": "node --test tests/postgres.integration.mjs",
     "vault:pg:init": "node scripts/vault-pg-init.mjs --confirm-schema",
-    "test:vault:postgres": "node --test tests/vault-postgres.integration.mjs"
+    "test:vault:postgres": "node --test tests/vault-postgres.integration.mjs",
+    "connect:pg:init": "node scripts/connect-pg-init.mjs --confirm-schema",
+    "test:connect:postgres": "node --test tests/connect-postgres.integration.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {
