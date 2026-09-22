@@ -80,17 +80,56 @@ function sse(res,event,data) {
   if (!res.destroyed && !res.writableEnded)
     res.write("event: "+event+"\ndata: "+JSON.stringify(data)+"\n\n");
 }
-function safeResults(payload, params) {
-  if (payload.error) return { ok:false,error:"search_rejected",message:payload.error };
-  return { ok:true,contract:CONNECT_VERSION,query:payload.query,type:params.type,
-    results:(payload.results || []).slice(0,25).map(item=>({
-      title:item.title,url:item.url,snippet:item.snippet,source:item.source,
-      date:item.date||null,image:item.image||null
-    })),sources:payload.sources||[],failedSources:payload.failedSources||[],
-    fetchedAt:payload.fetchedAt,brief:payload.brief||null,
-    freshness:params.fresh ? "bypass_waeweb_cache" : "standard_cache",
-    disclaimer:"Las páginas externas y sus resultados no están verificados por WAEWEB." };
+// Never turn an upstream outage (including an unconfigured category) into a
+// successful empty answer. Preserve partial evidence without claiming completeness.
+const textField=(value,max=1024)=>typeof value==="string"
+  ? value.replace(/[\\u0000-\\u001f\\u007f]/g," ").trim().slice(0,max) : "";
+const sourceList=value=>Array.isArray(value)
+  ? value.filter(x=>typeof x==="string").slice(0,25).map(x=>textField(x,120)).filter(Boolean)
+  : [];
+function usableUrl(value) {
+  if(typeof value!=="string" || value.length>1800)return false;
+  try {
+    const url=new URL(value);
+    return ["https:","http:"].includes(url.protocol) &&
+      !url.username && !url.password && !url.hash && Boolean(url.hostname);
+  }catch{return false;}
 }
+export function safeResults(payload,params) {
+  if(!payload || typeof payload!=="object" || Array.isArray(payload))
+    return {ok:false,contract:CONNECT_VERSION,error:"invalid_search_response"};
+  if(payload.error) return {ok:false,contract:CONNECT_VERSION,
+    error:"search_rejected",message:textField(payload.error,300)};
+  const sources=sourceList(payload.sources);
+  const failedSources=sourceList(payload.failedSources);
+  const configured=sources.filter(name=>!name.endsWith(" no configurado"));
+  // A configured provider may legitimately have ZERO hits. Missing provider
+  // capability is different from a verified zero-result search.
+  if(configured.length===0) return {ok:false,contract:CONNECT_VERSION,
+    error:"no_sources_available",status:"unavailable",
+    sources,failedSources,results:[],fetchedAt:new Date().toISOString()};
+  const results=Array.isArray(payload.results)?payload.results:[];
+  const mapped=results.filter(item=>item && typeof item==="object" &&
+    usableUrl(item.url) && textField(item.title,300))
+    .slice(0,25).map(item=>({
+      title:textField(item.title,300),url:item.url,
+      snippet:textField(item.snippet,1100),source:textField(item.source,120),
+      date:textField(item.date,40)||null,
+      image:usableUrl(item.image)?item.image:null
+    }));
+  const status=failedSources.length || sources.some(name=>name.endsWith(" no configurado"))
+    ? "partial" : "complete";
+  return {ok:true,contract:CONNECT_VERSION,
+    status,query:textField(payload.query,180),type:params.type,
+    results:mapped,sources,failedSources,
+    fetchedAt:typeof payload.fetchedAt==="string" &&
+      !Number.isNaN(Date.parse(payload.fetchedAt))?payload.fetchedAt:new Date().toISOString(),
+    brief:payload.brief&&typeof payload.brief==="object"?null:textField(payload.brief,1200)||null,
+    freshness:params.fresh?"bypass_waeweb_cache":"standard_cache",
+    disclaimer:"Fuentes externas no verificadas; un resultado parcial no implica cobertura exhaustiva."
+  };
+}
+
 export async function handleConnect(req,res,{searchProvider=search,reader=readPage}={}) {
   const pathname=new URL(req.url||"/","http://localhost").pathname;
   const allowed={"/api/connect/v1/status":"GET","/api/connect/v1/search":"POST",
@@ -147,7 +186,7 @@ export async function handleConnect(req,res,{searchProvider=search,reader=readPa
     }
     try {
       const result=safeResults(await searchProvider(params.query,params.type,{fresh:params.fresh}),params);
-      return json(res,result.ok?200:422,result);
+      return json(res,result.ok?200:result.error==="no_sources_available"?503:422,result);
     } catch { return json(res,502,{error:"connect_upstream_unavailable"}); }
   } catch (error) {
     if (error instanceof TypeError)
