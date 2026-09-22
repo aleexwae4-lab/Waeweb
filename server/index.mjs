@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
+import { handleConnect, connectConfig } from "./connect.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
 import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError, vaultStorageReady } from "./vault.mjs";
 import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
@@ -106,8 +107,10 @@ export async function handler(req, res) {
     promotionsEnabled: Boolean(billingConfig()) && accountsEnabled(),
     businessRegistration: accountsEnabled() ? "owner_controlled_self_declared" : "disabled",
     publicBusinessProfiles: accountsEnabled(),
+    connectApi: Boolean(connectConfig()),
     deploymentConnected: false
   });
+  if (u.pathname.startsWith("/api/connect/")) return handleConnect(req,res);
   const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses", "/api/businesses/public", "/api/promotions/plan", "/api/promotions/webhook", "/api/promotions/search"]);
   const businessDelete = /^\/api\/businesses\/[0-9a-f-]{36}$/i.test(u.pathname);
   const businessEdit = /^\/api\/businesses\/[0-9a-f-]{36}\/profile$/i.test(u.pathname);
