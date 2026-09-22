@@ -49,3 +49,33 @@ npm run check valida sintaxis; npm test ejecuta pruebas con fuentes simuladas ú
 ## Límites declarados
 
 Todavía no es un navegador de pestañas y URL con motor de renderizado propio; es una aplicación de búsqueda web federada. Indexación web general, crawling respetuoso, ranking autónomo, RAG sobre páginas, verificación cruzada, navegación interna y orquestador de IA requieren etapas posteriores y proveedores adecuados.
+
+## WAE Research Core — Fase 2
+
+Operadores de búsqueda, aplicados **sobre los resultados recuperados**:
+
+- site:example.org — dominio exacto o subdominios. Con Google configurado también se transmite la restricción site:.
+- after:2025-01-01 y before:2026-01-01 — solo resultados con fecha informada; fecha inicial incluida, final excluida. También admite años completos.
+- source:wikipedia, source:crossref, source:openalex, source:google, source:wikimedia — proveedor declarado.
+- -publicidad — exclusión de un término en título o extracto.
+- "frase exacta" — exige frase en título o extracto.
+
+Ejemplo: energía solar site:example.edu after:2024 -publicidad. Los dominios incompletos no son compatibles con el filtro local: utiliza un dominio completo.
+
+El ordenamiento pondera coincidencias con títulos y extractos. No es PageRank ni un índice global de Internet. La caché diferencia consultas con filtros. OpenAlex aporta extractos reconstruidos de la información de resúmenes cuando está disponible.
+
+**Panorama documental:** recopila hasta cuatro extractos atribuidos con URLs y diversidad básica de dominios. No es IA generativa ni corroboración independiente. No atribuye afirmaciones nuevas a las fuentes.
+
+**Biblioteca WAE:** almacenamiento local en el navegador, hasta 100 fuentes, exportación Markdown. Sin cuenta, subida al servidor o sincronización de dispositivos. Si el navegador bloquea la persistencia, usa memoria temporal y muestra una advertencia. En equipos compartidos no guardes información sensible.
+
+Pruebas adicionales: parser, fechas inválidas, filtros por dominio, caché aislada, ranking, extractos con atribución y biblioteca con y sin persistencia local.
+
+### Próximas etapas
+
+- Mayor cobertura de web general sujeta a proveedores, derechos de uso y cuotas.
+- Evaluación medible de relevancia, diversidad y frescura.
+- Lector protegido contra SSRF, crawling respetando robots e índice propio incremental.
+- IA opcional con citas verificables y degradación sin invención de datos.
+- QA visual, accesibilidad, seguridad y carga antes del despliegue.
+
+**Vercel permanece desconectado.**
