@@ -459,7 +459,7 @@ function showDirectionsWithoutLocality(){
   const note=element("p","map-description",
     "Vista general nativa de coordenadas. Busca un lugar para situar un punto en el visor.");
   const footnote=element("p","map-attribution",
-    "Visor geográfico WAEWEB · sin capas callejeras · Geocodificación: openrouteservice Pelias cuando esté disponible.");
+    "Visor geográfico WAEWEB · activa «Calles» para cartografía real de OpenStreetMap · búsqueda precisa si hay proveedor configurado.");
   const directions=createDirections({getJSON,element,button,external,copyText,
     onDestinationSelect:place=>{
       if(!validMapPlace(place))return;
@@ -494,7 +494,9 @@ function renderMapPlaces(data) {
     element("h2","","Explorar " + data.query),
     element("p","map-description",data.precision === "coordinate"
       ? "Punto indicado por coordenadas. No equivale a una dirección postal verificada."
-      : "Localidades geocodificadas. El marcador representa un centro aproximado, no una dirección exacta."));
+      : data.precision === "address_or_place"
+        ? "Coincidencias de direcciones y lugares; selecciona el punto correcto antes de trazar una ruta."
+        : "Localidades geocodificadas. El marcador representa un centro aproximado, no una dirección exacta."));
   const newSearch = button("⌕ Otra ubicación",()=>{resultsInput.focus();resultsInput.select();},"small-action");
   heading.append(headText,newSearch);
   section.append(heading);
@@ -525,7 +527,7 @@ function renderMapPlaces(data) {
   const stage = map.root;
   const footnote = element("p","map-attribution",
     "Visor WAEWEB · coordenadas de "+data.source+
-    " · sin mapa de calles; rutas solo desde un proveedor habilitado.");
+    " · pulsa «Calles» para cartografía real © OpenStreetMap contributors; rutas solo desde un proveedor habilitado.");
   const picks = element("div","map-picks");
   picks.setAttribute("aria-label","Ubicaciones encontradas");
   let selected = 0, zoom = data.precision === "coordinate" ? 3 : 2;
@@ -594,9 +596,18 @@ async function renderMap(query,signal,sequence) {
   resultsContainer.replaceChildren(stateCard("Buscando en el mapa",
     "Localizando ciudades y coordenadas. No se generan ubicaciones ficticias.",true));
   try {
-    const data=await getJSON("/api/maps?q="+encodeURIComponent(query),signal);
+    const [addressResponse,localityResponse]=await Promise.allSettled([
+      getJSON("/api/places?q="+encodeURIComponent(query),signal),
+      getJSON("/api/maps?q="+encodeURIComponent(query),signal)
+    ]);
     if(sequence!==state.sequence)return;
-    renderMapPlaces(data);
+    if(addressResponse.status==="fulfilled" && addressResponse.value.results?.length){
+      renderMapPlaces({...addressResponse.value,precision:"address_or_place"});
+    }else if(localityResponse.status==="fulfilled"){
+      renderMapPlaces(localityResponse.value);
+    }else if(addressResponse.status==="fulfilled"){
+      renderMapPlaces({...addressResponse.value,precision:"address_or_place"});
+    }else throw localityResponse.reason || addressResponse.reason;
   } catch(error) {
     if(error.name==="AbortError"||sequence!==state.sequence)return;
     stats.textContent="Mapa no disponible";
