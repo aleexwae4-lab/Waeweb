@@ -6,6 +6,7 @@ import { search, weather } from "./search.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
 import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError } from "./vault.mjs";
 import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
+import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const files = new Map([
@@ -18,6 +19,36 @@ const files = new Map([
   ["/robots.txt", ["robots.txt", "text/plain; charset=utf-8"]]
 ]);
 const rate = new Map();
+const accountRate = new Map();
+function accountLimited(req, action) {
+  const ip = req.socket.remoteAddress || "unknown";
+  const key = action + ":" + ip;
+  const now = Date.now();
+  const previous = accountRate.get(key);
+  const windowMs = 15 * 60_000;
+  const limit = action === "register" ? 5 : 12;
+  if (!previous || previous.until < now) {
+    if (accountRate.size > 10000) accountRate.clear();
+    accountRate.set(key, { count: 1, until: now + windowMs });
+    return false;
+  }
+  previous.count++;
+  return previous.count > limit;
+}
+async function jsonBody(req, maxBytes = 3000) {
+  let size = 0, chunks = [];
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > maxBytes) throw new AccountError("body_too_large", "Solicitud demasiado grande.", 413);
+    chunks.push(chunk);
+  }
+  try {
+    const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      throw new Error("not object");
+    return parsed;
+  } catch { throw new AccountError("invalid_json", "JSON inválido.", 400); }
+}
 const security = {
   "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'",
   "x-content-type-options": "nosniff",
@@ -44,11 +75,11 @@ function limited(req) {
   return entry.count > 60;
 }
 export async function handler(req, res) {
-  if (!["GET", "HEAD", "POST"].includes(req.method)) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD, POST" });
+  if (!["GET", "HEAD", "POST", "DELETE"].includes(req.method)) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD, POST, DELETE" });
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
-  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.5.0" });
+  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.6.0" });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
@@ -58,12 +89,46 @@ export async function handler(req, res) {
     vaultRequired: true,
     indexPersistence: "encrypted_local_disk_per_vault",
     encryption: "AES-256-GCM",
+    accountsEnabled: accountsEnabled(),
+    businessRegistration: accountsEnabled() ? "owner_only_self_declared" : "disabled",
     deploymentConnected: false
   });
-  if (req.method === "POST" && u.pathname !== "/api/read") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+  const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses"]);
+  const businessDelete = /^\/api\/businesses\/[0-9a-f-]{36}$/i.test(u.pathname);
+  if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname))
+    return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+  if (req.method === "DELETE" && !businessDelete)
+    return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (u.pathname.startsWith("/api/")) {
     if (limited(req)) return write(res, 429, { error: "Demasiadas consultas. Intenta de nuevo en un minuto." }, { "retry-after": "60" });
     try {
+      if (accountRoutes.has(u.pathname) || businessDelete) {
+        if (!accountsEnabled()) return write(res, 503, { error: "Cuentas desactivadas. Configura WAE_ACCOUNTS_ENABLED y WAE_ACCOUNTS_KEY en el servidor." });
+        if (req.method === "POST" && (u.pathname === "/api/account/register" || u.pathname === "/api/account/login")) {
+          const action = u.pathname.endsWith("register") ? "register" : "login";
+          if (accountLimited(req, action)) return write(res, 429, { error: "Demasiados intentos. Prueba más tarde." }, { "retry-after": "900" });
+          const body = await jsonBody(req);
+          const result = action === "register" ? await registerAccount(body) : await loginAccount(body);
+          return write(res, action === "register" ? 201 : 200, result);
+        }
+        if (req.method === "GET" && u.pathname === "/api/account/me") {
+          return write(res, 200, { user: await getAccount(req.headers.authorization) });
+        }
+        if (req.method === "POST" && u.pathname === "/api/account/logout") {
+          return write(res, 200, await logoutAccount(req.headers.authorization));
+        }
+        if (u.pathname === "/api/businesses" && req.method === "GET") {
+          return write(res, 200, await listBusinesses(req.headers.authorization));
+        }
+        if (u.pathname === "/api/businesses" && req.method === "POST") {
+          const body = await jsonBody(req);
+          return write(res, 201, { business: await addBusiness(req.headers.authorization, body) });
+        }
+        if (businessDelete && req.method === "DELETE") {
+          return write(res, 200, await deleteBusiness(req.headers.authorization, u.pathname.slice("/api/businesses/".length)));
+        }
+        return write(res, 405, { error: "Método no permitido." }, { allow: "GET, POST, DELETE" });
+      }
       if (u.pathname === "/api/index/search" || u.pathname === "/api/index/document" || u.pathname === "/api/read") {
         if (process.env.WAE_READER_ENABLED !== "true" || !encryptionReady(vaultConfig(), vaultKeysConfig())) {
           return write(res, 503, { error: "Bóvedas no configuradas o lector desactivado." });
@@ -120,12 +185,13 @@ export async function handler(req, res) {
       }
       return write(res, 404, { error: "Ruta no encontrada." });
     } catch (error) {
+      if (error instanceof AccountError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
       if (error instanceof VaultError) return write(res, 503, { error: error.message, code: error.code });
       return write(res, 502, { error: "La fuente externa no respondió. Prueba nuevamente." });
     }
   }
-  if (req.method === "POST") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+  if (req.method === "POST" || req.method === "DELETE") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (!files.has(u.pathname)) return write(res, 404, { error: "Página no encontrada." });
   const [file, mime] = files.get(u.pathname);
   try {
