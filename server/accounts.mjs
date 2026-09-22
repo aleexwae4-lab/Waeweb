@@ -261,19 +261,28 @@ export async function updateBusinessVisibility(header, id, published, base) {
 export async function listPublicBusinesses(query = "", base) {
   if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
   if (typeof query !== "string" || query.length > 100) fail("invalid_query", "Consulta de negocio demasiado larga.");
-  const phrase = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const fold = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const terms = [...new Set(fold(query).match(/[\p{L}\p{N}]{2,}/gu) || [])].slice(0, 12);
   const db = await readDb(base || basePath());
   const matching = db.users.flatMap(user => user.businesses)
-    .filter(business => business.visibility === "public" && (
-      !phrase || [business.name, business.category, business.city, business.description]
-        .join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(phrase)));
+    .filter(item => item.visibility === "public")
+    .map(item => {
+      const title = fold(item.name), sector = fold(item.category), city = fold(item.city);
+      const description = fold(item.description);
+      if (!terms.every(term => [title, sector, city, description].some(field => field.includes(term)))) return null;
+      const score = terms.reduce((sum, term) =>
+        sum + (title.includes(term) ? 5 : 0) + (sector.includes(term) ? 3 : 0) +
+          (city.includes(term) ? 2 : 0) + (description.includes(term) ? 1 : 0), 0);
+      return { item, score };
+    }).filter(Boolean)
+    .sort((a, b) => b.score - a.score || b.item.createdAt.localeCompare(a.item.createdAt));
   return {
-    businesses: matching.slice(0, 25).map(business => ({
+    businesses: matching.slice(0, 25).map(({ item: business }) => ({
       id: business.id, name: business.name, category: business.category, city: business.city,
       description: business.description, website: business.website,
       verification: "self_declared"
     })),
-    resultCount: Math.min(matching.length, 25),
-    limitedTo: 25, disclaimer: "Fichas publicadas voluntariamente y no verificadas por WAE WEB."
+    resultCount: Math.min(matching.length, 25), limitedTo: 25,
+    disclaimer: "Fichas publicadas voluntariamente y no verificadas por WAE WEB."
   };
 }
