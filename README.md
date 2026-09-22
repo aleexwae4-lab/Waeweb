@@ -364,3 +364,8 @@ La interfaz incluye "Conectar bóveda" y "Desconectar". El token no se incorpora
 Persistencia y aislamiento: cada bóveda se almacena en un archivo JSON cuyo nombre es el SHA-256 de su ID, con escrituras mediante archivo temporal y cambio atómico de nombre, permisos solicitados 0700 en carpeta creada y 0600 en archivo creado, comprobación de huella del texto, límite de 80 documentos y serialización de escrituras concurrentes por bóveda dentro de un proceso. Un archivo corrupto se rechaza en lugar de borrar o reparar automáticamente. No se guardan credenciales en los archivos. La persistencia NO equivale a respaldo ni a alta disponibilidad.
 
 **Límites y bloqueos de producción:** no hay cifrado en reposo, login con usuarios/roles, SSO, auditoría forense formal, rotación automatizada, backup, aislamiento criptográfico de inquilinos ni control de acceso a nivel de sistema operativo entre archivos. El uso remoto de tokens exige TLS. Las pruebas automatizadas usan documentos y DNS ficticios de prueba, no conexiones reales a sitios ni pruebas E2E del navegador. No desplegar públicamente ni mezclar el PR hasta pasar una auditoría independiente y completar controles operacionales. Ninguna infraestructura Vercel se usa ni se modifica.
+
+
+## RC17 — presencia de fotografías / continuidad de recuperación
+
+La auditoría del operador `npm run marketplace:media:probe` comprueba por HEAD firmado las fotografías S3 referenciadas por las cuentas cifradas, sin imprimir claves ni modificar objetos. Resultados paginados, manifiesto SHA-256 y detección de cambios concurrentes; una presencia confirmada NO verifica bytes, backups ni restore conjunto. [Alcance y límites](docs/RC17_MEDIA_PRESENCE.md). **Vercel HOLD / PR borrador**.
