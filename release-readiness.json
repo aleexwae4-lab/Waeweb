@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC10: backup PostgreSQL consistente y cifrado; recuperación en CI PostgreSQL 16 PASS (run 35721587184), simulacro de rollback inyectado agregado. Falta evidencia PASS del último run, prueba de restauración en proveedor real, backup fuera del proveedor, migración desde archivos y objetivos RPO/RTO. HOLD.",
+      "reason": "RC11: backup cifrado PostgreSQL, restauración atómica y rollback bajo fallo inyectado PASS en CI (35722504174); se agregan controles de carpetas privadas, permisos y rechazo de symlinks. Pendiente PASS del HEAD RC11, backups externos, recuperación en DB del proveedor, migración file→PostgreSQL y objetivos RPO/RTO. HOLD.",
       "evidence": ""
     },
     {
