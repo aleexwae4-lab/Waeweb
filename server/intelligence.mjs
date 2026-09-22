@@ -81,6 +81,13 @@ export function scoreResult(item, query, type = "all") {
     else if (/wikipedia|wikidata/.test(origin)) score += 7;
     else if (/crossref|openalex|europe pmc/.test(origin)) score -= 4;
   }
+  if (type === "videos") {
+    // Platform-identified clips precede ambiguous generic video search hits,
+    // without replacing keyword relevance or inventing playback metadata.
+    if (item.platform === "YouTube") score += 10;
+    else if (item.platform === "TikTok") score += 9;
+    else if (item.platform === "Wikimedia Commons") score += 2;
+  }
   if (type === "research" && /crossref|openalex|europe pmc/.test(sourceName(item.source))) score += 4;
   if (item.date && type === "news") {
     const year = Number(String(item.date).slice(0, 4));
