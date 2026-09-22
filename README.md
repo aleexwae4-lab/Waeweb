@@ -49,7 +49,7 @@ npm run check valida sintaxis; npm test ejecuta pruebas con fuentes simuladas ú
 
 ## Límites declarados
 
-Todavía no es un navegador de pestañas y URL con motor de renderizado propio; es una aplicación de búsqueda web federada. Indexación web general, crawling respetuoso, ranking autónomo, RAG sobre páginas, verificación cruzada, navegación interna y orquestador de IA requieren etapas posteriores y proveedores adecuados.
+Todavía no es un navegador con motor de renderizado propio: combina búsqueda federada e índice privado bajo demanda. Un crawler global, ranking a escala Internet, RAG generativo y navegación interna requieren etapas posteriores.
 
 ## WAE Research Core — Fase 2
 
@@ -81,7 +81,7 @@ Pruebas adicionales: parser, fechas inválidas, filtros por dominio, caché aisl
 
 **Vercel permanece desconectado.**
 
-## WAE Web Reader — Fase 3 (v0.3)
+## WAE Web Reader — Fase 3 (v0.3, histórico: sustituido por la Fase 4)
 
 Se añade un lector bajo demanda para páginas de texto/HTML y un índice propio TEMPORAL del proceso Node. No es un crawler de Internet ni un navegador Chromium. No hace rastreo en segundo plano.
 
@@ -103,3 +103,26 @@ Controles: HTTPS/443 únicamente, sin credenciales ni IP literales, sin hosts in
 LIMITACIONES: la extracción es textual y sencilla, no comprende páginas JavaScript, archivos PDF, anti-bot, atribución legal de contenido, licencias de reutilización ni validación semántica. Las políticas de robots.txt no sustituyen autorizaciones, derechos de autor o términos de acceso. El índice tiene capacidad acotada a 80 páginas y se pierde al reiniciar el proceso; no está aislado por usuario o empresa y por ello no debe contener información privada. Las APIs del índice son compartidas por cualquier usuario con acceso al servidor. No publicar sin autenticación, segregación multi-tenant, cuotas persistentes, revisión de seguridad, logging respetuoso de privacidad y pruebas E2E.
 
 Las pruebas usan un transporte DNS simulado únicamente en CI para confirmar denegación de rangos privados, rechazo de redirecciones, cumplimiento de robots, extracción, límite de memoria y apagado por defecto. Las pruebas no prueban la Internet real. No se ha conectado Vercel.
+
+## WAE Private Research Vault — Fase 4 (v0.4, reemplaza la API de índice de v0.3)
+
+El índice temporal global de la Fase 3 fue sustituido EN LA API por bóvedas separadas autenticadas y almacenadas en disco. El texto anterior describe un hito histórico y no el comportamiento actual de estas rutas. La búsqueda federada pública continúa siendo independiente.
+
+Configuración (solo en un entorno aislado de desarrollo; este proyecto NO carga archivos .env por sí solo):
+- WAE_READER_ENABLED=true habilita explícitamente el lector.
+- WAE_VAULTS_JSON contiene un objeto JSON de IDs de bóveda con un token ASCII diferente y aleatorio por bóveda, de al menos 32 caracteres. Ejemplo de forma: {"equipo_demo":"TOKEN_ALEATORIO_DISTINTO_NO_PUBLICAR_EN_GITHUB"}. No reutilizar ese valor ilustrativo.
+- WAE_VAULT_DIR indica la carpeta del disco local. El valor por defecto es .wae-private-vaults (ignorada por Git).
+- El proceso necesita permisos de escritura sobre esa carpeta y un volumen que realmente persista. Un filesystem efímero elimina todos los documentos al reiniciar. Esta fase NO configura bases de datos remotas ni cifrado en reposo.
+- No enviar bearer tokens por HTTP fuera de localhost. El entorno remoto requiere TLS, autenticación y protección de infraestructura adicionales.
+
+API protegida (todas las rutas requieren Authorization: Bearer <token_privado>, además de las variables anteriores):
+- POST /api/read con JSON {"url":"https://example.org/article"}. La URL se envía en el CUERPO, no en la query string; lector bajo demanda, con las restricciones HTTPS/DNS/robots de la Fase 3.
+- GET /api/index/search?q=termino: devuelve únicamente registros de la bóveda autenticada.
+- GET /api/index/document?id=<id>: devuelve únicamente el documento de la bóveda autenticada.
+- GET /api/capabilities es público, pero ya no expone número de documentos ni IDs de bóvedas; solo capacidades globales.
+
+La interfaz incluye "Conectar bóveda" y "Desconectar". El token no se incorpora a URL, HTML de GitHub, localStorage ni sessionStorage; permanece solo en memoria de la pestaña. Desconectar invalida la credencial local. Revocarla de verdad exige cambiar el token en la configuración del servidor. La biblioteca del navegador es una función local separada, sin sincronización, y un usuario podría elegir guardar en ella fragmentos de su bóveda.
+
+Persistencia y aislamiento: cada bóveda se almacena en un archivo JSON cuyo nombre es el SHA-256 de su ID, con escrituras mediante archivo temporal y cambio atómico de nombre, permisos solicitados 0700 en carpeta creada y 0600 en archivo creado, comprobación de huella del texto, límite de 80 documentos y serialización de escrituras concurrentes por bóveda dentro de un proceso. Un archivo corrupto se rechaza en lugar de borrar o reparar automáticamente. No se guardan credenciales en los archivos. La persistencia NO equivale a respaldo ni a alta disponibilidad.
+
+**Límites y bloqueos de producción:** no hay cifrado en reposo, login con usuarios/roles, SSO, auditoría forense formal, rotación automatizada, backup, aislamiento criptográfico de inquilinos ni control de acceso a nivel de sistema operativo entre archivos. El uso remoto de tokens exige TLS. Las pruebas automatizadas usan documentos y DNS ficticios de prueba, no conexiones reales a sitios ni pruebas E2E del navegador. No desplegar públicamente ni mezclar el PR hasta pasar una auditoría independiente y completar controles operacionales. Ninguna infraestructura Vercel se usa ni se modifica.
