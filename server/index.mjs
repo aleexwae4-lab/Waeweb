@@ -76,7 +76,7 @@ const security = {
   "permissions-policy": "camera=(), microphone=(self), geolocation=()"
 };
 function write(res, code, object, headers = {}) {
-  res.writeHead(code, { ...security, "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers });
+  res.writeHead(code, { ...security, "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-waeweb-api": "1", ...headers });
   res.end(JSON.stringify(object));
 }
 function limited(req) {

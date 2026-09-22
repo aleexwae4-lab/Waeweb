@@ -24,3 +24,12 @@
 - No se habilitan datos reales, registro, Stripe, almacenamiento privado ni producción. `release-readiness.json` conserva `HOLD`.
 
 Verificación: `npm run check`, `npm test` (omnibox, UI integrada, preservación de aislamiento y rutas), y las pruebas PostgreSQL pertinentes en GitHub Actions. Los tests son evidencia de código, no un ensayo manual del video en la URL desplegada.
+
+## RC25 — revisión del clip móvil 11:47 (2026-09-22)
+
+- El clip muestra HTTP 401 en consultas públicas (Todo, Libros, Imágenes, Videos), un Índice WAE desactivado que no requiere bóveda para búsquedas públicas, Maps sin consulta y el cuadro «WAE WEB» largo que cubre móvil.
+- Se añaden entradas serverless explícitas para /api/health, /api/capabilities, /api/search y /api/weather. Conservan el mismo handler y sus protecciones; resuelven la ambigüedad del catch-all en la publicación del código, pero NO pueden eliminar una protección de deployment externa.
+- Cada JSON de la API lleva x-waeweb-api: 1. El frontend diferencia HTTP 401 antes del backend de un error generado por WAEWEB y nunca lo presenta como un token de bóveda revocado.
+- Los formularios no disparan el globo nativo «Completa este campo» al pasar a Mapas sin búsqueda; el estado pide un lugar. Las consultas de mapa anteriores se invalidan con sequence++.
+- Información ahora usa secciones contraíbles y alto máximo de viewport en móvil; eliminada la afirmación obsoleta de no estar conectado a Vercel.
+- Se mantiene HOLD: requiere GET reales de los cuatro endpoints en el dominio desplegado, correlacionar header y log, y verificar configuración de Deployment Protection/proxy/rutas antes de declarar el 401 arreglado en producción. No se realizaron cambios directos en Vercel ni se conectaron pagos/identidades.

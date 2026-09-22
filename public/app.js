@@ -85,20 +85,27 @@ async function getJSON(path, signal, request = {}) {
     method: request.method || "GET", body: request.body,
     signal, headers, cache: "no-store", credentials: "omit"
   });
+  const isPrivate = path.startsWith("/api/index/") || path === "/api/read";
+  // WAEWEB sends this marker on every JSON response. If a reverse proxy,
+  // deployment protection or wrong route replies first, do not blame a vault.
+  const fromWaeApi = response.headers.get("x-waeweb-api") === "1";
   let data;
   try { data = await response.json(); }
   catch {
+    if (!isPrivate && response.status === 401 && !fromWaeApi)
+      throw new Error("HTTP 401 antes de llegar a la API pública WAEWEB. Comprueba la protección de acceso del deployment y que /api/* llegue al backend; ninguna bóveda es necesaria.");
     throw new Error("La API devolvió una respuesta no válida (HTTP " + response.status +
       "). Comprueba que /api/* esté dirigido al backend de WAEWEB.");
   }
-  const isPrivate = path.startsWith("/api/index/") || path === "/api/read";
   if (response.status === 401) {
     if (isPrivate) {
       vaultToken = null;
       updateVaultUI();
       throw new Error("La credencial de tu índice privado caducó o fue revocada.");
     }
-    throw new Error("La búsqueda pública devolvió HTTP 401. No necesitas una bóveda: comprueba el acceso y las rutas de la API pública.");
+    throw new Error(fromWaeApi
+      ? "La API pública WAEWEB devolvió HTTP 401, algo inesperado en esta ruta. Comprueba el middleware de autenticación y los logs."
+      : "La búsqueda pública devolvió HTTP 401 antes del backend WAEWEB. Revisa la protección de acceso del deployment y el enrutamiento /api/*; no conectes una bóveda.");
   }
   if (!response.ok) throw new Error(data.error || "La API no respondió (HTTP " + response.status + ").");
   return data;
@@ -428,6 +435,7 @@ async function renderWeather(query, signal, sequence) {
 }
 function renderMap(query) {
   state.controller?.abort();
+  state.sequence++;
   state.query = query; state.type = "maps";
   hero.hidden = true; resultsView.hidden = false;
   heroInput.value = query; resultsInput.value = query;
@@ -470,7 +478,20 @@ function runOmnibox(value,type="all",push=true){
 async function performSearch(query, type = "all", push = true) {
   hideBrowser();
   const q = query.trim().slice(0, 180);
-  if (q.length < 2) { heroInput.focus(); heroStatus.textContent = "Escribe al menos dos caracteres."; stats.textContent = heroStatus.textContent; return; }
+  if (q.length < 2) {
+    if (type === "maps") {
+      hero.hidden = true; resultsView.hidden = false; setTab("maps");
+      answer.replaceChildren(); weatherSlot.replaceChildren(); panel.replaceChildren();
+      resultsContainer.replaceChildren(stateCard("Explorar mapas", "Escribe una ciudad, lugar o dirección en la barra superior para consultar el mapa. No se ha realizado ninguna búsqueda."));
+      stats.textContent = "Mapas · Escribe un lugar para comenzar.";
+      resultsInput.focus();
+    } else {
+      const message = "Escribe al menos dos caracteres para buscar.";
+      heroStatus.textContent = message; stats.textContent = message;
+      (hero.hidden ? resultsInput : heroInput).focus();
+    }
+    return;
+  }
   state.controller?.abort();
   heroStatus.textContent = "";
   speechSynthesisSafeCancel();

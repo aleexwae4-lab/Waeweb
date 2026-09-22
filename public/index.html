@@ -28,7 +28,7 @@
         <h1 id="hero-title" class="hero-logo">wae<span>.</span></h1>
         <p class="hero-tagline">Búsqueda de nueva generación</p>
         <p class="hero-description">Explora conocimiento real, contrasta fuentes y descubre nuevas perspectivas.</p>
-        <form id="hero-form" class="search-shell hero-search" role="search">
+        <form id="hero-form" class="search-shell hero-search" role="search" novalidate>
           <label class="sr-only" for="hero-input">Buscar en WAE WEB</label>
           <span class="search-icon" aria-hidden="true">⌕</span>
           <input id="hero-input" name="q" type="search" placeholder="Busca o escribe una URL HTTPS…" autocomplete="off" enterkeyhint="search" maxlength="180" required>
@@ -130,7 +130,7 @@
       </section>
       <section id="results-view" class="results-view" hidden aria-label="Resultados de búsqueda">
         <div class="results-top">
-          <form id="results-form" class="search-shell results-search" role="search">
+          <form id="results-form" class="search-shell results-search" role="search" novalidate>
             <label class="sr-only" for="results-input">Nueva búsqueda</label>
             <span class="search-icon" aria-hidden="true">⌕</span>
             <input id="results-input" name="q" type="search" placeholder="Busca o escribe una URL HTTPS…" autocomplete="off" enterkeyhint="search" maxlength="180" required>
@@ -232,12 +232,11 @@
   </dialog>
   <dialog id="about-dialog" class="modal">
     <div class="dialog-head"><h2>WAE WEB</h2><button type="button" id="close-dialog" class="icon-button" aria-label="Cerrar">✕</button></div>
-    <p>Motor de búsqueda federado en desarrollo. Consulta Wikipedia, Crossref, OpenAlex, Open Library, Wikimedia Commons y Open-Meteo. Google Programmable Search requiere configuración del servidor.</p>
-    <p>Una fuente citada no implica que todas sus afirmaciones hayan sido verificadas independientemente. Las noticias y videos no se inventan cuando el proveedor no está configurado.</p>
-    <p>El panorama de investigación reúne fragmentos atribuidos, pero no es una respuesta generada por IA ni una verificación independiente. Los filtros site:, after:, before:, source:, "frase" y -término operan sobre los resultados obtenidos. La biblioteca es local.</p>
-    <p>El lector propio es opt-in: únicamente páginas públicas HTTPS, con validación DNS, límites de tamaño y robots.txt. Las páginas se guardan cifradas en disco por bóveda autenticada con AES-256-GCM. Los respaldos son offline y cifrados. Se necesita TLS para acceso remoto, claves seguras y almacenamiento duradero. Ninguna página remota recibe permisos para ejecutar código en WAE WEB.</p>
-    <p>Las cuentas y fichas de negocios requieren activación del servidor y clave propia de cifrado. Son privadas por defecto y pueden publicarse solo por elección expresa, siempre como fichas no verificadas. La sesión de cuenta es distinta a la credencial de bóveda de investigación.</p>
-    <p>Este desarrollo no está conectado a Vercel.</p>
+    <p>Busca fuentes abiertas y visita URLs HTTPS desde la misma pantalla. La búsqueda pública no necesita bóveda.</p>
+    <details><summary>Fuentes y precisión</summary><p>Wikipedia, Crossref, OpenAlex, Open Library, Wikimedia Commons y Open-Meteo; Google Programmable Search requiere configuración del servidor. Una cita no implica verificación independiente. Noticias y videos no se inventan si falta proveedor. El panorama de investigación es extractivo, no una respuesta de IA.</p></details>
+    <details><summary>Filtros y biblioteca</summary><p>site:, after:, before:, source:, "frase" y -término operan sobre resultados recuperados. La biblioteca del navegador es local y no se sincroniza.</p></details>
+    <details><summary>Lector y seguridad</summary><p>El lector privado es opt-in y admite únicamente páginas públicas HTTPS con validación DNS, límites y robots.txt. El servidor cifra documentos mediante AES-256-GCM por bóveda. Se necesitan claves fuertes, TLS y almacenamiento duradero. Ninguna página remota recibe permiso para ejecutar código dentro de WAEWEB.</p></details>
+    <details><summary>Negocios y despliegue</summary><p>Las cuentas y fichas requieren activación del servidor; son privadas por defecto y solo se publican por elección expresa como autodeclaradas. La sesión de cuenta es independiente de la bóveda. Para verificar el despliegue consulta /api/health y /api/capabilities; la interfaz visible por sí sola no demuestra conexión al backend.</p></details>
   </dialog>
 </body>
 </html>

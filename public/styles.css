@@ -257,3 +257,11 @@
 
 /* Mobile header icons must remain distinct, not both the same browser glyph. */
 @media(max-width:430px){#browser-open.browser-launch:before{content:"⌕"}#marketplace-button.browser-launch:before{content:"▦"}}
+
+/* RC25 — mobile dialog stays within the visible viewport. */
+.modal{max-height:min(78dvh,720px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.modal .dialog-head{position:sticky;top:-25px;background:#111827;padding:9px 0;z-index:1}
+.modal details{border-top:1px solid var(--line);padding:12px 0}
+.modal summary{cursor:pointer;font-size:13px;font-weight:700;color:#dbeafe}
+.modal details p{margin:10px 0 0}
+@media(max-width:550px){.modal{padding:17px;max-height:77dvh;width:calc(100% - 24px)}.modal .dialog-head{top:-17px}}
