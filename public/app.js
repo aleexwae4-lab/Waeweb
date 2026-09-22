@@ -521,7 +521,11 @@ function renderData(data) {
       resultsContainer.append(more);
     }
   }
-  const hasResults=state.results.some(item=>safeUrl(item.url));
+  // A provider can return a URL without a usable image thumbnail. In that
+  // case the gallery is empty and must still show the honest fallback.
+  const hasResults=state.type==="images"||state.type==="businesses"
+    ? resultsContainer.children.length>0
+    : state.results.some(item=>safeUrl(item.url));
   if (!hasResults) {
     const detail = data.warning || data.message ||
       (state.type === "news" || state.type === "videos"
