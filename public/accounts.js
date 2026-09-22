@@ -299,6 +299,8 @@ function resetOwnerMarketplace() {
   $("listing-owner-list").replaceChildren();
   text($("listing-count"),0);
   ownerSay("");
+  $("market-inquiry-list").replaceChildren();
+  text($("market-inquiry-count"),0);
 }
 function picture(item) {
   const wrapper=make("div","market-photo-preview");
@@ -384,6 +386,7 @@ async function refreshOwnerListings() {
     if(!result.items.length)
       list.append(make("p","business-empty","Empieza agregando tu primer producto o servicio. Se guarda privado."));
     for(const item of result.items)list.append(renderOwnerListing(item));
+    await refreshMarketInquiries();
   }catch(e){if(serial===ownerRequest)ownerSay(e.message);}
 }
 function showPhoto(data) {
@@ -461,3 +464,69 @@ $("listing-form").addEventListener("submit",async event=>{
   }catch(e){ownerSay(e.message);}
   finally{busy(form,false);}
 });
+
+const marketDialogs={
+  inquiry: $("market-inquiry-dialog"), report: $("market-report-dialog")
+};
+let marketTarget=null;
+const marketId=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+async function refreshMarketInquiries() {
+  const list=$("market-inquiry-list");
+  list.replaceChildren();text($("market-inquiry-count"),0);
+  if(!session||!selectedBusiness)return;
+  const selected=selectedBusiness;
+  try{
+    const result=await api("/api/businesses/"+encodeURIComponent(selected)+"/inquiries",{auth:true});
+    if(selectedBusiness!==selected||!session)return;
+    text($("market-inquiry-count"),result.items.length);
+    if(!result.items.length)list.append(make("p","business-empty","Todavía no recibes consultas."));
+    for(const item of result.items.slice().reverse()){
+      const card=make("article","business-entry");
+      card.append(make("h4","",item.listingTitle),
+        make("p","business-meta",item.buyerName+" · "+item.buyerEmail),
+        make("p","business-desc",item.message),
+        make("p","business-fineprint",new Date(item.createdAt).toLocaleString("es-MX")));
+      list.append(card);
+    }
+  }catch(e){ownerSay("No se pudieron cargar las consultas: "+e.message);}
+}
+$("market-inquiry-refresh").addEventListener("click",refreshMarketInquiries);
+window.addEventListener("wae-market-action",event=>{
+  const {action,businessId,listingId,title}=event.detail||{};
+  if(!["inquiry","report"].includes(action)||
+    !marketId.test(businessId||"")||!marketId.test(listingId||""))return;
+  if(!session){
+    showAccount();
+    say("Inicia sesión para enviar una consulta o reportar un anuncio.");
+    return;
+  }
+  marketTarget={action,businessId,listingId};
+  const dialog=marketDialogs[action];
+  dialog.querySelector("form").reset();
+  text($(action==="inquiry"?"market-inquiry-item":"market-report-item"),title||"Publicación");
+  text($(action==="inquiry"?"market-inquiry-status":"market-report-status"),"");
+  dialog.showModal();
+});
+for(const [action,dialog] of Object.entries(marketDialogs)){
+  $(action==="inquiry"?"market-inquiry-cancel":"market-report-cancel")
+    .addEventListener("click",()=>dialog.close());
+  dialog.addEventListener("close",()=>{marketTarget=null;});
+  dialog.querySelector("form").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const target=marketTarget;
+    if(!target||target.action!==action||!session)return;
+    const form=e.currentTarget,body=Object.fromEntries(new FormData(form).entries());
+    if(action==="inquiry")body.consent=form.elements.namedItem("consent").checked;
+    const status=$(action==="inquiry"?"market-inquiry-status":"market-report-status");
+    busy(form,true);text(status,"Enviando…");
+    try {
+      await api("/api/marketplace/"+encodeURIComponent(target.businessId)+"/"+
+        encodeURIComponent(target.listingId)+"/"+(action==="inquiry"?"inquiries":"reports"),
+        {method:"POST",auth:true,payload:body});
+      text(status,action==="inquiry"?"Consulta guardada en el panel del negocio.":"Reporte recibido para revisión.");
+      form.reset();
+      // Keep the confirmation visible until the person closes the dialog.
+    }catch(error){text(status,error.message);}
+    finally{busy(form,false);}
+  });
+}
