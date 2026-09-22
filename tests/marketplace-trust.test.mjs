@@ -7,7 +7,7 @@ import {
   registerAccount, addBusiness, updateBusinessVisibility,
   addMarketListing, setMarketListingVisibility,
   sendMarketInquiry, getMarketInquiries, reportMarketListing,
-  getPublicMarketCatalog, browseMarketplace
+  getPublicMarketCatalog, browseMarketplace, listMarketReports, reviewMarketReport
 } from "../server/accounts.mjs";
 import { MarketplaceTrustError, validateInquiry, validateReport } from "../server/marketplace-trust.mjs";
 const previous={ enabled:process.env.WAE_ACCOUNTS_ENABLED, key:process.env.WAE_ACCOUNTS_KEY };
@@ -86,6 +86,40 @@ test("invalid consent, multiline injection and invalid reason fail validation",(
   assert.throws(()=>validateInquiry({consent:true,message:"hola\nimporte personal"}),MarketplaceTrustError);
   assert.throws(()=>validateInquiry({consent:false,message:"Consulta profesional"}),MarketplaceTrustError);
   assert.throws(()=>validateReport({reason:"__proto__"}),MarketplaceTrustError);
+});
+test("manual moderation requires operator acknowledgement, does not expose reporter and locks publication",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"wae-moderation-"));
+  const original=process.env.WAE_MARKET_MODERATOR_ACK;
+  try{
+    const owner=await registerAccount(person("Vendedor","review-seller@example.test"),dir);
+    const reporter=await registerAccount(person("Comprador","review-buyer@example.test"),dir);
+    const seller="Bearer "+owner.token,buyer="Bearer "+reporter.token;
+    const business=await addBusiness(seller,{
+      name:"Servicio revisable",category:"Consultoría",city:"Zapopan"},dir);
+    const item=await addMarketListing(seller,business.id,listing,dir);
+    await updateBusinessVisibility(seller,business.id,true,dir);
+    await setMarketListingVisibility(seller,business.id,item.id,true,dir);
+    await reportMarketListing(buyer,business.id,item.id,{reason:"misleading"},dir);
+    await assert.rejects(()=>listMarketReports(dir),{code:"moderator_not_authorized"});
+    process.env.WAE_MARKET_MODERATOR_ACK="manual-review-authorized";
+    const queue=await listMarketReports(dir);
+    assert.equal(queue.cases.length,1);
+    assert.equal(JSON.stringify(queue).includes("review-buyer@example.test"),false);
+    await assert.rejects(()=>reviewMarketReport(queue.cases[0].id,"hide",{base:dir}),
+      {code:"moderator_confirmation"});
+    const result=await reviewMarketReport(queue.cases[0].id,"hide",
+      {base:dir,manualConfirmed:true});
+    assert.equal(result.listingHidden,true);
+    assert.equal((await browseMarketplace({q:"marca"},dir)).total,0);
+    assert.equal((await getPublicMarketCatalog(business.id,dir)).items.length,0);
+    await assert.rejects(()=>setMarketListingVisibility(seller,business.id,item.id,true,dir),
+      {code:"listing_blocked"});
+    assert.equal((await listMarketReports(dir)).cases.length,0);
+  }finally{
+    if(original===undefined)delete process.env.WAE_MARKET_MODERATOR_ACK;
+    else process.env.WAE_MARKET_MODERATOR_ACK=original;
+    await rm(dir,{recursive:true,force:true});
+  }
 });
 test.after(()=>{
   for(const [env,val] of [["WAE_ACCOUNTS_ENABLED",previous.enabled],["WAE_ACCOUNTS_KEY",previous.key]]){
