@@ -202,3 +202,6 @@
 .market-profile-catalog .market-grid{margin-top:17px}
 @media(max-width:800px){.market-filter{grid-template-columns:1fr 1fr}.market-filter label:first-child{grid-column:1/-1}.market-owner-layout{grid-template-columns:1fr}}
 @media(max-width:560px){.market-filter{grid-template-columns:1fr}.market-filter label:first-child{grid-column:auto}.market-filter .business-primary{width:100%}.market-grid{grid-template-columns:1fr}.market-owner-list{grid-template-columns:1fr}}
+
+/* Keep Marketplace discoverable on compact phone navigation. */
+@media(max-width:620px){#marketplace-button{font-size:0;padding:9px;min-width:36px}#marketplace-button::before{content:"▦";font-size:18px}}
