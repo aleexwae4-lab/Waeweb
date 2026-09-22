@@ -9,6 +9,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
   <script type="module" src="/app.js"></script>
+  <script type="module" src="/browser.js"></script>
   <script type="module" src="/accounts.js"></script>
   <script type="module" src="/business-profile.js"></script>
 </head>
@@ -17,7 +18,7 @@
   <div class="app-shell">
     <header class="topbar">
       <button id="home-button" class="brand-small" type="button" aria-label="Volver al inicio">wae<span class="brand-dot">.</span></button>
-      <div class="topbar-right"><span class="status-led" aria-hidden="true"></span><span>WAE WEB</span><button id="account-button" class="account-button" type="button">♙ Mi cuenta / Negocios</button><button id="library-button" class="library-button" type="button" aria-label="Abrir biblioteca de investigación">◇ Biblioteca <span id="library-count">0</span></button><button id="about-button" class="icon-button" type="button" aria-label="Información y fuentes">ⓘ</button></div>
+      <div class="topbar-right"><span class="status-led" aria-hidden="true"></span><span>WAE WEB</span><button id="browser-open" class="browser-launch" type="button" title="Navegador integrado">◎ Navegar</button><button id="account-button" class="account-button" type="button">♙ Mi cuenta / Negocios</button><button id="library-button" class="library-button" type="button" aria-label="Abrir biblioteca de investigación">◇ Biblioteca <span id="library-count">0</span></button><button id="about-button" class="icon-button" type="button" aria-label="Información y fuentes">ⓘ</button></div>
     </header>
     <main id="main-content">
       <section id="hero" class="hero" aria-labelledby="hero-title">
@@ -38,6 +39,7 @@
           <button type="button" data-query="Investigación médica">⌁ Investigación médica</button>
           <button type="button" data-query="clima en Guadalajara">☀ Clima</button>
         </div>
+        <button id="hero-browser" type="button" class="browser-hero-action">◎ Abrir navegador integrado</button>
         <div class="hero-business"><span class="tag">WAE WEB para negocios</span><h2>Tu empresa también tiene un espacio aquí.</h2><p>Crea tu cuenta y administra las fichas de tus negocios desde un panel privado.</p><button id="hero-account-button" class="business-primary" type="button">Crear cuenta o registrar negocio →</button></div>
         <p class="honest-caption">Resultados identificados por fuente. Sin cifras inventadas ni respuestas simuladas.</p>
       </section>
@@ -115,6 +117,28 @@
           </div>
           <aside id="knowledge-panel" class="knowledge-panel" aria-label="Fuentes y contexto"></aside>
         </div>
+      </section>
+      <section id="browser-view" class="browser-view" hidden aria-label="Navegador integrado WAE WEB">
+        <div class="browser-heading"><div><span class="tag">WAE OS ENTERPRISE · BROWSER CORE</span><h1>Navegador WAEWEB</h1></div><button id="browser-close" type="button" class="small-action">← Volver a WAE WEB</button></div>
+        <p class="browser-disclaimer">Navegación HTTPS integrada cuando el sitio autoriza incrustación. Algunos sitios impiden esta vista, las sesiones de terceros pueden estar limitadas y los clics dentro de páginas externas no actualizan nuestra barra de dirección. No introduzcas credenciales sensibles en páginas de origen desconocido.</p>
+        <div class="browser-chrome" role="region" aria-label="Controles de navegación">
+          <div class="browser-tabbar"><div id="browser-tabs" class="browser-tabs" aria-label="Pestañas abiertas"></div><button id="browser-new" type="button" class="browser-tool" aria-label="Nueva pestaña" title="Nueva pestaña">＋</button></div>
+          <div class="browser-toolbar">
+            <button id="browser-back" type="button" class="browser-tool" aria-label="Atrás" title="Atrás">←</button>
+            <button id="browser-forward" type="button" class="browser-tool" aria-label="Adelante" title="Adelante">→</button>
+            <button id="browser-reload" type="button" class="browser-tool" aria-label="Recargar" title="Recargar">↻</button>
+            <form id="browser-form" class="browser-form" autocomplete="off">
+              <label for="browser-address" class="sr-only">Dirección HTTPS</label>
+              <span aria-hidden="true">🔒</span>
+              <input id="browser-address" type="text" inputmode="url" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Escribe ejemplo.com o pega una URL HTTPS" maxlength="2048">
+              <button type="submit" class="browser-go" aria-label="Ir a la dirección">Ir →</button>
+            </form>
+            <a id="browser-external" class="browser-tool browser-external" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>↗ Abrir fuera</a>
+          </div>
+          <div class="browser-context"><span id="browser-status" role="status" aria-live="polite">Introduce una dirección para navegar.</span><button id="browser-reader" type="button" class="browser-tool">⌕ Leer con WAE</button></div>
+        </div>
+        <div id="browser-stage" class="browser-stage"><div id="browser-empty" class="browser-empty"><span aria-hidden="true">◎</span><h2>Tu ventana al conocimiento</h2><p>Abre una URL desde el buscador o navega directamente desde la barra de direcciones.</p></div></div>
+        <p class="browser-privacy">La navegación es temporal en esta sesión. WAEWEB no guarda las URLs visitadas en las cuentas ni en las bóvedas. «Leer con WAE» es una acción separada y requiere su activación y autorización propias.</p>
       </section>
     </main>
     <footer class="footer"><span>WAE WEB · WAE OS ENTERPRISE</span><span>Información con atribución · Desarrollo independiente</span></footer>
