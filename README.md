@@ -6,6 +6,22 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js sin d
 
 
 
+## Fase 11 — WAEWEB v1.0.0-rc.2: cuentas empresariales cifradas en PostgreSQL
+
+**Cambio real, no simulación:** agregamos `WAE_ACCOUNTS_STORE=postgres` como opción. El código de cuentas, sesiones, fichas de negocios y estados de promoción utiliza el **mismo registro cifrado AES-256-GCM** existente. En lugar de un archivo local, guarda ese registro en una fila PostgreSQL con `SELECT ... FOR UPDATE` y transacción `BEGIN/COMMIT/ROLLBACK`. Esto serializa mutaciones incluso entre procesos distintos sobre la **misma base duradera**; no se trata de sincronizar archivos ni hacer una réplica efímera. `WAE_ACCOUNTS_STORE=file` permanece como modo local para una sola instancia y carpeta privada duradera.
+
+**Prueba con PostgreSQL auténtico:** CI inició PostgreSQL 16 y verificó registro, login, lectura y revocación de sesión, publicación de negocio, datos cifrados sin correo en claro, escrituras concurrentes en **procesos Node independientes** y fallo cerrado ante clave de cifrado incorrecta: https://github.com/aleexwae4-lab/Waeweb/actions/runs/35707323895 . Los tests unitarios independientes verifican configuración TLS y rechazo de URL malformada. No representa una auditoría externa ni asegura disponibilidad en un proveedor cloud no configurado.
+
+**Activación manual y segura (NO ejecutar todavía en Vercel):**
+1. Proveer una base PostgreSQL privada con backups y control de acceso a través de un proveedor que permita conexiones TCP, así como URL privada de conexión en `WAE_ACCOUNTS_DATABASE_URL`. Instalar dependencias con `npm install` o `npm ci` cuando exista un lockfile auditado. Nunca colocar URL, credenciales o clave en `public/`, GitHub ni en links de usuario.
+2. Definir `WAE_ACCOUNTS_STORE=postgres`, un `WAE_ACCOUNTS_KEY` único de 64 caracteres hexadecimales y `WAE_ACCOUNTS_PG_CA` como base64 del certificado CA PEM de la base (TLS con verificación obligatoria). Mantener `WAE_ACCOUNTS_ENABLED=false` hasta inicializar y verificar el almacenamiento.
+3. Ejecutar explícitamente `npm run accounts:pg:init` **una sola vez por base nueva, con aprobación del operador y respaldo previo**. La aplicación normal nunca crea/migra automáticamente el esquema. Comprobar el procedimiento de backup/restauración de PostgreSQL y después habilitar cuentas solo en el backend deseado.
+4. Una base existente con `accounts.encrypted.json` **NO se importa automáticamente**. No activar un nuevo almacenamiento vacío sobre cuentas reales antes de un procedimiento de migración/ensayo que conserve todas las sesiones, fichas y pagos. La fase no incluye ese migrador.
+
+**Por defecto, sin riesgo de pérdida en Vercel:** si `VERCEL=1` y el almacenamiento sigue en `file`, el registro de cuentas se desactiva aun con su clave presente. El lector de bóvedas documentales también se desactiva en funciones Vercel porque hoy depende de archivos locales; **PostgreSQL para cuentas no migra las bóvedas**. Si PostgreSQL está mal configurado, falla cerrado y no vuelve al almacenamiento local. Ninguna credencial de PostgreSQL se expone en la respuesta de capacidades.
+
+**Límites actuales:** el modelo es intencionalmente una fila cifrada, con límite de **500 usuarios, 20 negocios por usuario y 6 sesiones activas por usuario**; no se afirma una base universal a escala Google. Quedan pendientes migración/recuperación de datos reales, almacenamiento de bóvedas, política de correo/identidad, abuso, operativa de pagos, E2E web/móvil, privacidad y adaptador de runtime web verificado. El manifiesto de lanzamiento sigue en **HOLD / NO-GO para Vercel**.
+
 ## Fase 10 — WAEWEB v1.0.0-rc.1: Chromium real + compuerta de lanzamiento
 
 - **Linux nativo ejecutado en GitHub Actions**, no solo pruebas de sintaxis: https://github.com/aleexwae4-lab/Waeweb/actions/runs/35706038901. Se descargó Electron, se configuró el sandbox SUID sin `--no-sandbox` y arrancó Chromium con Xvfb. El smoke verificó preload, interfaz, API local y apertura/cierre de pestañas. **No** verificó navegación externa, Windows/macOS ni instaladores.
