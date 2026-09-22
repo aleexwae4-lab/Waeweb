@@ -302,7 +302,9 @@ function renderPanel(data) {
   panel.replaceChildren();
   const card = element("section", "panel");
   card.append(element("h2", "", "◈ Transparencia de búsqueda"));
-  card.append(element("p", "", "Resultados devueltos por proveedores externos; WAE WEB no asigna una cifra global ficticia."));
+  card.append(element("p", "", data.type === "businesses"
+    ? "Fichas publicadas voluntariamente por sus propietarios. WAE WEB todavía no verifica identidad, titularidad ni información comercial."
+    : "Resultados devueltos por proveedores externos; WAE WEB no asigna una cifra global ficticia."));
   const heading = element("strong", "", "Proveedores consultados");
   card.append(heading);
   const list = element("ul");
@@ -316,6 +318,17 @@ function renderPanel(data) {
   if (data.fetchedAt) card.append(element("p", "legend", "Consulta: " + formatDate(data.fetchedAt)));
   card.append(element("p", "legend", "Contrasta los resultados con sus fuentes originales. Los extractos no sustituyen una verificación independiente."));
   panel.append(card);
+}
+function renderPublicBusiness(item) {
+  const card = element("article", "result-card public-business-card");
+  append(card, element("p", "eyebrow", "♙ WAE WEB · Ficha pública autodeclarada"),
+    element("h3", "business-public-title", item.name),
+    element("p", "business-meta", item.category + " · " + item.city));
+  if (item.description) card.append(element("p", "snippet", item.description));
+  card.append(element("p", "tag", "No verificado por WAE WEB"));
+  const url = safeUrl(item.website);
+  if (url?.startsWith("https://")) card.append(external(url, "↗ Sitio web declarado", "link-button"));
+  return card;
 }
 function renderData(data) {
   state.data = data;
@@ -340,7 +353,9 @@ function renderData(data) {
     renderSummary(filteredBrief);
   }
   else answer.replaceChildren();
-  if (state.type === "images") {
+  if (state.type === "businesses") {
+    state.results.forEach(item => resultsContainer.append(renderPublicBusiness(item)));
+  } else if (state.type === "images") {
     const grid = renderImages(state.results);
     if (grid.children.length) resultsContainer.append(grid);
   } else {
@@ -410,13 +425,24 @@ async function performSearch(query, type = "all", push = true) {
   try {
     const url = type === "index"
       ? "/api/index/search?q=" + encodeURIComponent(q)
-      : "/api/search?q=" + encodeURIComponent(q) + "&type=" + encodeURIComponent(type);
+      : type === "businesses"
+        ? "/api/businesses/public?q=" + encodeURIComponent(q)
+        : "/api/search?q=" + encodeURIComponent(q) + "&type=" + encodeURIComponent(type);
     if (type === "index" && !vaultToken) {
       resultsContainer.replaceChildren(stateCard("Índice privado", "Conecta tu bóveda para buscar documentos autorizados."));
       openVaultDialog();
       return;
     }
-    const data = await getJSON(url, signal);
+    let data = await getJSON(url, signal);
+    if (type === "businesses") {
+      data = {
+        type: "businesses", query: q, originalQuery: q,
+        results: (data.businesses || []).map(item => ({ ...item, source: "WAE WEB · Autodeclarado" })),
+        sources: ["Registro voluntario WAE WEB"], failedSources: [], fetchedAt: new Date().toISOString(),
+        message: (data.businesses?.length ? data.disclaimer
+          : "No se encontraron negocios publicados con esos términos. Las fichas privadas no aparecen en esta búsqueda.")
+      };
+    }
     if (type === "index") {
       data.sources = ["Índice WAE · bóveda autenticada"];
       data.failedSources = [];
