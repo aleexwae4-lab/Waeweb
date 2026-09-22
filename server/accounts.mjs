@@ -9,7 +9,7 @@ import { requiresDurableStorage } from "./hosting.mjs";
 import { createListing, validateListing, publicCatalog, searchMarketplace, validMarketId, MAX_LISTINGS, MAX_OBJECT_LISTINGS, MarketplaceError } from "./marketplace.mjs";
 import { mediaConfig, mediaSelected, decodeMarketPhoto, makeMediaKey, putMarketImage, deleteMarketImage, presignedMarketImage, ownerImageUrl, MarketMediaError } from "./marketplace-media.mjs";
 import { validId, validateInquiry, validateReport, newInquiry, newReport, publicInquiryReceipt, MarketplaceTrustError } from "./marketplace-trust.mjs";
-import { queueMediaDeletion, pendingMedia, referencedMedia, mediaJournalSummary, MediaJournalError } from "./marketplace-lifecycle.mjs";
+import { queueMediaDeletion, pendingMedia, referencedMedia, mediaJournalSummary, mediaReferenceManifest, MediaJournalError } from "./marketplace-lifecycle.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -810,4 +810,9 @@ export async function drainMarketMediaQueue({
   }
   summary.remaining=(await inspectMarketMediaQueue(base)).queued;
   return summary;
+}
+
+export async function auditMarketMediaReferences(base) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  return mediaReferenceManifest(await readDb(base));
 }
