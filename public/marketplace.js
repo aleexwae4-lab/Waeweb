@@ -15,9 +15,12 @@ function formatPrice(item) {
 }
 export function listingCard(item) {
   const card = el("article","market-card");
-  if (item.imageDataUrl?.startsWith("data:image/")) {
+  if (item.imageUrl?.startsWith("/api/marketplace/images/") ||
+      item.imageDataUrl?.startsWith("data:image/")) {
     const img = el("img","market-photo");
-    img.src = item.imageDataUrl;
+    img.src = item.imageUrl?.startsWith("/api/marketplace/images/") ?
+      item.imageUrl : item.imageDataUrl;
+    img.referrerPolicy = "no-referrer";
     img.alt = "Fotografía de " + item.title;
     img.loading = "lazy";
     card.append(img);
