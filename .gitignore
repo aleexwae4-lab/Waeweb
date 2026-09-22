@@ -13,3 +13,7 @@ coverage/
 .wae-private-backups/
 *.backup.json
 *.tmp
+
+# Private account records (emails, password verifiers, sessions, business data)
+.wae-private-accounts/
+*.encrypted.json
