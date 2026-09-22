@@ -1,3 +1,4 @@
+import { listingCard } from "./marketplace.js";
 const $ = id => document.getElementById(id);
 const section = $("business-profile-view");
 const target = $("business-profile-content");
@@ -73,6 +74,26 @@ async function showProfile(id) {
   actions.append(copy);
   card.append(actions);
   target.replaceChildren(card);
+  // Only public listings for an explicitly published business are exposed.
+  const catalog = textNode("section","market-profile-catalog");
+  catalog.append(textNode("h2","","Productos y servicios de esta empresa"));
+  try {
+    const response=await fetch("/api/businesses/public/"+encodeURIComponent(id)+"/listings",{
+      headers:{accept:"application/json"},cache:"no-store",credentials:"omit"
+    });
+    if(!response.ok)throw Error("Catálogo no disponible.");
+    const data=await response.json();
+    if(new URLSearchParams(location.search).get("business")!==id)return;
+    const gallery=textNode("div","market-grid");
+    for(const listing of data.items)gallery.append(listingCard(listing));
+    if(!data.items.length)gallery.append(textNode("p","business-fineprint",
+      "Esta empresa todavía no tiene productos o servicios públicos."));
+    catalog.append(gallery,textNode("p","business-fineprint",data.disclaimer));
+  } catch {
+    catalog.append(textNode("p","business-fineprint",
+      "El catálogo no está disponible en este momento."));
+  }
+  if(new URLSearchParams(location.search).get("business")===id)target.append(catalog);
 }
 function route() {
   const id = new URLSearchParams(location.search).get("business");
