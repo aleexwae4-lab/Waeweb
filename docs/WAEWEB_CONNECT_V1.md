@@ -77,6 +77,30 @@ reenvía cookies/cabeceras privadas al sitio visitado.
    o el orquestador. No reenviar su token al navegador. Mantener `retrieve` apagado
    hasta probar robots/seguridad de lectura en el entorno final.
 
+## RC7 — integridad de resultados y recuperación de fuentes
+
+`POST /search` devuelve `ok:true`, `status:"complete"` cuando
+al menos un proveedor respondió y no hay otros fallos/no configurados,
+**incluso si `results:[]`**. Si hay evidencia pero también fallas devuelve
+`ok:true`, `status:"partial"`, `failedSources` y fuentes disponibles:
+ningún consumidor debe presentar esos resultados como exhaustivos.
+Si ningún proveedor está utilizable devuelve HTTP 503,
+`ok:false`, `error:"no_sources_available"` y `status:"unavailable"`;
+NO es un resultado sin coincidencias. En SSE se envía `error` seguido
+por `done:{"ok":false}`, nunca `results` exitosos.
+
+Los resultados y panoramas `brief.kind="extractive"` se acotan en longitud,
+mantienen atribución de URL y fuente y descartan enlaces de protocolos
+no web. El panorama es un extracto documentado, **no una comprobación
+independiente**. La caché solo guarda resultados cuando algún proveedor
+realmente respondió; un proveedor caído se vuelve a probar en la
+siguiente consulta y un cero de un proveedor accesible sí puede cachearse.
+
+Evidencia reproducible: `tests/connect.test.mjs`,
+`tests/search-availability.test.mjs` y
+`tests/connect-consumers.integration.mjs` (WAEWEB + cliente público de
+Universal Core; fuentes sintéticas; NO servicio Render o Vercel LIVE).
+
 ## Seguridad y QA
 
 Tests `tests/connect.test.mjs`: configuración apagada, tres clientes y claves distintas,
