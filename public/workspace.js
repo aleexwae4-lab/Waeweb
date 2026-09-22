@@ -12,7 +12,7 @@ export function cleanEntry(input) {
     source: String(input.source || "Fuente").slice(0, 100),
     snippet: String(input.snippet || "").slice(0, 1200),
     date: input.date ? String(input.date).slice(0, 30) : null,
-    savedAt: new Date().toISOString()
+    savedAt: typeof input.savedAt === "string" && /^\d{4}-\d{2}-\d{2}T/.test(input.savedAt) ? input.savedAt.slice(0, 40) : new Date().toISOString()
   };
 }
 export function createWorkspace(storage = globalThis.localStorage) {
