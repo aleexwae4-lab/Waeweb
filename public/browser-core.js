@@ -2,6 +2,21 @@
 export const MAX_BROWSER_TABS = 8;
 export const MAX_BROWSER_HISTORY = 30;
 
+export function looksLikeWebAddress(input) {
+  const value = String(input ?? "").trim();
+  if (!value || /\s/.test(value)) return false;
+  if (/^https:\/\//i.test(value)) return true;
+  return /^(?:www\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d{1,5})?(?:[/?#][^\s]*)?$/i.test(value);
+}
+
+export function browserInputTarget(input, appOrigin = "") {
+  const value = String(input ?? "").trim();
+  if (!value) return { kind: "empty", value: "" };
+  if (looksLikeWebAddress(value)) return { kind: "url", value: normalizeBrowserUrl(value, appOrigin) };
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return { kind: "invalid", value };
+  return { kind: "search", value: value.slice(0, 180) };
+}
+
 export function normalizeBrowserUrl(input, appOrigin = "") {
   if (typeof input !== "string" || input.length > 2048) throw new TypeError("La dirección es demasiado larga o inválida.");
   const typed = input.trim();
