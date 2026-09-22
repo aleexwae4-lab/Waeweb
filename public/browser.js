@@ -2,6 +2,13 @@ import { createBrowserState, normalizeBrowserUrl } from "/browser-core.js";
 
 const $ = id => document.getElementById(id);
 const state = createBrowserState();
+const native = window.waeDesktop?.isNative === true ? window.waeDesktop : null;
+let nativeState = null;
+function syncNativeBounds() {
+  if (!native || view.hidden) return;
+  const box = stage.getBoundingClientRect();
+  void native.setBounds({ x: box.left, y: box.top, width: box.width, height: box.height }).catch(displayError);
+}
 const frames = new Map();
 const view = $("browser-view");
 const stage = $("browser-stage");
@@ -23,8 +30,12 @@ function showView() {
   }
   view.hidden = false;
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (native) void native.setVisible(true).then(syncNativeBounds).catch(displayError);
 }
-export function hideBrowser() { view.hidden = true; }
+export function hideBrowser() {
+  view.hidden = true;
+  if (native) void native.setVisible(false).catch(displayError);
+}
 function leaveBrowser() {
   hideBrowser();
   const destination = $(lastView) || $("hero");
@@ -54,9 +65,10 @@ function makeFrame(tab) {
   return frame;
 }
 function render() {
-  const current = state.active();
+  const current = native ? nativeState?.tabs.find(tab => tab.id === nativeState.activeId) : state.active();
+  const tabItems = native ? (nativeState?.tabs || []) : state.tabs();
   tabs.replaceChildren();
-  for (const tab of state.tabs()) {
+  for (const tab of tabItems) {
     const item = document.createElement("div");
     item.className = "browser-tab" + (current?.id === tab.id ? " active" : "");
     const select = document.createElement("button");
@@ -66,12 +78,23 @@ function render() {
     select.title = tab.url || "Nueva pestaña";
     select.setAttribute("aria-label", "Ir a la pestaña " + tab.title);
     select.setAttribute("aria-pressed", String(current?.id === tab.id));
-    select.addEventListener("click", () => { state.select(tab.id); render(); });
+    select.addEventListener("click", () => {
+      if (native) void native.select(tab.id).then(value => { nativeState = value; render(); syncNativeBounds(); }).catch(displayError);
+      else { state.select(tab.id); render(); }
+    });
     const close = document.createElement("button");
     close.type = "button"; close.className = "browser-tab-close";
     close.textContent = "×"; close.title = "Cerrar pestaña";
     close.setAttribute("aria-label", "Cerrar " + tab.title);
     close.addEventListener("click", () => {
+      if (native) {
+        void native.close(tab.id).then(value => {
+          nativeState = value;
+          if (!value.tabs.length) leaveBrowser();
+          else { render(); syncNativeBounds(); }
+        }).catch(displayError);
+        return;
+      }
       frames.get(tab.id)?.remove();
       frames.delete(tab.id);
       const next = state.close(tab.id);
@@ -81,7 +104,7 @@ function render() {
     item.append(select, close);
     tabs.append(item);
   }
-  for (const [id, frame] of frames) frame.hidden = !current || current.id !== id;
+  if (!native) for (const [id, frame] of frames) frame.hidden = !current || current.id !== id;
   address.value = current?.url || "";
   address.removeAttribute("aria-invalid");
   back.disabled = !current?.canBack;
@@ -92,9 +115,10 @@ function render() {
   if (current?.url) external.href = current.url;
   else external.removeAttribute("href");
   empty.hidden = Boolean(current?.url);
-  $("browser-new").disabled = state.tabs().length >= 8;
+  $("browser-new").disabled = tabItems.length >= 8;
 }
 function loadCurrent() {
+  if (native) return;
   const tab = state.active();
   if (!tab?.url) { render(); return; }
   const frame = frames.get(tab.id) || makeFrame(tab);
@@ -113,6 +137,16 @@ export function openBrowser(value = "", { newTab = false } = {}) {
     try { url = normalizeBrowserUrl(value, location.origin); }
     catch (error) { render(); displayError(error); return false; }
   }
+  if (native) {
+    void native.open(url, newTab).then(value => {
+      nativeState = value;
+      render(); syncNativeBounds();
+      status.textContent = url ? "Chromium: navegación real bajo el motor nativo WAEWEB." :
+        "Nueva pestaña. Escribe una URL HTTPS para comenzar.";
+      if (!url) address.focus();
+    }).catch(displayError);
+    return true;
+  }
   try {
     if (newTab || !state.active()) state.create(url);
     else if (url) state.navigate(url);
@@ -129,20 +163,25 @@ $("browser-form").addEventListener("submit", event => {
   openBrowser(value);
 });
 $("browser-back").addEventListener("click", () => {
+  if (native) { void native.back().catch(displayError); return; }
   if (!state.active()?.canBack) return;
   state.back(); loadCurrent();
 });
 $("browser-forward").addEventListener("click", () => {
+  if (native) { void native.forward().catch(displayError); return; }
   if (!state.active()?.canForward) return;
   state.forward(); loadCurrent();
 });
-$("browser-reload").addEventListener("click", () => { if (state.active()?.url) loadCurrent(); });
+$("browser-reload").addEventListener("click", () => {
+  if (native) void native.reload().catch(displayError);
+  else if (state.active()?.url) loadCurrent();
+});
 $("browser-new").addEventListener("click", () => openBrowser("", { newTab: true }));
 $("browser-close").addEventListener("click", leaveBrowser);
 $("browser-open").addEventListener("click", () => openBrowser());
 $("hero-browser").addEventListener("click", () => openBrowser($("hero-input").value.trim().startsWith("https://") ? $("hero-input").value.trim() : ""));
 $("browser-reader").addEventListener("click", () => {
-  const tab = state.active();
+  const tab = native ? nativeState?.tabs.find(item => item.id === nativeState.activeId) : state.active();
   if (!tab?.url) return;
   hideBrowser();
   $("hero").hidden = true;
@@ -162,3 +201,22 @@ document.addEventListener("keydown", event => {
     event.preventDefault(); openBrowser("", { newTab: true });
   }
 });
+
+// Native mode renders remote sites in separate Chromium WebContentsViews, never iframes.
+if (native) {
+  native.onState(payload => {
+    nativeState = payload;
+    render();
+    const current = payload.tabs.find(tab => tab.id === payload.activeId);
+    if (current?.error) status.textContent = current.error;
+  });
+  void native.getState().then(value => { nativeState = value; render(); }).catch(displayError);
+  external.addEventListener("click", event => {
+    event.preventDefault();
+    const current = nativeState?.tabs.find(tab => tab.id === nativeState.activeId);
+    if (current?.url) void native.openExternal(current.url).catch(displayError);
+  });
+  window.addEventListener("resize", syncNativeBounds);
+  window.addEventListener("scroll", syncNativeBounds, { passive: true });
+  if ("ResizeObserver" in window) new ResizeObserver(syncNativeBounds).observe(stage);
+}
