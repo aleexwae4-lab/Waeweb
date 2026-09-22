@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC29 removes the hero navigation hint and adds an independent WAEWEB Libros page from the global footer. Author onboarding reuses guarded accounts API only where available, local draft metadata with honest file handling, 70/30 exact cents quotation, and public sale/publishing HOLD. Vercel untouched directly. Production author marketplace requires durable encrypted ownership/content storage, moderation, checkout, payouts, refunds, tax and rights terms, and E2E.",
+      "reason": "RC30 integrates first-class directions route panel, server-side OpenRouteService opt-in with verified geometry and turn instructions, and one-shot consensual geolocation (no tracking). Backend returns unavailable when ORS key not configured; demo servers never used; route planning and actual E2E provider not yet proven, production HOLD, Vercel untouched.",
       "evidence": ""
     },
     {

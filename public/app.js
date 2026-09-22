@@ -2,6 +2,7 @@ import { createWorkspace, asMarkdown } from "/workspace.js";
 import { openBrowser, hideBrowser } from "/browser.js";
 import { classifyOmnibox } from "/omnibox.js";
 import { osmEmbedUrl, osmPlaceUrl, validMapPlace } from "/maps-core.js";
+import {createDirections} from "/directions.js";
 import { createTranslator } from "/translator.js";
 "use strict";
 const byId = id => document.getElementById(id);
@@ -26,8 +27,11 @@ const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
 let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "" };
+let activeDirections=null;
+function stopDirections(){activeDirections?.dispose();activeDirections=null;}
 const translator = createTranslator({getJSON,resultsContainer,stats,sourceFilter,answer,weatherSlot,panel});
 function renderTranslator(push=true){
+  stopDirections();
   state.controller?.abort();state.sequence++;
   speechSynthesisSafeCancel();hideBrowser();
   state.type="translate";state.query="";state.data=null;state.results=[];
@@ -73,6 +77,7 @@ function setTab(type) {
   });
 }
 function goHome() {
+  stopDirections();
   translator.hide();sourceFilter.hidden=false;
   hideBrowser();
   state.controller?.abort();
@@ -447,6 +452,7 @@ async function renderWeather(query, signal, sequence) {
   }
 }
 function renderMapPlaces(data) {
+  stopDirections();
   const places = Array.isArray(data.results) ? data.results.filter(validMapPlace) : [];
   resultsContainer.replaceChildren();
   if (!places.length) {
@@ -482,6 +488,8 @@ function renderMapPlaces(data) {
   const visit = external("https://www.openstreetmap.org/","↗ Abrir mapa completo","map-action map-original");
   toolbar.append(zoomOut,zoomIn,copy,visit);
 
+  const directions=createDirections({getJSON,element,button,external,copyText});
+  activeDirections=directions;
   const stage = element("div","map-stage");
   const frame = element("iframe","map-iframe");
   frame.title = "Mapa interactivo integrado en WAEWEB";
@@ -524,16 +532,18 @@ function renderMapPlaces(data) {
     stats.textContent=places.length + (places.length===1 ? " ubicación" : " ubicaciones") +
       " · " + data.source + " · " + place.name;
   }
-  function select(index){ selected=index;zoom=places[index].precision==="coordinate"?3:2;refresh(); }
+  function select(index){ selected=index;zoom=places[index].precision==="coordinate"?3:2;directions.setDestination(places[index]);refresh(); }
   function changeZoom(delta){zoom=Math.max(0,Math.min(4,zoom+delta));refresh();}
   const details=element("div","map-place");
   details.append(placeTitle,placeDetail,coords,toolbar);
-  section.append(details,stage,footnote);
+  section.append(details,stage,footnote,directions.root);
   if(places.length>1)section.append(element("h3","map-picks-title","Elegir ubicación"),picks);
   resultsContainer.append(section);
+  directions.setDestination(places[selected]);
   refresh();
 }
 async function renderMap(query,signal,sequence) {
+  stopDirections();
   stats.textContent="Localizando lugares reales…";
   panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
   state.data=null;state.results=[];state.selectedSource="";
@@ -567,6 +577,7 @@ function runOmnibox(value,type="all",push=true){
     return;
   }
   if(intent.kind==="url"){
+    stopDirections();
     state.controller?.abort();state.sequence++;
     heroStatus.textContent="";
     speechSynthesisSafeCancel();
@@ -581,6 +592,7 @@ function runOmnibox(value,type="all",push=true){
   return performSearch(intent.value,type,push);
 }
 async function performSearch(query, type = "all", push = true) {
+  stopDirections();
   translator.hide();sourceFilter.hidden=false;
   if(type==="translate"){renderTranslator(push);return;}
   hideBrowser();
@@ -769,7 +781,7 @@ window.addEventListener("popstate", () => {
   const q = params.get("q");
   if (q) runOmnibox(q, params.get("type") || "all", false);
   else if(params.get("type")==="translate")renderTranslator(false);
-  else { translator.hide();state.controller?.abort(); state.sequence++; hero.hidden = false; resultsView.hidden = true; }
+  else { stopDirections();translator.hide();state.controller?.abort(); state.sequence++; hero.hidden = false; resultsView.hidden = true; }
 });
 const params = new URLSearchParams(location.search);
 if (params.get("q")) runOmnibox(params.get("q"), params.get("type") || "all", false);

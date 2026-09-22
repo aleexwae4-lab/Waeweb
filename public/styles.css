@@ -325,3 +325,36 @@
 /* RC29 · Author bookstore access stays in the global footer. */
 .footer .footer-books-link{font-size:12px;font-weight:800;letter-spacing:.03em;text-decoration:none;color:#bed5ff;border:1px solid rgba(150,175,239,.28);border-radius:22px;padding:8px 16px;background:#18243d;min-height:39px;display:inline-flex;align-items:center;justify-content:center}
 .footer .footer-books-link:hover{color:#fff;background:#24385b}
+
+/* RC30 · Honest turn-by-turn route planning within WAEWEB Maps */
+.directions-panel{background:linear-gradient(145deg,#16233b,#0a1424);border:1px solid rgba(146,183,246,.26);border-radius:18px;margin-top:20px;padding:clamp(15px,2.7vw,24px);min-width:0}
+.directions-panel h3{font-size:clamp(21px,3vw,26px);margin:10px 0 5px}
+.directions-note,.directions-disclaimer,.directions-warning{color:#abc1df;line-height:1.55;font-size:12px}
+.directions-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;align-items:end;margin-top:15px}
+.directions-field{display:flex;flex-direction:column;gap:7px;font-size:12px;color:#d6e4fb;min-width:0}
+.directions-input{width:100%;min-width:0;background:#0c182b;color:#f3f8ff;border:1px solid rgba(156,185,238,.3);border-radius:12px;min-height:46px;font:inherit;font-size:13px;padding:10px 13px}
+.directions-input:focus-visible{outline:2px solid #80b1ff;outline-offset:2px}
+.directions-primary{min-height:46px;border:0;background:linear-gradient(130deg,#92bdff,#b49bfa);border-radius:12px;color:#061329;font-size:13px;font-weight:850;padding:10px}
+.directions-primary:disabled{opacity:.44;cursor:not-allowed}
+.directions-actions{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0}
+.directions-action{min-height:40px;padding:9px 13px;font-size:12px;background:#1b3050;border:1px solid #ffffff29;color:#e4f0ff;border-radius:12px}
+.directions-action:disabled{opacity:.5}
+.directions-state{color:#c4d6ef;font-size:12px;line-height:1.6;min-height:20px}
+.directions-result{margin-top:15px;min-width:0}
+.directions-result:empty{display:none}
+.directions-result-header{display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;align-items:center;border-bottom:1px solid #ffffff26;padding-bottom:13px}
+.directions-result-header strong{font-size:17px}
+.directions-metric{background:#273c60;border-radius:15px;padding:9px 13px;color:#dceafd;font-size:13px}
+.directions-place{color:#c5d7f0;font-size:13px;margin:10px 0;overflow-wrap:anywhere}
+.directions-warning{border-left:2px solid #bda3ff;padding:10px 13px;background:#a98fff18}
+.directions-sketch{overflow:hidden;border:1px solid #ffffff24;background:radial-gradient(circle,#1a3151,#0a1424);border-radius:17px;margin:14px 0}
+.directions-route-svg{display:block;width:100%;height:auto;max-height:370px}
+.directions-sketch-caption{font-size:11px;color:#a6b9d9;padding:5px 12px 12px;margin:0;text-align:center}
+.directions-result h4{font-size:17px;margin:22px 0 10px}
+.directions-steps{list-style:decimal;padding-left:26px;margin:0 0 14px}
+.directions-step{padding:10px 8px 12px 4px;border-bottom:1px solid #ffffff17;overflow-wrap:anywhere}
+.directions-step p{font-size:13px;color:#edf4ff;margin:0 0 5px;line-height:1.5}
+.directions-step small,.directions-credit{font-size:11px;color:#a6bedf;line-height:1.5}
+.directions-credit{overflow-wrap:anywhere;margin:15px 0 5px}
+.directions-disclaimer{border-top:1px solid #ffffff18;margin:19px 0 0;padding-top:12px}
+@media(max-width:550px){.directions-panel{padding:12px}.directions-form{grid-template-columns:1fr;gap:10px}.directions-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.directions-action{padding:9px 6px;min-width:0}.directions-result-header{align-items:flex-start}.directions-steps{padding-left:22px}}

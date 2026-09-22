@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
 import { findPlaces, MapsError } from "./maps.mjs";
+import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
 import {translateText,publicTranslateConfig,TranslateError} from "./translate.mjs";
 import { handleConnect, connectConfig } from "./connect.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
@@ -37,6 +38,8 @@ const files = new Map([
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
   ["/omnibox.js", ["omnibox.js", "text/javascript; charset=utf-8"]],
   ["/maps-core.js", ["maps-core.js", "text/javascript; charset=utf-8"]],
+  ["/directions.js", ["directions.js", "text/javascript; charset=utf-8"]],
+  ["/directions-core.js", ["directions-core.js", "text/javascript; charset=utf-8"]],
   ["/translator.js", ["translator.js", "text/javascript; charset=utf-8"]],
   ["/accounts.js", ["accounts.js", "text/javascript; charset=utf-8"]],
   ["/business-profile.js", ["business-profile.js", "text/javascript; charset=utf-8"]],
@@ -48,6 +51,18 @@ const files = new Map([
 ]);
 const rate = new Map();
 const accountRate = new Map();
+const directionsRate = new Map();
+function directionsLimited(req){
+  const ip=process.env.TRUST_PROXY==="true"
+    ?(req.headers["x-forwarded-for"]||"").split(",")[0].trim()||req.socket.remoteAddress
+    :req.socket.remoteAddress||"unknown";
+  const now=Date.now(),record=directionsRate.get(ip);
+  if(!record||now>record.expires){
+    if(directionsRate.size>10000)directionsRate.clear();
+    directionsRate.set(ip,{count:1,expires:now+60000});return false;
+  }
+  record.count++;return record.count>6;
+}
 const translationRate = new Map();
 function translationLimited(req){
   const ip=process.env.TRUST_PROXY==="true"
@@ -94,7 +109,7 @@ const security = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-frame-options": "DENY",
-  "permissions-policy": "camera=(), microphone=(self), geolocation=()"
+  "permissions-policy": "camera=(), microphone=(self), geolocation=(self)"
 };
 function write(res, code, object, headers = {}) {
   res.writeHead(code, { ...security, "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-waeweb-api": "1", ...headers });
@@ -125,11 +140,11 @@ export async function handler(req, res) {
   // identical local tests. This check precedes ALL API handlers.
   if (previewMode() && u.pathname.startsWith("/api/") &&
       (!(["GET","HEAD"].includes(req.method) ||
-           (req.method==="POST" && u.pathname==="/api/translate")) ||
-        !(u.pathname==="/api/translate" ||
+           (req.method==="POST" && ["/api/translate","/api/directions"].includes(u.pathname))) ||
+        !([ "/api/translate","/api/directions" ].includes(u.pathname) ||
           ["/api/health","/api/capabilities","/api/search",
            "/api/weather","/api/maps","/api/marketplace",
-           "/api/translate/capabilities"].includes(u.pathname))))
+           "/api/translate/capabilities","/api/directions/capabilities"].includes(u.pathname))))
     return write(res,503,{error:"Vista previa: cuentas, pagos y APIs privadas desactivados.",
       previewMode:true});
   if (previewMode() && u.pathname==="/api/marketplace")
@@ -142,6 +157,7 @@ export async function handler(req, res) {
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
     mapsEnabled: true, mapPrecision: "locality_centroid_or_user_coordinates",
+    directions: routingCapabilities(),
     translator: publicTranslateConfig(),
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
@@ -162,6 +178,10 @@ export async function handler(req, res) {
     previewMode:previewMode(),
     deploymentConnected: false
   });
+  if (u.pathname==="/api/directions/capabilities") {
+    if(!["GET","HEAD"].includes(req.method))return write(res,405,{error:"Método no permitido."},{allow:"GET, HEAD"});
+    return write(res,200,routingCapabilities());
+  }
   if (u.pathname==="/api/translate/capabilities") {
     if(!["GET","HEAD"].includes(req.method))return write(res,405,{error:"Método no permitido."},{allow:"GET, HEAD"});
     return write(res,200,publicTranslateConfig());
@@ -180,7 +200,7 @@ export async function handler(req, res) {
   const marketInteraction = u.pathname.match(/^\/api\/marketplace\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/(inquiries|reports)$/i);
   const imageOwner = u.pathname.match(/^\/api\/businesses\/([0-9a-f-]{36})\/listings\/([0-9a-f-]{36})\/image$/i);
   const imagePublic = u.pathname.match(/^\/api\/marketplace\/images\/([0-9a-f-]{36})\/([0-9a-f-]{36})$/i);
-  if (req.method === "POST" && u.pathname !== "/api/read" && u.pathname !== "/api/translate" && !accountRoutes.has(u.pathname) && !businessCheckout && !catalogOwner && !marketInteraction && !imageOwner)
+  if (req.method === "POST" && u.pathname !== "/api/read" && u.pathname !== "/api/translate" && u.pathname !== "/api/directions" && !accountRoutes.has(u.pathname) && !businessCheckout && !catalogOwner && !marketInteraction && !imageOwner)
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (req.method === "PATCH" && !businessDelete && !businessEdit && !catalogItem) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (req.method === "DELETE" && !businessDelete && !catalogItem && !imageOwner)
@@ -396,6 +416,13 @@ export async function handler(req, res) {
         const data = getIndexedDocument(u.searchParams.get("id") || "", records);
         return data ? write(res, 200, data) : write(res, 404, { error: "Documento no encontrado en tu espacio." });
       }
+      if(u.pathname==="/api/directions"){
+        if(req.method!=="POST")return write(res,405,{error:"Utiliza POST para calcular la ruta."},{allow:"POST"});
+        if(directionsLimited(req))return write(res,429,{error:"Demasiadas rutas. Intenta de nuevo en un minuto.",code:"directions_rate_limit"},{"retry-after":"60"});
+        const payload=await jsonBody(req,3500);
+        const route=await planDirections(payload);
+        return write(res,200,route);
+      }
       if(u.pathname==="/api/translate"){
         if(req.method!=="POST")return write(res,405,{error:"Utiliza POST para traducir."},{allow:"POST"});
         if(translationLimited(req))return write(res,429,{error:"Demasiadas traducciones. Intenta de nuevo en un minuto.",code:"translate_rate_limit"},{"retry-after":"60"});
@@ -422,6 +449,7 @@ export async function handler(req, res) {
       }
       return write(res, 404, { error: "Ruta no encontrada." });
     } catch (error) {
+      if (error instanceof DirectionsError)return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof TranslateError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof MapsError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof BillingError) return write(res, error.status, { error: error.message, code: error.code });
