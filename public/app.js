@@ -391,8 +391,22 @@ function renderData(data) {
       (state.type === "news" || state.type === "videos"
         ? "Esta categoría necesita GOOGLE_SEARCH_API_KEY y GOOGLE_SEARCH_ENGINE_ID configurados en el servidor. No se mostrarán resultados ficticios."
         : "No hubo coincidencias de las fuentes disponibles. Modifica los términos e inténtalo nuevamente.");
-    resultsContainer.append(stateCard("Sin resultados disponibles", detail));
+    resultsContainer.append(renderSearchFallback(state.query,detail));
   }
+}
+function renderSearchFallback(query,message){
+  const card=stateCard("Búsqueda pública temporalmente no disponible",message);
+  const links=element("div","search-fallback-links");
+  append(links,
+    external("https://www.google.com/search?q="+encodeURIComponent(query),
+      "↗ Buscar en Google","link-button"),
+    external("https://es.wikipedia.org/w/index.php?search="+encodeURIComponent(query),
+      "↗ Buscar en Wikipedia","link-button"),
+    external("https://openlibrary.org/search?q="+encodeURIComponent(query),
+      "↗ Buscar en Open Library","link-button"));
+  card.append(element("p","research-disclaimer",
+    "Enlaces externos para continuar tu investigación. No son resultados recuperados por WAEWEB."),links);
+  return card;
 }
 async function renderWeather(query, signal, sequence) {
   if (!/^(clima|tiempo|temperatura|pron[oó]stico)\b/i.test(query)) return;
@@ -518,7 +532,9 @@ async function performSearch(query, type = "all", push = true) {
   } catch (e) {
     if (e.name === "AbortError" || sequence !== state.sequence) return;
     stats.textContent = "No se pudo completar la consulta.";
-    resultsContainer.replaceChildren(stateCard("Error de búsqueda", e.message));
+    resultsContainer.replaceChildren(type==="index"||type==="businesses"
+      ?stateCard("Consulta no disponible",e.message)
+      :renderSearchFallback(q,e.message));
   }
 }
 function showReadDocument(data) {
