@@ -29,7 +29,9 @@ function showAccount() {
   $("browser-view").hidden = true;
   view.hidden = false;
   window.scrollTo({ top: 0, behavior: "smooth" });
-  if (!enabled) say("Las cuentas todavía no están activadas en este servidor. El registro real se habilita mediante la configuración privada del operador.");
+  $("account-auth").hidden = !enabled;
+  $("account-unavailable").hidden = enabled;
+  if (!enabled) say("Vista previa: registro y datos comerciales reales desactivados.");
   else if (session) refreshBusinesses().catch(error => say(error.message));
   else say("Puedes crear tu cuenta o iniciar sesión. Esta etapa no publica negocios automáticamente.");
 }
@@ -228,11 +230,14 @@ async function loadCapability() {
     enabled = result.accountsEnabled === true;
     objectMedia = result.marketplaceObjectMedia === true;
   } catch { enabled = false; objectMedia = false; }
-  if (!enabled) say("Registro no disponible en este servidor: necesita configuración y almacenamiento seguro.");
+  $("account-auth").hidden = !enabled;
+  $("account-unavailable").hidden = enabled;
+  if (!enabled) say("Vista previa: registro, pagos y publicaciones desactivados.");
 }
 $("account-button").addEventListener("click", showAccount);
 $("hero-account-button").addEventListener("click", showAccount);
 $("account-back").addEventListener("click", goBack);
+$("account-unavailable-back").addEventListener("click", goBack);
 $("home-button").addEventListener("click", () => { view.hidden = true; });
 $("hero-form").addEventListener("submit", () => { view.hidden = true; });
 $("results-form").addEventListener("submit", () => { view.hidden = true; });
