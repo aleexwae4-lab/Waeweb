@@ -27,6 +27,8 @@ jobs:
           node-version: "22"
       - name: Install optional desktop engine
         run: npm install --no-audit --no-fund
+      - name: Download actual Chromium binary before configuring sandbox
+        run: ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron --version
       - name: Configure Chromium SUID sandbox on Linux runner
         run: |
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
