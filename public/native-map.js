@@ -24,7 +24,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
   area.append(svg);
   const controls=document.createElement("div");controls.className="wae-native-map-controls";
   const make=(label,fn)=>{
-    const b=document.createElement("button");b.type="button";b.textContent=label;
+    const b=document.createElement("button");b.type="button";b.textContent=label;b.setAttribute("aria-label",label==="+"?"Acercar mapa":label==="−"?"Alejar mapa":label);
     b.addEventListener("click",fn);controls.append(b);return b;
   };
   const plus=make("+",()=>changeZoom(1)),minus=make("−",()=>changeZoom(-1));
@@ -47,7 +47,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
     if(drawFrame||disposed)return;
     drawFrame=requestAnimationFrame(()=>{drawFrame=0;draw();});
   }
-  const spans=[{lat:40,lon:78},{lat:14,lon:28},{lat:4.5,lon:9},{lat:1.4,lon:2.8},{lat:.4,lon:.8},{lat:.1,lon:.2},{lat:.025,lon:.05}];
+  const spans=[{lat:40,lon:78},{lat:14,lon:28},{lat:4.5,lon:9},{lat:1.4,lon:2.8},{lat:.4,lon:.8},{lat:.1,lon:.2},{lat:.025,lon:.05},{lat:.006,lon:.012},{lat:.0015,lon:.003}];
   function project(lon,lat){
     const span=spans[level];
     const dx=normLon(lon-center.longitude);
@@ -159,7 +159,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
     text(svg,18,32,"N ↑","wae-map-compass");
     text(svg,18,423,"WAEWEB · DATOS GEOGRÁFICOS","wae-map-watermark");
     details.textContent=(point?label+" · "+point.latitude.toFixed(6)+", "+point.longitude.toFixed(6):
-      "Vista general · centro aproximado de México")+" · Acercamiento "+(level+1)+"/7";
+      "Vista general · centro aproximado de México")+" · Acercamiento "+(level+1)+"/"+spans.length;
     plus.disabled=level>=spans.length-1;minus.disabled=level<=0;
     streets.setAttribute("aria-pressed",String(streetsEnabled));
     tag.textContent=streetsEnabled?"Calles · OpenStreetMap":"Vista geográfica nativa";
@@ -247,6 +247,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
     if(e.key!=="Enter"&&e.key!==" ")return;
     if(activatePin(e.target))e.preventDefault();
   });
+  svg.addEventListener("dblclick",e=>{if(e.target?.closest?.("[data-map-place]"))return;e.preventDefault();changeZoom(1);});
   svg.addEventListener("wheel",e=>{e.preventDefault();changeZoom(e.deltaY<0?1:-1);},{passive:false});
   svg.addEventListener("keydown",e=>{
     const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];
