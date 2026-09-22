@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import http from "node:http";
 import { handler } from "../server/index.mjs";
-import { accountsEnabled } from "../server/accounts.mjs";
+import { accountsEnabled, getAccount, registerAccount } from "../server/accounts.mjs";
 import { assessVercelRelease } from "../scripts/release-gate.mjs";
 
 const ids = ["web-runtime", "durable-storage", "identity-and-abuse",
@@ -55,6 +55,11 @@ test("Vercel mode fails closed rather than creating ephemeral accounts or vaults
       WAE_READER_ENABLED: "true"
     });
     assert.equal(accountsEnabled(), false);
+    await assert.rejects(() => getAccount("Bearer " + "a".repeat(43)), { code: "storage_config" });
+    await assert.rejects(() => registerAccount({
+      name: "No debería crearse", email: "blocked@example.test",
+      password: "Not-A-Real-Production-Password"
+    }), { code: "accounts_disabled" });
     await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
     const capabilities = await fetch("http://127.0.0.1:" + server.address().port + "/api/capabilities");
     assert.equal(capabilities.status, 200);
