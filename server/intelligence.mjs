@@ -72,6 +72,15 @@ export function scoreResult(item, query, type = "all") {
   }
   const normalizedQuery = fold(query).trim();
   if (normalizedQuery && title.includes(normalizedQuery)) score += 10;
+  // General web intent prioritizes actual pages and named entities. Papers
+  // remain available under Investigación; they should not bury a direct hit.
+  if (type === "all") {
+    if (normalizedQuery && title === normalizedQuery) score += 18;
+    const origin=sourceName(item.source);
+    if (/brave search|google programmable search/.test(origin)) score += 10;
+    else if (/wikipedia|wikidata/.test(origin)) score += 7;
+    else if (/crossref|openalex|europe pmc/.test(origin)) score -= 4;
+  }
   if (type === "research" && /crossref|openalex|europe pmc/.test(sourceName(item.source))) score += 4;
   if (item.date && type === "news") {
     const year = Number(String(item.date).slice(0, 4));
