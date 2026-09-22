@@ -6,6 +6,7 @@ const heroInput = byId("hero-input");
 const resultsInput = byId("results-input");
 const resultsContainer = byId("results-container");
 const stats = byId("result-stats");
+const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
@@ -211,8 +212,9 @@ function renderMap(query) {
 }
 async function performSearch(query, type = "all", push = true) {
   const q = query.trim().slice(0, 180);
-  if (q.length < 2) { heroInput.focus(); stats.textContent = "Escribe al menos dos caracteres."; return; }
+  if (q.length < 2) { heroInput.focus(); heroStatus.textContent = "Escribe al menos dos caracteres."; stats.textContent = heroStatus.textContent; return; }
   state.controller?.abort();
+  heroStatus.textContent = "";
   speechSynthesisSafeCancel();
   state.controller = new AbortController();
   const signal = state.controller.signal;
@@ -246,11 +248,11 @@ byId("about-button").addEventListener("click", () => byId("about-dialog").showMo
 byId("close-dialog").addEventListener("click", () => byId("about-dialog").close());
 byId("voice-button").addEventListener("click", () => {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) { stats.textContent = "El reconocimiento de voz no está disponible en este navegador."; return; }
+  if (!Recognition) { heroStatus.textContent = "El reconocimiento de voz no está disponible en este navegador."; stats.textContent = heroStatus.textContent; return; }
   const recognition = new Recognition();
   recognition.lang = "es-MX"; recognition.interimResults = false;
   recognition.onresult = event => performSearch(event.results[0][0].transcript);
-  recognition.onerror = () => { stats.textContent = "No se pudo reconocer la voz; usa el campo de búsqueda."; };
+  recognition.onerror = () => { heroStatus.textContent = "No se pudo reconocer la voz; usa el campo de búsqueda."; stats.textContent = heroStatus.textContent; };
   recognition.start();
 });
 window.addEventListener("popstate", () => {
