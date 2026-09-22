@@ -12,7 +12,7 @@ import {
   registerAccount, addBusiness, updateBusinessVisibility,
   addMarketListing, setMarketListingVisibility, listOwnerListings,
   uploadMarketPhoto, getMarketPhotoLink, getPublicMarketPhotoLink,
-  removeMarketPhoto, deleteBusiness, inspectMarketMediaQueue, drainMarketMediaQueue, deleteMarketListing
+  removeMarketPhoto, deleteBusiness, inspectMarketMediaQueue, drainMarketMediaQueue, deleteMarketListing, auditMarketMediaReferences
 } from "../server/accounts.mjs";
 
 const media={origin:"https://storage.example.test",bucket:"wae-market-photos",
@@ -190,6 +190,12 @@ test("encrypted journal survives photo replacement, delete listing and delete bu
     await deleteMarketListing(bearer,business.id,second.id,dir);
     await deleteBusiness(bearer,business.id,dir);
     assert.equal((await inspectMarketMediaQueue(dir)).queued,3);
+    const manifest=await auditMarketMediaReferences(dir);
+    assert.equal(manifest.referenced,0);
+    assert.equal(manifest.providerObjectsVerified,false);
+    assert.equal(manifest.objectBackupVerified,false);
+    assert.equal(manifest.fingerprint.length,64);
+    assert.equal(JSON.stringify(manifest).includes("marketplace/"),false);
     const envelope=await readFile(join(dir,"accounts.encrypted.json"),"utf8");
     for(const key of objects)assert.equal(envelope.includes(key),false);
     await assert.rejects(()=>drainMarketMediaQueue({base:dir,media,transport,
