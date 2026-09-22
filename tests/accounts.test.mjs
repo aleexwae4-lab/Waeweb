@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   accountsEnabled, registerAccount, loginAccount, getAccount,
-  logoutAccount, listBusinesses, addBusiness, deleteBusiness, AccountError
+  logoutAccount, listBusinesses, addBusiness, deleteBusiness, updateBusinessVisibility, listPublicBusinesses, AccountError
 } from "../server/accounts.mjs";
 import { handler } from "../server/index.mjs";
 
@@ -63,6 +63,18 @@ test("businesses are owner-only, private and self-declared; validation and delet
     assert.equal(entry.visibility, "owner_only");
     assert.equal((await listBusinesses("Bearer " + a.token, dir)).businesses.length, 1);
     assert.equal((await listBusinesses("Bearer " + b.token, dir)).businesses.length, 0);
+    assert.equal((await listPublicBusinesses("Taller Guadalajara", dir)).resultCount, 0);
+    await assert.rejects(() => updateBusinessVisibility("Bearer " + b.token, entry.id, true, dir), { code: "business_missing" });
+    const published = await updateBusinessVisibility("Bearer " + a.token, entry.id, true, dir);
+    assert.equal(published.visibility, "public");
+    const directory = await listPublicBusinesses("Taller Guadalajara", dir);
+    assert.equal(directory.resultCount, 1);
+    assert.equal(directory.businesses[0].verification, "self_declared");
+    assert.equal(directory.businesses[0].name, "Taller de Prueba");
+    assert.equal(directory.businesses[0].email, undefined);
+    assert.equal(directory.businesses[0].ownerId, undefined);
+    await updateBusinessVisibility("Bearer " + a.token, entry.id, false, dir);
+    assert.equal((await listPublicBusinesses("Taller", dir)).resultCount, 0);
     await assert.rejects(() => deleteBusiness("Bearer " + b.token, entry.id, dir), { code: "business_missing" });
     await assert.rejects(() => addBusiness("Bearer " + a.token, {
       name: "Invalid", category: "Tech", city: "Mexico City", website: "javascript:alert(1)"
@@ -114,18 +126,30 @@ test("HTTP account and business routes work with bearer auth; public service rem
     assert.equal((await post("/api/account/login", { email: alice.email, password: "Not-the-right-password" })).status, 401);
     assert.equal((await (await fetch(base + "/api/account/me", { headers: auth(token) })).json()).user.id, user.id);
     assert.equal((await fetch(base + "/api/businesses")).status, 401);
+    assert.equal((await (await fetch(base + "/api/businesses/public?q=WAE")).json()).resultCount, 0);
     const created = await post("/api/businesses", {
       name: "WAE Business", category: "Inteligencia Artificial", city: "Zapopan"
     }, auth(token));
     assert.equal(created.status, 201);
     const business = (await created.json()).business;
     assert.equal((await (await fetch(base + "/api/businesses", { headers: auth(token) })).json()).businesses.length, 1);
+    assert.equal((await (await fetch(base + "/api/businesses/public?q=WAE")).json()).resultCount, 0);
+    const published = await fetch(base + "/api/businesses/" + business.id, {
+      method: "PATCH", headers: { ...auth(token), "content-type": "application/json" },
+      body: JSON.stringify({ published: true })
+    });
+    assert.equal(published.status, 200);
+    const listing = await (await fetch(base + "/api/businesses/public?q=Artificial%20Zapopan")).json();
+    assert.equal(listing.resultCount, 1);
+    assert.equal(listing.businesses[0].name, "WAE Business");
+    assert.equal(listing.businesses[0].email, undefined);
     assert.equal((await fetch(base + "/api/businesses/" + business.id, {
       method: "DELETE", headers: auth("x".repeat(43))
     })).status, 401);
     assert.equal((await fetch(base + "/api/businesses/" + business.id, {
       method: "DELETE", headers: auth(token)
     })).status, 200);
+    assert.equal((await (await fetch(base + "/api/businesses/public?q=WAE")).json()).resultCount, 0);
     assert.equal((await post("/api/account/logout", {}, auth(token))).status, 200);
     assert.equal((await fetch(base + "/api/account/me", { headers: auth(token) })).status, 401);
     delete process.env.WAE_ACCOUNTS_KEY;
