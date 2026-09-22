@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { backupPostgres, backupMarketMediaForPostgres, verifyMarketMediaBackup } from "../server/pg-recovery.mjs";
+import { backupPostgres, backupMarketMediaForPostgres, verifyMarketMediaBackup, restoreMarketMediaForPostgres } from "../server/pg-recovery.mjs";
 import { loginAccount, listBusinesses, addMarketListing, listOwnerListings,
   setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaPresence, auditMarketMediaIntegrity, auditMarketMediaInventory } from "../server/accounts.mjs";
 import { readAccountsPostgres, closeAccountsPostgres } from "../server/accounts-postgres.mjs";
@@ -25,7 +25,7 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     "WAE_MEDIA_BUCKET","WAE_MEDIA_REGION","WAE_MEDIA_ACCESS_KEY_ID",
     "WAE_MEDIA_SECRET_ACCESS_KEY","WAE_MEDIA_ALLOW_LOCAL_TEST",
     "WAE_MARKET_MEDIA_CLEANUP_ACK","WAE_PG_BACKUP_DIR",
-    "WAE_MEDIA_BACKUP_DIR"].map(x=>[x,process.env[x]]));
+    "WAE_MEDIA_BACKUP_DIR","WAE_MARK_MEDIA_RESTORE_ACK"].map(x=>[x,process.env[x]]));
   const privateTestDir=await mkdtemp(join(tmpdir(),"wae-media-rc20-"));
   const photos=new Map();
   const provider=http.createServer(async(req,res)=>{
@@ -37,6 +37,9 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
          req.headers["x-amz-content-sha256"]!==
            createHash("sha256").update(body).digest("hex")) {
         res.writeHead(403);return res.end();
+      }
+      if(req.headers["if-none-match"]==="*" && photos.has(req.url)){
+        res.writeHead(412);return res.end();
       }
       photos.set(req.url,body);res.writeHead(200);return res.end();
     }
@@ -169,6 +172,17 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     assert.equal(verifiedCapsule.restoreCertified,false);
     const photoPath="/"+process.env.WAE_MEDIA_BUCKET+"/"+saved.imageKey;
     const originalPhoto=photos.get(photoPath);
+    photos.delete(photoPath);
+    process.env.WAE_MARK_MEDIA_RESTORE_ACK="reviewed-offline-empty-object-restore";
+    const restored=await restoreMarketMediaForPostgres(
+      objectBackup.filename,pgBackup.filename,{confirm:true});
+    assert.equal(restored.restored,1);
+    assert.equal(restored.providerObjectsCheckedAfterWrite,true);
+    assert.equal(restored.restoreCertified,false);
+    assert.deepEqual(photos.get(photoPath),originalPhoto);
+    await assert.rejects(()=>restoreMarketMediaForPostgres(
+      objectBackup.filename,pgBackup.filename,{confirm:true}),
+      {code:"media_restore_target_not_empty"});
     const tamperedPhoto=Buffer.from(originalPhoto);
     tamperedPhoto[5]^=1;
     photos.set(photoPath,tamperedPhoto);
