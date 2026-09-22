@@ -9,7 +9,8 @@ import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader
 import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError, vaultStorageReady } from "./vault.mjs";
 import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
 import { billingConfig, createStripeCheckout, retrieveStripeSubscription, verifyStripeEvent, BillingError } from "./billing.mjs";
-import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
+import { MarketplaceError } from "./marketplace.mjs";
+import { accountsEnabled, listOwnerListings, addMarketListing, editMarketListing, setMarketListingVisibility, deleteMarketListing, getPublicMarketCatalog, browseMarketplace, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -23,6 +24,7 @@ const files = new Map([
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
   ["/accounts.js", ["accounts.js", "text/javascript; charset=utf-8"]],
   ["/business-profile.js", ["business-profile.js", "text/javascript; charset=utf-8"]],
+  ["/marketplace.js", ["marketplace.js", "text/javascript; charset=utf-8"]],
   ["/workspace.js", ["workspace.js", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
   ["/favicon.svg", ["favicon.svg", "image/svg+xml"]],
@@ -108,26 +110,54 @@ export async function handler(req, res) {
     promotionsEnabled: Boolean(billingConfig()) && accountsEnabled(),
     businessRegistration: accountsEnabled() ? "owner_controlled_self_declared" : "disabled",
     publicBusinessProfiles: accountsEnabled(),
+    marketplaceEnabled: accountsEnabled(),
     connectApi: Boolean(connectConfig()),
     deploymentConnected: false
   });
   if (u.pathname.startsWith("/api/connect/")) return handleConnect(req,res);
-  const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses", "/api/businesses/public", "/api/promotions/plan", "/api/promotions/webhook", "/api/promotions/search"]);
+  const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses", "/api/businesses/public", "/api/promotions/plan", "/api/promotions/webhook", "/api/promotions/search", "/api/marketplace"]);
   const businessDelete = /^\/api\/businesses\/[0-9a-f-]{36}$/i.test(u.pathname);
   const businessEdit = /^\/api\/businesses\/[0-9a-f-]{36}\/profile$/i.test(u.pathname);
   const businessPublicProfile = /^\/api\/businesses\/public\/[0-9a-f-]{36}$/i.test(u.pathname);
   const businessCheckout = /^\/api\/businesses\/[0-9a-f-]{36}\/promote$/i.test(u.pathname);
   const businessPromotion = /^\/api\/businesses\/[0-9a-f-]{36}\/promotion$/i.test(u.pathname);
-  if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname) && !businessCheckout)
+  const catalogOwner = u.pathname.match(/^\/api\/businesses\/([0-9a-f-]{36})\/listings$/i);
+  const catalogItem = u.pathname.match(/^\/api\/businesses\/([0-9a-f-]{36})\/listings\/([0-9a-f-]{36})(\/visibility)?$/i);
+  const catalogPublic = u.pathname.match(/^\/api\/businesses\/public\/([0-9a-f-]{36})\/listings$/i);
+  if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname) && !businessCheckout && !catalogOwner)
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
-  if (req.method === "PATCH" && !businessDelete && !businessEdit) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
-  if (req.method === "DELETE" && !businessDelete)
+  if (req.method === "PATCH" && !businessDelete && !businessEdit && !catalogItem) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+  if (req.method === "DELETE" && !businessDelete && !catalogItem)
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (u.pathname.startsWith("/api/")) {
     if (limited(req)) return write(res, 429, { error: "Demasiadas consultas. Intenta de nuevo en un minuto." }, { "retry-after": "60" });
     try {
-      if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile || businessCheckout || businessPromotion) {
+      if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile || businessCheckout || businessPromotion || catalogOwner || catalogItem || catalogPublic) {
         if (!accountsEnabled()) return write(res, 503, { error: "Cuentas desactivadas. Configura WAE_ACCOUNTS_ENABLED y WAE_ACCOUNTS_KEY en el servidor." });
+        if (u.pathname === "/api/marketplace" && req.method === "GET") {
+          return write(res,200,await browseMarketplace({
+            q:u.searchParams.get("q")||"",city:u.searchParams.get("city")||"",
+            kind:u.searchParams.get("kind")||"all",
+            page:Number(u.searchParams.get("page")||1)
+          }));
+        }
+        if (catalogPublic && req.method === "GET")
+          return write(res,200,await getPublicMarketCatalog(catalogPublic[1]));
+        if (catalogOwner && req.method === "GET")
+          return write(res,200,await listOwnerListings(req.headers.authorization,catalogOwner[1]));
+        if (catalogOwner && req.method === "POST") {
+          const body=await jsonBody(req,95*1024);
+          return write(res,201,{item:await addMarketListing(req.headers.authorization,catalogOwner[1],body)});
+        }
+        if (catalogItem && req.method === "PATCH") {
+          const body=await jsonBody(req,95*1024);
+          const item=catalogItem[3]
+            ? await setMarketListingVisibility(req.headers.authorization,catalogItem[1],catalogItem[2],body.published)
+            : await editMarketListing(req.headers.authorization,catalogItem[1],catalogItem[2],body);
+          return write(res,200,{item});
+        }
+        if (catalogItem && !catalogItem[3] && req.method === "DELETE")
+          return write(res,200,await deleteMarketListing(req.headers.authorization,catalogItem[1],catalogItem[2]));
         if (u.pathname === "/api/promotions/search" && req.method === "GET") {
           if (!billingConfig()) return write(res, 200, { sponsored: [], label: "Patrocinado" });
           const q = u.searchParams.get("q") || "";
@@ -298,6 +328,7 @@ export async function handler(req, res) {
       return write(res, 404, { error: "Ruta no encontrada." });
     } catch (error) {
       if (error instanceof BillingError) return write(res, error.status, { error: error.message, code: error.code });
+      if (error instanceof MarketplaceError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof AccountError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
       if (error instanceof VaultError) return write(res, 503, { error: error.message, code: error.code });
