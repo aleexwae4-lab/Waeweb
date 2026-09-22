@@ -433,7 +433,7 @@ function renderData(data) {
   state.results = state.selectedSource ? allResults.filter(item => item.source === state.selectedSource) : allResults;
   document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
-  weatherSlot.replaceChildren();
+  // Weather races with federated search. A late result must not erase an early card.
   const count = state.results.length;
   stats.textContent = count + " resultado" + (count === 1 ? "" : "s") + " visible" + (count === 1 ? "" : "s") +
     " de " + allResults.length + " recuperados · " +
@@ -466,17 +466,32 @@ function renderData(data) {
   }
 }
 function renderSearchFallback(query,message){
-  const card=stateCard("Búsqueda pública temporalmente no disponible",message);
+  const isUnavailable=/(no disponible|no respondieron|no hay proveedores|api|http|servidor|error|conectar|fall[oó])/i.test(message||"");
+  const card=stateCard(isUnavailable?"Búsqueda temporalmente no disponible":"No encontramos coincidencias",message);
   const links=element("div","search-fallback-links");
-  append(links,
-    external("https://www.google.com/search?q="+encodeURIComponent(query),
-      "↗ Buscar en Google","link-button"),
-    external("https://es.wikipedia.org/w/index.php?search="+encodeURIComponent(query),
-      "↗ Buscar en Wikipedia","link-button"),
-    external("https://openlibrary.org/search?q="+encodeURIComponent(query),
-      "↗ Buscar en Open Library","link-button"));
+  const encoded=encodeURIComponent(query);
+  const options={
+    images:[
+      ["https://commons.wikimedia.org/w/index.php?search="+encoded+"&title=Special:MediaSearch&type=image","↗ Imágenes en Wikimedia Commons"],
+      ["https://www.google.com/search?tbm=isch&q="+encoded,"↗ Imágenes en Google"]
+    ],
+    videos:[
+      ["https://www.youtube.com/results?search_query="+encoded,"↗ Vídeos en YouTube"],
+      ["https://commons.wikimedia.org/w/index.php?search="+encoded+"&title=Special:MediaSearch&type=video","↗ Vídeos en Wikimedia Commons"]
+    ],
+    books:[
+      ["https://openlibrary.org/search?q="+encoded,"↗ Buscar en Open Library"],
+      ["https://books.google.com/books?q="+encoded,"↗ Buscar en Google Books"]
+    ],
+    maps:[["https://www.openstreetmap.org/search?query="+encoded,"↗ Buscar en OpenStreetMap"]]
+  };
+  const defaults=[
+    ["https://www.google.com/search?q="+encoded,"↗ Buscar en Google"],
+    ["https://es.wikipedia.org/w/index.php?search="+encoded,"↗ Buscar en Wikipedia"]
+  ];
+  for(const [url,label] of options[state.type]||defaults)links.append(external(url,label,"link-button"));
   card.append(element("p","research-disclaimer",
-    "Enlaces externos para continuar tu investigación. No son resultados recuperados por WAEWEB."),links);
+    "Continuar en servicios externos: estos enlaces no representan resultados recuperados por WAEWEB."),links);
   return card;
 }
 async function renderWeather(query, signal, sequence) {
