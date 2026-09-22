@@ -26,7 +26,7 @@ export function vaultConfig(raw = process.env.WAE_VAULTS_JSON) {
   const values = new Map();
   for (const [id, token] of pairs) {
     if (!VAULT_PATTERN.test(id) || typeof token !== "string" || token.length < 32 ||
-      token.length > 256 || !/^[\\x21-\\x7e]+$/.test(token) || tokens.has(token)) return null;
+      token.length > 256 || !/^[\x21-\x7e]+$/.test(token) || tokens.has(token)) return null;
     tokens.add(token);
     values.set(id, digest(token));
   }
