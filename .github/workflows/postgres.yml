@@ -101,10 +101,10 @@ jobs:
         run: npm run check
       - name: Test actual PostgreSQL transactions and encrypted persistence
         run: npm run test:postgres
-      - name: Test private Marketplace media with disposable PostgreSQL and local S3 fixture
-        run: npm run test:marketplace:media:pg
       - name: Test encrypted research vaults and cross-process isolation
         run: npm run test:vault:postgres
+      - name: Test private Marketplace media with disposable PostgreSQL and local S3 fixture
+        run: npm run test:marketplace:media:pg
       - name: Test shared WAEWEB Connect rate and concurrency quotas
         run: npm run test:connect:postgres
       - name: Read-only encrypted PostgreSQL storage preflight
