@@ -1,10 +1,18 @@
 # WAE WEB
 
-WAE WEB es el buscador federado de WAE OS Enterprise. Aplicación Node.js independiente, sin dependencias externas de npm, con interfaz obsidiana/aurora inspirada en el prototipo visual aportado por el fundador.
+WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js sin dependencias npm de ejecución y edición opcional de escritorio con Electron como dependencia de desarrollo. Interfaz obsidiana/aurora basada en el prototipo visual aportado por el fundador.
 
 **Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
 
 
+
+## Fase 10 — WAEWEB v1.0.0-rc.1: Chromium real + compuerta de lanzamiento
+
+- **Linux nativo ejecutado en GitHub Actions**, no solo pruebas de sintaxis: https://github.com/aleexwae4-lab/Waeweb/actions/runs/35706038901. Se descargó Electron, se configuró el sandbox SUID sin `--no-sandbox` y arrancó Chromium con Xvfb. El smoke verificó preload, interfaz, API local y apertura/cierre de pestañas. **No** verificó navegación externa, Windows/macOS ni instaladores.
+- **Defensa del servidor local**: la edición Electron valida Host exacto, Origin y Fetch Metadata contra el origen de `127.0.0.1`; rechaza mutaciones que carecen del Origin de la interfaz. El servidor web público conserva su ruta de ejecución independiente.
+- **Control de lanzamiento a Vercel**: `npm run release:gate` evalúa `release-readiness.json` y termina con código distinto de cero si hay bloqueos, falta evidencia o el paquete aún es release candidate. La versión actual devuelve **NO-GO**, deliberadamente. NO debe conectarse Vercel hasta aprobar cada control con pruebas verificables y un plan de backend persistente; `main` no se ha fusionado.
+- El proceso HTTP de `server/index.mjs` es un servidor Node de larga duración, mientras que las cuentas, negocios y bóvedas usan archivos privados persistentes. No equivale automáticamente a un backend listo para funciones serverless de Vercel. Separar frontend desplegable del backend duradero, o construir/verificar un adaptador compatible, es obligatorio antes de promover.
+- Las cuentas y publicidad no están listas para lanzamiento público hasta resolver verificación de correo, recuperación, antifraude, reconciliación, privacidad, QA E2E móvil y operación/rollback.
 
 ## Estado actual — Fase 9 (v0.9): WAEWEB Native Chromium Desktop Engine
 
