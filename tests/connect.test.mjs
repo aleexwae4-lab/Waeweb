@@ -33,7 +33,7 @@ const post=(url,path,data,headers={})=>fetch(url+path,{
 test("Connect is off by default, distinct credentials for three named systems",()=>{
   assert.equal(connectConfig({}),null);
   assert.equal(connectConfig({WAE_CONNECT_ENABLED:"true",WAE_CONNECT_CLIENTS_JSON:'{"unknown":"'+ "x".repeat(40)+'"}'}),null);
-  const cfg=connectConfig({WAE_CONNECT_ENABLED:"true",WAE_CONNECT_CLIENTS_JSON:JSON.stringify(clients)});
+  const cfg=connectConfig({NODE_ENV:"test",WAE_CONNECT_ENABLED:"true",WAE_CONNECT_CLIENTS_JSON:JSON.stringify(clients)});
   assert.equal(cfg.size,3);
   assert.equal(authorizeConnect(auth(),cfg),"waeosgreen");
   assert.equal(authorizeConnect(auth("inteligenciauniversal"),cfg),"inteligenciauniversal");
@@ -57,7 +57,9 @@ test("Connect inputs reject unbounded or malformed fields",()=>{
 test("HTTP Connect JSON, SSE, reader and credential denial",async()=>{
   const old={WAE_CONNECT_ENABLED:process.env.WAE_CONNECT_ENABLED,
     WAE_CONNECT_CLIENTS_JSON:process.env.WAE_CONNECT_CLIENTS_JSON,
-    WAE_CONNECT_READER_ENABLED:process.env.WAE_CONNECT_READER_ENABLED};
+    WAE_CONNECT_READER_ENABLED:process.env.WAE_CONNECT_READER_ENABLED,
+    NODE_ENV:process.env.NODE_ENV};
+  process.env.NODE_ENV="test";
   process.env.WAE_CONNECT_ENABLED="true";
   process.env.WAE_CONNECT_CLIENTS_JSON=JSON.stringify(clients);
   const {server,url}=await serverFor();
@@ -123,7 +125,9 @@ test("production, Render and Vercel Connect require verified shared admission ra
     assert.equal(connectAdmissionReady({...base,...prod}),false);
     assert.equal(connectConfig({...base,...prod}),null);
   }
+  assert.equal(connectAdmissionReady(base),false);
   assert.equal(connectAdmissionReady({...base,NODE_ENV:"test"}),true);
+  assert.equal(connectAdmissionReady({...base,NODE_ENV:"development"}),true);
   assert.equal(connectAdmissionReady({...base,WAE_CONNECT_ADMISSION_MODE:"unknown"}),false);
   assert.equal(connectAdmissionReady({...base,WAE_CONNECT_ADMISSION_MODE:"postgres"}),false);
   assert.equal(connectAdmissionConfig({...base,WAE_CONNECT_ADMISSION_MODE:"postgres"}),null);
