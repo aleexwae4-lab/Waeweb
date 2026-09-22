@@ -168,6 +168,15 @@ async function start() {
   security = await import(pathToFileURL(join(__dirname, "security.mjs")).href);
   const { handler } = await import(pathToFileURL(join(__dirname, "../server/index.mjs")).href);
   server = http.createServer((req, res) => {
+    if (!security.desktopRequestAllowed(req, shellOrigin)) {
+      res.writeHead(403, {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store",
+        "x-content-type-options": "nosniff"
+      });
+      res.end("Acceso local denegado.");
+      return;
+    }
     Promise.resolve(handler(req, res)).catch(() => {
       if (!res.headersSent) res.writeHead(500, { "content-type": "text/plain" });
       res.end("Error interno.");
