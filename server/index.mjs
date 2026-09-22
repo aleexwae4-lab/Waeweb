@@ -6,7 +6,7 @@ import { search, weather } from "./search.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
 import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError } from "./vault.mjs";
 import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
-import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness } from "./accounts.mjs";
+import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusinessVisibility, listPublicBusinesses } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const files = new Map([
@@ -76,7 +76,7 @@ function limited(req) {
   return entry.count > 60;
 }
 export async function handler(req, res) {
-  if (!["GET", "HEAD", "POST", "DELETE"].includes(req.method)) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD, POST, DELETE" });
+  if (!["GET", "HEAD", "POST", "DELETE", "PATCH"].includes(req.method)) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD, POST, DELETE, PATCH" });
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
@@ -94,10 +94,11 @@ export async function handler(req, res) {
     businessRegistration: accountsEnabled() ? "owner_only_self_declared" : "disabled",
     deploymentConnected: false
   });
-  const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses"]);
+  const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses", "/api/businesses/public"]);
   const businessDelete = /^\/api\/businesses\/[0-9a-f-]{36}$/i.test(u.pathname);
   if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname))
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+  if (req.method === "PATCH" && !businessDelete) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (req.method === "DELETE" && !businessDelete)
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (u.pathname.startsWith("/api/")) {
@@ -118,6 +119,9 @@ export async function handler(req, res) {
         if (req.method === "POST" && u.pathname === "/api/account/logout") {
           return write(res, 200, await logoutAccount(req.headers.authorization));
         }
+        if (u.pathname === "/api/businesses/public" && req.method === "GET") {
+          return write(res, 200, await listPublicBusinesses(u.searchParams.get("q") || ""));
+        }
         if (u.pathname === "/api/businesses" && req.method === "GET") {
           return write(res, 200, await listBusinesses(req.headers.authorization));
         }
@@ -125,10 +129,14 @@ export async function handler(req, res) {
           const body = await jsonBody(req);
           return write(res, 201, { business: await addBusiness(req.headers.authorization, body) });
         }
+        if (businessDelete && req.method === "PATCH") {
+          const body = await jsonBody(req);
+          return write(res, 200, { business: await updateBusinessVisibility(req.headers.authorization, u.pathname.slice("/api/businesses/".length), body.published) });
+        }
         if (businessDelete && req.method === "DELETE") {
           return write(res, 200, await deleteBusiness(req.headers.authorization, u.pathname.slice("/api/businesses/".length)));
         }
-        return write(res, 405, { error: "Método no permitido." }, { allow: "GET, POST, DELETE" });
+        return write(res, 405, { error: "Método no permitido." }, { allow: "GET, POST, DELETE, PATCH" });
       }
       if (u.pathname === "/api/index/search" || u.pathname === "/api/index/document" || u.pathname === "/api/read") {
         if (process.env.WAE_READER_ENABLED !== "true" || !encryptionReady(vaultConfig(), vaultKeysConfig())) {
@@ -192,7 +200,7 @@ export async function handler(req, res) {
       return write(res, 502, { error: "La fuente externa no respondió. Prueba nuevamente." });
     }
   }
-  if (req.method === "POST" || req.method === "DELETE") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+  if (req.method === "POST" || req.method === "DELETE" || req.method === "PATCH") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (!files.has(u.pathname)) return write(res, 404, { error: "Página no encontrada." });
   const [file, mime] = files.get(u.pathname);
   try {
