@@ -28,6 +28,7 @@ on:
       - "scripts/market-media-ops.mjs"
       - "server/marketplace.mjs"
       - "server/index.mjs"
+      - "tests/vercel-preview.test.mjs"
       - "tests/marketplace-media-postgres.integration.mjs"
       - "server/accounts-postgres.mjs"
       - "server/vault.mjs"
