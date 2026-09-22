@@ -43,7 +43,8 @@
     "pg:verify-media": "node scripts/pg-recovery.mjs verify-media",
     "marketplace:media:inventory": "node scripts/market-media-ops.mjs inventory",
     "pg:backup-media": "node scripts/pg-recovery.mjs backup-media",
-    "pg:verify-media-backup": "node scripts/pg-recovery.mjs verify-media-backup"
+    "pg:verify-media-backup": "node scripts/pg-recovery.mjs verify-media-backup",
+    "pg:restore-media": "node scripts/pg-recovery.mjs restore-media"
   },
   "license": "UNLICENSED",
   "devDependencies": {
