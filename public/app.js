@@ -9,6 +9,11 @@ const resultsContainer = byId("results-container");
 const stats = byId("result-stats");
 const sourceFilter = byId("source-filter");
 const workspace = createWorkspace();
+const readerPanel = byId("reader-panel");
+const readerStatus = byId("reader-status");
+const readerOutput = byId("reader-output");
+let readerEnabled = false;
+let readerBusy = false;
 const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
@@ -109,6 +114,9 @@ function renderResult(item, index) {
   }, "save-button");
   save.disabled = workspace.has(url);
   meta.append(save);
+  if (readerEnabled && url.startsWith("https://")) {
+    meta.append(button("⌕ Leer e indexar", () => requestRead(url), "save-button"));
+  }
   card.append(meta);
   return card;
 }
@@ -266,7 +274,7 @@ function renderData(data) {
     " de " + allResults.length + " recuperados · " +
     (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
   renderPanel(data);
-  if (state.type === "all" || state.type === "research") {
+  if (state.type === "all" || state.type === "research" || state.type === "index") {
     const filteredBrief = state.selectedSource ? {
       ...data, brief: { ...data.brief, notes: (data.brief?.notes || []).filter(note => note.source === state.selectedSource) }
     } : data;
@@ -283,7 +291,7 @@ function renderData(data) {
     });
   }
   if (!resultsContainer.children.length) {
-    const detail = data.message ||
+    const detail = data.warning || data.message ||
       (state.type === "news" || state.type === "videos"
         ? "Esta categoría necesita GOOGLE_SEARCH_API_KEY y GOOGLE_SEARCH_ENGINE_ID configurados en el servidor. No se mostrarán resultados ficticios."
         : "No hubo coincidencias de las fuentes disponibles. Modifica los términos e inténtalo nuevamente.");
@@ -341,7 +349,15 @@ async function performSearch(query, type = "all", push = true) {
   panel.replaceChildren(); answer.replaceChildren(); weatherSlot.replaceChildren();
   resultsContainer.replaceChildren(stateCard("Buscando información", "Conectando con las fuentes disponibles.", true));
   try {
-    const data = await getJSON("/api/search?q=" + encodeURIComponent(q) + "&type=" + encodeURIComponent(type), signal);
+    const url = type === "index"
+      ? "/api/index/search?q=" + encodeURIComponent(q)
+      : "/api/search?q=" + encodeURIComponent(q) + "&type=" + encodeURIComponent(type);
+    const data = await getJSON(url, signal);
+    if (type === "index") {
+      data.sources = ["Índice WAE · memoria temporal"];
+      data.failedSources = [];
+      data.fetchedAt = new Date().toISOString();
+    }
     if (sequence !== state.sequence) return;
     renderData(data);
     if (type === "all") renderWeather(q, signal, sequence);
@@ -351,6 +367,61 @@ async function performSearch(query, type = "all", push = true) {
     resultsContainer.replaceChildren(stateCard("Error de búsqueda", e.message));
   }
 }
+function showReadDocument(data) {
+  readerOutput.replaceChildren();
+  const card = element("article", "reader-document");
+  append(card, element("h3", "", data.title),
+    element("p", "reader-note", "Fuente recuperada: " + data.url),
+    element("p", "reader-note", "Huella SHA-256: " + data.fingerprint + " · Índice: " + data.indexSize + " documento(s) · temporal"));
+  const excerpt = element("p", "reader-content", data.text);
+  card.append(excerpt);
+  const actions = element("div", "answer-actions");
+  append(actions,
+    external(data.url, "↗ Página original", "link-button"),
+    button("⧉ Copiar texto recuperado", () => copyText(data.text)),
+    button("◇ Guardar referencia", () => {
+      const saved = workspace.add({ title: data.title, url: data.url, source: "Índice WAE", snippet: data.text.slice(0, 1200) });
+      refreshLibraryCount();
+      readerStatus.textContent = saved.persisted === false ? "Referencia temporal: el almacenamiento local está bloqueado." : "Referencia guardada en biblioteca.";
+    }),
+    button("⌕ Buscar en mi índice", () => performSearch(state.query || data.title, "index")));
+  card.append(actions);
+  readerOutput.append(card);
+}
+async function requestRead(url) {
+  if (readerBusy) { readerStatus.textContent = "Hay una lectura en curso."; return; }
+  if (!readerEnabled) { readerStatus.textContent = "Activa WAE_READER_ENABLED=true en el servidor local para utilizar el lector."; return; }
+  readerBusy = true;
+  readerPanel.hidden = false;
+  readerPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  readerStatus.textContent = "Validando DNS y robots.txt, recuperando texto público…";
+  readerOutput.replaceChildren();
+  try {
+    const data = await getJSON("/api/read?url=" + encodeURIComponent(url));
+    showReadDocument(data);
+    readerStatus.textContent = "Documento incorporado al índice temporal.";
+  } catch (error) {
+    readerStatus.textContent = error.message || "No se pudo leer la página.";
+  } finally { readerBusy = false; }
+}
+byId("reader-form").addEventListener("submit", event => {
+  event.preventDefault();
+  const url = byId("reader-url").value.trim();
+  if (!url.startsWith("https://")) { readerStatus.textContent = "Solo se admiten páginas públicas HTTPS."; return; }
+  requestRead(url);
+});
+async function loadReaderCapability() {
+  try {
+    const info = await getJSON("/api/capabilities");
+    readerEnabled = info.readerEnabled === true;
+    readerPanel.hidden = !readerEnabled;
+    if (readerEnabled) readerStatus.textContent = "Lector seguro habilitado. El índice se pierde al reiniciar el servidor.";
+  } catch {
+    readerEnabled = false;
+    readerPanel.hidden = true;
+  }
+}
+loadReaderCapability();
 byId("hero-form").addEventListener("submit", event => { event.preventDefault(); performSearch(heroInput.value); });
 byId("results-form").addEventListener("submit", event => { event.preventDefault(); performSearch(resultsInput.value, state.type); });
 byId("home-button").addEventListener("click", goHome);
