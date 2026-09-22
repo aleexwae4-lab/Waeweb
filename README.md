@@ -408,3 +408,8 @@ La recuperación de fotografías del Marketplace ahora conecta las cápsulas cif
 ## RC23 — paquete portable de recuperación cifrada
 
 `npm run pg:export-portable -- <PG_BACKUP> <CAPSULA_0> ...` crea, **solo con autorización del operador y directorio privado absoluto fuera del repositorio y de las fuentes**, un paquete transportable con el respaldo PostgreSQL y todas las cápsulas cifradas verificadas de ese mismo snapshot. Incluye manifiesto SHA-256 por archivo y no contiene las claves de descifrado. `npm run pg:verify-portable -- <PACKAGE_NAME>` verifica la copia sin abrir los backups originales ni consultar PostgreSQL/S3; vuelve a autenticar el contenido cifrado y exige cobertura completa. [Seguridad y procedimiento](docs/RC23_PORTABLE_RECOVERY.md). **Una copia en otro directorio no demuestra otro dominio físico de fallo. Vercel HOLD.**
+
+
+## RC24 — búsqueda unificada y vista web en resultados
+
+Ahora la búsqueda y la apertura de direcciones HTTPS comparten las mismas barras; una página se muestra **dentro de los resultados**, no en un producto o pantalla independiente. Una búsqueda pública no pide credenciales de bóveda por recibir HTTP 401: ese error se distingue de un token privado revocado y se ofrecen enlaces reales a fuentes externas si falla la API. El clima consulta su proveedor independientemente; se ocultan el índice privado y el registro cuando están desactivados en la vista previa. [Diagnóstico del video, pruebas y límites](docs/RC24_UNIFIED_SEARCH_UX.md). **Solo GitHub: no se tocó directamente Vercel ni se levantó HOLD.**
