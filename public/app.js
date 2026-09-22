@@ -1,4 +1,5 @@
 import { createWorkspace, asMarkdown } from "/workspace.js";
+import { openBrowser, hideBrowser } from "/browser.js";
 "use strict";
 const byId = id => document.getElementById(id);
 const hero = byId("hero");
@@ -58,6 +59,7 @@ function setTab(type) {
   });
 }
 function goHome() {
+  hideBrowser();
   state.controller?.abort();
   state.sequence++;
   speechSynthesisSafeCancel();
@@ -148,7 +150,8 @@ function renderResult(item, index) {
   const labels = element("div");
   append(labels, element("div", "source-label", item.source || "Fuente"), element("div", "source-url", shortHost(url)));
   row.append(avatar, labels);
-  const title = external(url, item.title, "result-title");
+  const title = button(item.title, () => openBrowser(url), "result-title browser-result-title");
+  title.title = "Navegar en WAEWEB: " + shortHost(url);
   if (item.source === "Open Library" && safeUrl(item.image)) {
     const cover = element("img", "book-cover");
     cover.src = safeUrl(item.image);
@@ -172,7 +175,7 @@ function renderResult(item, index) {
     } else stats.textContent = outcome.reason;
   }, "save-button");
   save.disabled = workspace.has(url);
-  meta.append(save);
+  meta.append(save, external(url, "↗ Abrir sitio original", "save-button"));
   if (readerEnabled && url.startsWith("https://")) {
     meta.append(button("⌕ Leer e indexar", () => requestRead(url), "save-button"));
   }
@@ -332,7 +335,10 @@ function renderPublicBusiness(item) {
     card.append(profile);
   }
   const url = safeUrl(item.website);
-  if (url?.startsWith("https://")) card.append(external(url, "↗ Sitio web declarado", "link-button"));
+  if (url?.startsWith("https://")) {
+    card.append(button("◎ Navegar en WAEWEB", () => openBrowser(url), "link-button"));
+    card.append(external(url, "↗ Sitio web original", "link-button"));
+  }
   return card;
 }
 function renderData(data) {
@@ -410,6 +416,7 @@ function renderMap(query) {
   resultsContainer.append(map);
 }
 async function performSearch(query, type = "all", push = true) {
+  hideBrowser();
   const q = query.trim().slice(0, 180);
   if (q.length < 2) { heroInput.focus(); heroStatus.textContent = "Escribe al menos dos caracteres."; stats.textContent = heroStatus.textContent; return; }
   state.controller?.abort();
@@ -485,7 +492,7 @@ function showReadDocument(data) {
 }
 async function requestRead(url) {
   if (readerBusy) { readerStatus.textContent = "Hay una lectura en curso."; return; }
-  if (!readerEnabled) { readerStatus.textContent = "Activa el lector y configura bóvedas en el servidor local."; return; }
+  if (!readerEnabled) { readerPanel.hidden = false; readerStatus.textContent = "Activa el lector y configura bóvedas en el servidor local."; return; }
   if (!vaultToken) { readerStatus.textContent = "Conecta tu bóveda primero."; openVaultDialog(); return; }
   readerBusy = true;
   readerPanel.hidden = false;
@@ -520,6 +527,7 @@ async function loadReaderCapability() {
   }
 }
 loadReaderCapability();
+document.addEventListener("wae:browser:read", event => requestRead(event.detail.url));
 byId("hero-form").addEventListener("submit", event => { event.preventDefault(); performSearch(heroInput.value); });
 byId("results-form").addEventListener("submit", event => { event.preventDefault(); performSearch(resultsInput.value, state.type); });
 byId("home-button").addEventListener("click", goHome);
@@ -546,6 +554,7 @@ byId("voice-button").addEventListener("click", () => {
   recognition.start();
 });
 window.addEventListener("popstate", () => {
+  hideBrowser();
   const params = new URLSearchParams(location.search);
   const q = params.get("q");
   if (q) performSearch(q, params.get("type") || "all", false);
