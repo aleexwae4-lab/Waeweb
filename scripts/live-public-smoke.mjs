@@ -51,4 +51,26 @@ if(!ready){
       r.marker?"WAEWEB API":"no API marker",r.mime);
     if(!good)process.exitCode=1;
   }
+  // Exercise the real public translator end to end; capabilities alone do
+  // not prove that the provider returns translated text from Render.
+  try{
+    const response=await fetch(new URL("/api/translate",base),{
+      method:"POST",credentials:"omit",cache:"no-store",
+      headers:{"content-type":"application/json",accept:"application/json"},
+      body:JSON.stringify({text:"Hola mundo",source:"es",target:"en"}),
+      signal:AbortSignal.timeout(14000)
+    });
+    const own=response.headers.get("x-waeweb-api")==="1";
+    const body=await response.json();
+    const valid=response.status===200&&own&&
+      typeof body.translatedText==="string"&&body.translatedText.trim()&&
+      body.translatedText.trim().toLowerCase()!=="hola mundo";
+    console.log(valid?"LIVE PASS":"LIVE FAIL","POST /api/translate",
+      "HTTP",response.status,own?"WAEWEB API":"no API marker",
+      "result",valid?"nonempty translation":"provider unavailable");
+    if(!valid)process.exitCode=1;
+  }catch(error){
+    console.log("LIVE FAIL POST /api/translate",error.name||"network error");
+    process.exitCode=1;
+  }
 }
