@@ -219,4 +219,17 @@ if (native) {
   window.addEventListener("resize", syncNativeBounds);
   window.addEventListener("scroll", syncNativeBounds, { passive: true });
   if ("ResizeObserver" in window) new ResizeObserver(syncNativeBounds).observe(stage);
+  const disclaimer = document.querySelector(".browser-disclaimer");
+  if (disclaimer) disclaimer.textContent =
+    "Motor Chromium nativo para páginas HTTPS, con pestañas e historial propios. " +
+    "Las páginas externas están aisladas de la aplicación y los permisos de cámara, micrófono, " +
+    "ubicación y descargas se encuentran deshabilitados en esta etapa.";
+  // External links elsewhere in the WAEWEB shell would otherwise be denied
+  // by the native shell's strict setWindowOpenHandler.
+  document.addEventListener("click", event => {
+    const link = event.target.closest?.('a[target="_blank"]');
+    if (!link || link === external || view.hidden === false && link.closest("#browser-view")) return;
+    event.preventDefault();
+    void native.openExternal(link.href).catch(displayError);
+  });
 }
