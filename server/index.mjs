@@ -50,6 +50,7 @@ const files = new Map([
   ["/libros.css", ["libros.css", "text/css; charset=utf-8"]],
   ["/royalties.js", ["royalties.js", "text/javascript; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
+  ["/youtube-player.js", ["youtube-player.js", "text/javascript; charset=utf-8"]],
   ["/browser.js", ["browser.js", "text/javascript; charset=utf-8"]],
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
   ["/omnibox.js", ["omnibox.js", "text/javascript; charset=utf-8"]],
