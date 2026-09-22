@@ -76,14 +76,18 @@ async function search(reset=false) {
     if (serial!==requestNumber || pane.hidden) return;
     results.replaceChildren();
     for(const item of data.items) results.append(listingCard(item));
-    if(!data.items.length) results.append(el("p","business-empty",
+    if(data.previewMode===true) results.append(el("p","business-empty",
+      "Vista de prueba: el registro de negocios y las publicaciones reales permanecen desactivados."));
+    else if(!data.items.length) results.append(el("p","business-empty",
       "No hay publicaciones que coincidan. Prueba otra búsqueda o ciudad."));
     more=data.hasMore===true;
     byId("marketplace-prev").hidden=page===1;
     byId("marketplace-next").hidden=!more;
     byId("marketplace-page").textContent="Página "+page;
-    byId("marketplace-status").textContent=data.total+" publicaciones encontradas. "+
-      "Anuncios autodeclarados; consulta directamente a la empresa.";
+    byId("marketplace-status").textContent=data.previewMode===true
+      ?"Marketplace en vista previa: sin productos ni empresas reales."
+      :data.total+" publicaciones encontradas. "+
+        "Anuncios autodeclarados; consulta directamente a la empresa.";
   } catch(e) {
     if(serial!==requestNumber) return;
     results.replaceChildren();
