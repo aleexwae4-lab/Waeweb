@@ -35,13 +35,13 @@
     {
       "id": "privacy-and-operations",
       "status": "blocked",
-      "reason": "Faltan privacidad/terminos, monitoreo de produccion, rollback y respuesta a incidentes.",
+      "reason": "RC14 introduce mensajes de compradores cifrados y reportes internos; antes del despliegue se requieren aviso de privacidad, retención/borrado y acceso a datos, supervisión de moderación, monitoreo, respuesta a incidentes y rollback. HOLD.",
       "evidence": ""
     },
     {
       "id": "marketplace",
-      "status": "hold",
-      "reason": "RC13: catálogo de productos/servicios privado por defecto, publicación explícita, búsqueda y perfil empresarial implementados. Pendientes object storage, moderación/denuncias, política de contenido y E2E móvil. HOLD."
+      "status": "blocked",
+      "reason": "RC14 implementa solicitudes comerciales con consentimiento y bandeja privada, reportes autenticados y moderación manual offline con bloqueo de republicación. Faltan object storage, controles distribuidos antiabuso, procedimiento de apelación, eliminación/retención de datos, E2E móvil y moderación operativa en infraestructura real. HOLD."
     }
   ]
 }
