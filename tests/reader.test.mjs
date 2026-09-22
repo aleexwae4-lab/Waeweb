@@ -117,7 +117,7 @@ test("reader API is opt-in and does not issue network calls by default", async (
     const base = "http://127.0.0.1:" + server.address().port;
     const response = await fetch(base + "/api/read?url=" + encodeURIComponent("https://example.org"));
     assert.equal(response.status, 503);
-    assert.match((await response.json()).error, /Lector desactivado/);
+    assert.match((await response.json()).error, /lector desactivado/i);
     const caps = await (await fetch(base + "/api/capabilities")).json();
     assert.equal(caps.readerEnabled, false);
     assert.equal(caps.indexPersistence, "local_disk_per_vault");
