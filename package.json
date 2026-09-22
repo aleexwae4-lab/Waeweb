@@ -1,9 +1,9 @@
 {
   "name": "waeweb",
-  "version": "1.0.0-rc.9",
+  "version": "1.0.0-rc.10",
   "private": true,
   "type": "module",
-  "description": "WAEWEB — encrypted PostgreSQL recovery with offline empty-target restore",
+  "description": "WAEWEB — guarded PostgreSQL recovery drills and atomic rollback verification",
   "engines": {
     "node": ">=20"
   },
