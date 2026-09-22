@@ -29,6 +29,9 @@ const readerAvailable = () => process.env.WAE_READER_ENABLED === "true" &&
 const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
+  ["/diagnostico.html", ["diagnostico.html", "text/html; charset=utf-8"]],
+  ["/diagnostico.js", ["diagnostico.js", "text/javascript; charset=utf-8"]],
+  ["/diagnostico.css", ["diagnostico.css", "text/css; charset=utf-8"]],
   ["/libros", ["libros.html", "text/html; charset=utf-8"]],
   ["/libros.html", ["libros.html", "text/html; charset=utf-8"]],
   ["/libros.js", ["libros.js", "text/javascript; charset=utf-8"]],

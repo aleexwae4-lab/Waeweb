@@ -25,3 +25,16 @@ export function osmEmbedUrl(place, level = 2) {
   });
   return "https://www.openstreetmap.org/export/embed.html?" + q.toString();
 }
+
+
+// Client-only exact coordinates, used when the public Maps API is inaccessible.
+// A named address MUST NOT be guessed, auto-geocoded, or silently replaced.
+export function localMapCoordinates(input) {
+  if(typeof input!=="string"||input.length>180)return null;
+  const match=input.match(/^\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*[,;]\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*$/);
+  if(!match)return null;
+  const latitude=Number(match[1]),longitude=Number(match[2]);
+  if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||
+     latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)return null;
+  return {latitude,longitude};
+}

@@ -1,7 +1,7 @@
 import { createWorkspace, asMarkdown } from "/workspace.js";
 import { openBrowser, hideBrowser } from "/browser.js";
 import { classifyOmnibox } from "/omnibox.js";
-import { osmEmbedUrl, osmPlaceUrl, validMapPlace } from "/maps-core.js";
+import { osmEmbedUrl, osmPlaceUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
 import {createDirections} from "/directions.js";
 import { createTranslator } from "/translator.js";
 "use strict";
@@ -454,15 +454,20 @@ async function renderWeather(query, signal, sequence) {
 function showDirectionsWithoutLocality(){
   stopDirections();
   const stage=element("div","map-stage");
-  stage.hidden=true;
   const frame=element("iframe","map-iframe");
   frame.loading="lazy";
   frame.title="Mapa del destino seleccionado en WAEWEB";
   frame.referrerPolicy="no-referrer";
   frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-popups");
+  // General overview is an actual OSM iframe, not the visitor's location.
+  // It is rendered without the /api/maps endpoint.
+  frame.src="https://www.openstreetmap.org/export/embed.html?"+
+    new URLSearchParams({bbox:"-117.1,14.4,-86.4,32.9",layer:"mapnik"});
+  frame.title="Vista general de México, no indica tu ubicación";
   stage.append(frame);
+  const note=element("p","map-description",
+    "Vista general de México · no representa tu ubicación. Si la cartografía externa no carga, utiliza «Abrir mapa original».");
   const footnote=element("p","map-attribution");
-  footnote.hidden=true;
   append(footnote,
     external("https://www.openstreetmap.org/copyright",
       "© OpenStreetMap contributors","map-credit-link"),
@@ -476,7 +481,9 @@ function showDirectionsWithoutLocality(){
     }
   });
   activeDirections=directions;
-  resultsContainer.append(stage,footnote,directions.root);
+  resultsContainer.append(note,stage,footnote,directions.root);
+  resultsContainer.append(external("https://www.openstreetmap.org/#map=5/23.6/-102.5",
+    "↗ Abrir mapa original","link-button"));
 }
 function renderMapPlaces(data) {
   stopDirections();
@@ -585,6 +592,21 @@ function renderMapPlaces(data) {
   refresh();
 }
 async function renderMap(query,signal,sequence) {
+  // Coordinates supplied by the user can render without /api/maps. A deployment
+  // 401 must never hide an independently known point or invent a street address.
+  const point=localMapCoordinates(query);
+  if(point){
+    stopDirections();
+    panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
+    state.data=null;state.results=[];state.selectedSource="";
+    renderMapPlaces({
+      query,source:"Coordenadas en tu dispositivo",precision:"coordinate",
+      results:[{id:"local-coordinates",name:"Punto indicado por coordenadas",
+        detail:"Coordenadas introducidas por el usuario · sin dirección verificada",
+        ...point,precision:"coordinate"}]
+    });
+    return;
+  }
   stopDirections();
   stats.textContent="Localizando lugares reales…";
   panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
@@ -602,6 +624,8 @@ async function renderMap(query,signal,sequence) {
     const card=stateCard("No se pudo mostrar el mapa",error.message);
     card.append(external("https://www.openstreetmap.org/search?query="+encodeURIComponent(query),
       "↗ Abrir búsqueda en el mapa original","link-button"));
+    card.append(external("/diagnostico.html",
+      "⌕ Diagnosticar HTTP 401 y conexión de los módulos","link-button"));
     resultsContainer.replaceChildren(card);
     showDirectionsWithoutLocality();
   }

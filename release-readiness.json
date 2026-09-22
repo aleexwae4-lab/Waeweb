@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC31 adds explicit ORS Pelias address/place lookup with visible precision and candidate selection, no silent first match or address-to-city substitution, and map viewport update for chosen destination. Requires ORS server key, provider terms, street geocoding coverage and real browser E2E. Vercel untouched directly; main intact; HOLD.",
+      "reason": "RC32 adds client-only exact-coordinate map rendering when /api/maps is HTTP 401/unavailable, an always-visible neutral map overview with source fallback, and a public read-only 401 diagnostic page that distinguishes x-waeweb-api responses, missing API routes and route-provider config. Live waeweb.vercel.app could not be reached by tools; available Vercel connector did not list Waeweb. Production is NOT verified or authorized; main and direct Vercel unchanged. HOLD.",
       "evidence": ""
     },
     {
