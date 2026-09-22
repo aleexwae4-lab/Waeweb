@@ -254,3 +254,6 @@
 /* Only authentic external search destinations appear when a provider fails. */
 .search-fallback-links{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0 0}
 .search-fallback-links .link-button{font-size:12px;text-decoration:none}
+
+/* Mobile header icons must remain distinct, not both the same browser glyph. */
+@media(max-width:430px){#browser-open.browser-launch:before{content:"⌕"}#marketplace-button.browser-launch:before{content:"▦"}}
