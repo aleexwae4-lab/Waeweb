@@ -47,9 +47,14 @@ existente: HTTPS/443, DNS IPv4 público fijado, `robots.txt`, límite de bytes/t
 redirecciones de documento rechazadas, texto extraído. No usa el token de una bóveda y
 no almacena ese texto en ninguna bóveda del sistema consumidor.
 
-Límites iniciales: 20 solicitudes/minuto y 3 operaciones concurrentes por cliente
-**por proceso**. Para escala en réplicas o venta pública hace falta admisión distribuida
-y facturación/abuso auditables. El gateway no acepta URLs arbitrarias de backend ni
+Límites iniciales: 20 solicitudes/minuto y 3 operaciones concurrentes **por cliente y
+compartidos entre réplicas**, usando tablas transaccionales PostgreSQL y leases de 45 segundos
+que expiran tras un fallo de proceso. `WAE_CONNECT_ADMISSION_MODE=postgres` es obligatorio
+si se detecta `NODE_ENV=production`, Render o Vercel: sin conexión validada o tablas
+inicializadas, la API responde 503 y **NO vuelve a la caché de cuotas local**.
+La modalidad `local` es únicamente para desarrollo de un proceso. Los límites
+de usuarios individuales dentro de cada producto y la recuperación/abuso requieren
+políticas adicionales en cada servicio consumidor. El gateway no acepta URLs arbitrarias de backend ni
 reenvía cookies/cabeceras privadas al sitio visitado.
 
 ## Activación posterior, nunca automática
@@ -59,7 +64,11 @@ reenvía cookies/cabeceras privadas al sitio visitado.
    sirve el branch en desarrollo.
 2. Crear tres secretos aleatorios únicos de al menos 32 caracteres y definir en el
    backend WAEWEB `WAE_CONNECT_CLIENTS_JSON`, `WAE_CONNECT_ENABLED=true`.
-3. En el backend de **cada** consumidor: `WAEWEB_CONNECT_ENABLED=true`,
+3. Inicializar las tablas de admisión de la base PostgreSQL validada mediante
+   `WAE_CONNECT_ADMISSION_MODE=postgres npm run connect:pg:init` con aprobación del
+   operador. La cuenta de base debe contar con permisos mínimos y esquema listo.
+   No se provisiona ni se configura ninguna base de producción desde este PR.
+4. En el backend de **cada** consumidor: `WAEWEB_CONNECT_ENABLED=true`,
    `WAEWEB_CONNECT_BASE_URL=https://<origen-waeweb>/`,
    `WAEWEB_CONNECT_CLIENT_ID=<id-exacto>`,
    `WAEWEB_CONNECT_TOKEN=<secreto-correspondiente>`.
@@ -78,3 +87,5 @@ El contrato OpenAPI está en `docs/openapi-connect-v1.yaml`.
 **No-go de Vercel/Render:** ninguna integración aparece como LIVE hasta que existan
 servicio WAEWEB desplegado/verificado, configuración de secretos, pruebas E2E de cada
 consumidor, control de abuso distribuido y aprobación de los bloqueos del manifiesto.
+
+**Evidencia de admisión real:** [CI PostgreSQL 16 — cuotas compartidas y concurrencia PASS](https://github.com/aleexwae4-lab/Waeweb/actions/runs/35712745534). Valida procesos independientes en CI, no un servicio externo de producción.
