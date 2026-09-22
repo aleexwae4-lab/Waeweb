@@ -13,6 +13,7 @@ import { mediaIntegrityManifest } from "./marketplace-integrity-audit.mjs";
 import { createMarketMediaArchive, openMarketMediaArchive } from "./marketplace-object-archive.mjs";
 import { saveMarketMediaArchive, loadMarketMediaArchive } from "./marketplace-object-archive-io.mjs";
 import { restoreArchivedMarketMedia } from "./marketplace-object-restore.mjs";
+import { auditMarketMediaArchiveSet } from "./marketplace-archive-set.mjs";
 
 const TYPE = "waeweb-encrypted-postgres-recovery";
 const MAX_BYTES = 160 * 1024 * 1024;
@@ -312,4 +313,25 @@ export async function restoreMarketMediaForPostgres(mediaFilename,postgresFilena
   return {...report,mediaFilename,postgresFilename,
     sourceBackupVerified:true,releaseApproval:"not_evaluated",
     restoreCertified:false};
+}
+
+/**
+ * RC22 READ ONLY. Verify the authenticated contents and exact coverage of
+ * bounded private media capsules for one authentic encrypted PG backup.
+ * No need for provider credentials or a running/matching recovery target.
+ */
+export async function verifyMarketMediaArchiveSet(postgresFilename,mediaFilenames){
+  if(!Array.isArray(mediaFilenames)||mediaFilenames.length<1||
+      mediaFilenames.length>100||
+      mediaFilenames.some(filename=>typeof filename!=="string"))
+    reject("media_archive_set_options");
+  const {snapshot:source}=await readSnapshot(postgresFilename);
+  const db=backupMediaRecords(source,accountKey());
+  const archives=[];
+  for(const filename of mediaFilenames)
+    archives.push(await loadMarketMediaArchive(filename));
+  const report=auditMarketMediaArchiveSet(db,archives,{
+    key:accountKey(),postgresChecksum:source.checksum});
+  return {...report,sourceBackupVerified:true,
+    releaseApproval:"not_evaluated",restoreCertified:false};
 }
