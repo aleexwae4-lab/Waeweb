@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "Cuentas, negocios y bovedas usan archivos locales; falta persistencia multi-instancia, respaldo y recuperacion.",
+      "reason": "Cuentas, negocios, sesiones y promociones tienen PostgreSQL cifrado transaccional opt-in con prueba multi-proceso PASS, pero las bóvedas documentales siguen en disco local; faltan migración, backups, recuperación y pruebas con almacenamiento de producción.",
       "evidence": ""
     },
     {
