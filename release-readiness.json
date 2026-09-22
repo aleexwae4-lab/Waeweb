@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC19 adds a read-only joint recovery preflight: it authenticates the encrypted PostgreSQL backup, requires the current restored DB snapshot to match that backup, then verifies referenced JPEG bytes against encrypted SHA-256/size metadata. Synthetic CI is not a real bucket backup/restore, provider inventory, versioning or RPO/RTO proof. HOLD.",
+      "reason": "RC19: private, read-only encrypted backup vs target DB envelope match (accounts and vaults), then bounded signed GET/JPEG/SHA-256 against referenced media; synthetic disposable PostgreSQL+in-memory S3 recovery drill in CI. This does NOT back up/restore S3 objects, certify real provider/versioning, or prove end-to-end disaster recovery/RPO/RTO. HOLD.",
       "evidence": ""
     },
     {
@@ -41,7 +41,7 @@
     {
       "id": "marketplace",
       "status": "blocked",
-      "reason": "RC19 cross-checks an authenticated PostgreSQL recovery bundle, the restored target snapshot and private referenced JPEG integrity without writes or key exposure. Still missing actual object backup/restore, orphan inventory, real provider/IAM validation, legacy migration, E2E mobile, privacy, monetization and independent security certification. HOLD."
+      "reason": "RC19 adds encrypted backup-to-target and JPEG checksum cross-check, fails closed on target drift/corrupted image. Object store itself is NOT restored from independent backup; real cross-store disaster recovery, legacy migration, external provider, E2E mobile, privacy, moderation, payments and security remain blocked. HOLD."
     }
   ]
 }
