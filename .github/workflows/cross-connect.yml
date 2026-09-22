@@ -1,0 +1,43 @@
+name: WAEWEB Cross-Repository Connect Contract
+
+on:
+  push:
+    branches: ["feat/wae-web-search-core"]
+    paths:
+      - "server/connect.mjs"
+      - "server/connect-postgres.mjs"
+      - "tests/connect-consumers.integration.mjs"
+      - ".github/workflows/cross-connect.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-consumer-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout WAEWEB source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout PUBLIC Universal Core connector source
+        uses: actions/checkout@v4
+        with:
+          repository: aleexwae4-lab/Inteligenciauniversal
+          ref: feat/waeweb-connect-v1
+          path: __universal_contract
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check both source modules
+        run: |
+          node --check server/connect.mjs
+          node --check __universal_contract/lib/waeweb-connect.js
+      - name: Execute actual two-repository HTTP, auth and SSE contract (mock sources)
+        env:
+          NODE_ENV: test
+          WAE_CROSS_REPO_INTEGRATION: "true"
+        run: node --test tests/connect-consumers.integration.mjs
