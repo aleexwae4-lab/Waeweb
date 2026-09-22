@@ -45,3 +45,14 @@ test("map has accessible controls and deeper bounded street tiles",()=>{
   assert.ok(tiles.length>0&&tiles.length<=24);
   assert.ok(tiles.every(t=>t.url.startsWith("https://tile.openstreetmap.org/")));
 });
+
+test("verified Commons videos can play natively without synthetic embeds",()=>{
+  const search=readFileSync(new URL("../server/search.mjs",import.meta.url),"utf8");
+  const server=readFileSync(new URL("../server/index.mjs",import.meta.url),"utf8");
+  assert.match(search,/item\.mediaUrl=video\.url/);
+  assert.match(app,/▷ Reproducir aquí/);
+  assert.match(app,/stream\.preload="none"/);
+  assert.match(app,/stream\.play\(\)\.catch/);
+  assert.match(app,/stopInlineVideo\(\)/);
+  assert.match(server,/media-src https:\/\/upload\.wikimedia\.org/);
+});
