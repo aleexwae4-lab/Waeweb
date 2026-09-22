@@ -32,3 +32,6 @@
 .library-entry>.snippet{font-size:13px}
 #library-status{color:#9ed4bd;font-size:12px}
 @media(max-width:550px){.topbar-right{letter-spacing:0}.library-button{font-size:0;padding:8px}.library-button:before{content:"◇";font-size:16px}.library-button span{font-size:11px;margin:0}.source-filter{max-width:140px}.results-controls{width:100%;justify-content:space-between}.statsbar .small-action{display:inline-block}.brief-link{font-size:12px}}
+
+.book-cover{float:left;width:85px;max-width:25%;aspect-ratio:2/3;object-fit:cover;border:1px solid rgba(150,175,240,.25);border-radius:9px;margin:5px 17px 12px 0;background:#152036}
+.result-card:after{content:"";display:block;clear:both}
