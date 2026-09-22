@@ -2,6 +2,7 @@ const $ = id => document.getElementById(id);
 const view = $("account-view");
 const alertBox = $("account-alert");
 let enabled = false;
+let objectMedia = false;
 let session = null; // Deliberately not stored in localStorage, cookies, URLs or HTML.
 let profile = null;
 let editingBusiness = null;
@@ -225,7 +226,8 @@ async function loadCapability() {
   try {
     const result = await api("/api/capabilities");
     enabled = result.accountsEnabled === true;
-  } catch { enabled = false; }
+    objectMedia = result.marketplaceObjectMedia === true;
+  } catch { enabled = false; objectMedia = false; }
   if (!enabled) say("Registro no disponible en este servidor: necesita configuración y almacenamiento seguro.");
 }
 $("account-button").addEventListener("click", showAccount);
@@ -304,10 +306,18 @@ function resetOwnerMarketplace() {
 }
 function picture(item) {
   const wrapper=make("div","market-photo-preview");
-  if(item.imageDataUrl?.startsWith("data:image/")) {
+  if(item.imageKey || item.imageDataUrl?.startsWith("data:image/")) {
     const image=make("img","market-photo");
-    image.src=item.imageDataUrl;
     image.alt="Fotografía de "+item.title;
+    image.referrerPolicy="no-referrer";
+    if(item.imageKey && session) {
+      const owner=selectedBusiness, token=session;
+      api("/api/businesses/"+encodeURIComponent(owner)+"/listings/"+
+        encodeURIComponent(item.id)+"/image",{auth:true})
+        .then(data=>{if(session===token&&selectedBusiness===owner&&wrapper.isConnected)
+          image.src=data.url;})
+        .catch(()=>{});
+    } else image.src=item.imageDataUrl;
     wrapper.append(image);
   } else wrapper.append(make("span","market-placeholder","▦"));
   return wrapper;
@@ -334,6 +344,14 @@ function renderOwnerListing(item) {
     form.elements.namedItem("price").value=item.priceCents==null?"":String(item.priceCents/100);
     photoData=undefined;
     showPhoto(item.imageDataUrl);
+    if(item.imageKey) {
+      const owner=selectedBusiness, token=session, editing=item.id;
+      api("/api/businesses/"+encodeURIComponent(owner)+"/listings/"+
+        encodeURIComponent(editing)+"/image",{auth:true})
+        .then(data=>{if(session===token&&selectedBusiness===owner&&editingListing===editing)
+          showPhoto(data.url);})
+        .catch(()=>ownerSay("La vista previa de la fotografía no está disponible."));
+    }
     $("listing-form-title").textContent="Editar publicación";
     $("listing-save").textContent="Guardar cambios";
     $("listing-cancel-edit").hidden=false;
@@ -417,7 +435,7 @@ async function resizePhoto(file) {
       ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
       for(const quality of [.78,.64,.5]) {
         const output=canvas.toDataURL("image/jpeg",quality);
-        if(output.length<64*1024) return output;
+        if(output.length<(objectMedia ? 310*1024 : 64*1024)) return output;
       }
     }
     throw Error("La fotografía sigue siendo demasiado grande: prueba otra.");
@@ -452,12 +470,32 @@ $("listing-form").addEventListener("submit",async event=>{
   if(!selectedBusiness||!form.reportValidity())return;
   const businessId=selectedBusiness;
   const body=Object.fromEntries(new FormData(form).entries());
-  if(photoData!==undefined)body.imageDataUrl=photoData;
+  if(!objectMedia&&photoData!==undefined)body.imageDataUrl=photoData;
+  if(objectMedia)delete body.imageDataUrl;
+  const editing=editingListing;
   busy(form,true);
   try{
-    await api("/api/businesses/"+businessId+"/listings"+
-      (editingListing?"/"+editingListing:""),{
-      method:editingListing?"PATCH":"POST",auth:true,payload:body});
+    const result=await api("/api/businesses/"+businessId+"/listings"+
+      (editing?"/"+editing:""),{
+      method:editing?"PATCH":"POST",auth:true,payload:body});
+    const itemId=editing||result.item.id;
+    if(objectMedia&&photoData!==undefined){
+      const imageEndpoint="/api/businesses/"+encodeURIComponent(businessId)+
+        "/listings/"+encodeURIComponent(itemId)+"/image";
+      try{
+        if(photoData===null)await api(imageEndpoint,{method:"DELETE",auth:true});
+        else await api(imageEndpoint,{method:"POST",auth:true,payload:{imageDataUrl:photoData}});
+      }catch(error){
+        editingListing=itemId;
+        $("listing-form-title").textContent="Editar publicación guardada";
+        $("listing-save").textContent="Volver a guardar la fotografía";
+        $("listing-cancel-edit").hidden=false;
+        await refreshOwnerListings();
+        ownerSay("Producto guardado, pero no se pudo guardar la fotografía: "+error.message+
+          " Conserva el formulario y vuelve a intentarlo.");
+        return;
+      }
+    }
     resetListingForm();
     await refreshOwnerListings();
     ownerSay("Publicación guardada. Pulsa Publicar cuando quieras hacerla visible.",true);
