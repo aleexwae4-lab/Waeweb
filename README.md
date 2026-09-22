@@ -5,6 +5,33 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Aplicación Node.js indepe
 **Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
 
 
+
+## Estado actual — Fase 6 (v0.6): WAE WEB Business + Vault Maintenance
+
+**Experiencia de cuenta y negocios:** la página de inicio muestra un acceso a «Mi cuenta / Negocios», además del acceso en la navegación. Los usuarios pueden crear una cuenta con nombre, correo y contraseña, iniciar/cerrar sesión y gestionar **hasta 20 fichas de negocio privadas por cuenta** (nombre comercial, sector, ciudad, descripción y sitio web HTTPS opcional). Las fichas son **autodeclaradas**; registrar una empresa NO supone verificar su identidad, documentación, dirección o situación legal. No hay directorio público ni edición colaborativa en esta fase.
+
+**Activación real — desactivada por defecto:** el proceso Node debe tener WAE_ACCOUNTS_ENABLED=true, WAE_ACCOUNTS_KEY con **una clave hexadecimal aleatoria propia de 64 caracteres**, y WAE_ACCOUNTS_DIR apuntando a un directorio privado y persistente. Nunca reutilices la clave de investigación, una contraseña de usuario o un ejemplo de prueba. Sin ambas variables de activación y clave, la interfaz informa que el registro está desactivado; no simula usuarios o empresas. La clave perdida impide abrir el archivo cifrado y no existe recuperación de cuenta automatizada.
+
+**API de cuentas:**
+
+- POST /api/account/register: { "name": "...", "email": "...", "password": "..." }. Requiere una contraseña entre 12 y 128 caracteres. Devuelve usuario público y token opaco para esa sesión.
+- POST /api/account/login: { "email": "...", "password": "..." }. Compara un verificador scrypt salado; no guarda contraseñas en claro.
+- GET /api/account/me: requiere Authorization: Bearer TOKEN.
+- POST /api/account/logout: revoca esa sesión en el servidor.
+- GET /api/businesses: únicamente las fichas de la cuenta autorizada.
+- POST /api/businesses: { "name": "...", "category": "...", "city": "...", "description": "...", "website": "https://..." }.
+- DELETE /api/businesses/:id: elimina únicamente la ficha perteneciente al usuario autorizado.
+
+**Separación de credenciales:** las sesiones de cuenta y las credenciales de la bóveda de investigación son **distintas**. Una cuenta recién creada no da acceso a las bóvedas preexistentes; esto evita conceder acceso privado a otra empresa por asociación implícita. El token de sesión se mantiene solo en memoria de la pestaña; al recargar se requiere iniciar sesión de nuevo. Las sesiones guardadas en el servidor son hashes SHA-256 de tokens aleatorios de 256 bits, con expiración de 7 días; las contraseñas usan scrypt con sal aleatoria y el archivo de usuarios, sesiones y negocios está cifrado con AES-256-GCM y una clave de cuentas independiente.
+
+**Límites expresos:** se restringe la creación de cuentas e intentos de acceso por IP con estado local del proceso; no sustituye un WAF ni un control distribuido. La base de cuentas es un archivo atómico de **un solo proceso**, limitada a 500 usuarios y 20 negocios por usuario: no es una solución multi-réplica. No hay confirmación de email, recuperación de contraseña, MFA, directorio público, revisión documental, reclamo de negocios existentes, OAuth ni administración de roles. Nunca habilitar públicamente sin TLS, protección antiabuso durable, política de privacidad y tratamiento legal de datos, copias de seguridad de cuentas, observabilidad y pruebas E2E. No se han configurado registros reales, claves productivas ni despliegues.
+
+**Mantenimiento premium de bóvedas (offline; detener el servidor antes de comenzar):**
+
+- Rotación de clave: genera una nueva clave hexadecimal de 32 bytes fuera de GitHub y expórtala solo en WAE_VAULT_NEW_KEY para el CLI. Ejecuta `npm run vault:rotate -- org_alpha --confirm-offline-rotation`. Se crea y verifica un respaldo CIFRADO con la clave anterior antes de sustituir el archivo activo por uno cifrado con la nueva clave. Conserva la clave anterior en un almacén seguro para poder recuperar ese respaldo. Configura después WAE_VAULT_KEYS_JSON con la clave nueva para abrir el índice.
+- Migración legacy v1 sin cifrar: guarda primero una copia de seguridad PRIVADA externa del archivo antiguo (nunca en el repositorio), detén el proceso y ejecuta `npm run vault:migrate -- org_alpha --confirm-offline-migration`. Comprueba la huella de cada documento, cifra el contenido y reemplaza el archivo mediante cambio de nombre atómico. No hay migración automática ni endpoint público para estas operaciones.
+- La rotación no cambia las claves de las cuentas; son sistemas de almacenamiento separados. Ni la rotación ni la migración tienen un gestor KMS, un planificador automático o protección frente a múltiples procesos que escriban al mismo tiempo.
+
 ## Estado actual — Fase 5 (v0.5): WAE Encrypted Research Vault
 
 La versión actual combina búsqueda web federada, lector de páginas públicas bajo demanda y memoria de investigación **cifrada en reposo** por bóveda. La lectura/indexación no está habilitada sin configuración explícita. Los apartados v0.3 y v0.4 más abajo son un historial de desarrollo; esta sección describe el comportamiento vigente.
