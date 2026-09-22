@@ -96,3 +96,11 @@ test("WAEWEB map frontend remains integrated, attributable and isolated",async()
   assert.doesNotMatch(app,/© colaboradores de OpenStreetMap/);
   assert.match(html,/data-type="maps"/);
 });
+
+test("native map opens with street cartography and wheel zoom like a standard web map", async()=>{
+  const {readFile}=await import("node:fs/promises");
+  const native=await readFile(new URL("../public/native-map.js",import.meta.url),"utf8");
+  assert.match(native,/streetsEnabled=true/);
+  assert.match(native,/aria-pressed","true"/);
+  assert.match(native,/wheel",e=>\{e\.preventDefault\(\);changeZoom/);
+});
