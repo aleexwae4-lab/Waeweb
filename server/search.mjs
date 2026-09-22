@@ -153,8 +153,12 @@ export async function search(query, type = "all", { fresh = false } = {}) {
     message: !available.some(s => !s.includes("no configurado")) ? "No hay proveedores disponibles para esta categoría." : null
   };
   payload.brief = selected === "all" || selected === "research" ? researchBrief(payload.results) : null;
-  if (cache.size > 200) cache.clear();
-  cache.set(key, { value: payload, expires: Date.now() + (selected === "news" ? 60000 : 300000) });
+  // Never freeze a transient outage or an unconfigured search category in
+  // the cache. A legitimate zero-hit response from a reachable source may cache.
+  if (available.some(name => !name.endsWith(" no configurado"))) {
+    if (cache.size > 200) cache.clear();
+    cache.set(key, { value: payload, expires: Date.now() + (selected === "news" ? 60000 : 300000) });
+  }
   return payload;
 }
 export async function weather(place) {
