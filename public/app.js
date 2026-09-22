@@ -480,6 +480,8 @@ async function performSearch(query, type = "all", push = true) {
   const q = query.trim().slice(0, 180);
   if (q.length < 2) {
     if (type === "maps") {
+      state.controller?.abort(); state.sequence++;
+      state.type = "maps"; state.query = "";
       hero.hidden = true; resultsView.hidden = false; setTab("maps");
       answer.replaceChildren(); weatherSlot.replaceChildren(); panel.replaceChildren();
       resultsContainer.replaceChildren(stateCard("Explorar mapas", "Escribe una ciudad, lugar o dirección en la barra superior para consultar el mapa. No se ha realizado ninguna búsqueda."));
