@@ -214,3 +214,9 @@
 .market-inbox h4{margin:0 0 8px}
 #market-inquiry-dialog,#market-report-dialog{width:min(520px,calc(100% - 24px));max-height:88vh;overflow-y:auto}
 #market-inquiry-status,#market-report-status{min-height:1.4em;font-size:13px;color:#b9dcff;overflow-wrap:anywhere}
+
+/* Isolated, conspicuous Vercel preview label (never imply production access). */
+.preview-banner { margin: 12px auto 0; width: min(1120px,calc(100% - 32px));
+  padding: 10px 16px; border: 1px solid #bd8b4c; border-radius: 12px;
+  background: #241a0e; color: #ffdc9a; font-size: .84rem;
+  line-height: 1.5; text-align: center; }
