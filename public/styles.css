@@ -678,3 +678,35 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .ambient .blob{animation:none!important}
   .image-gallery-tile img,.result-card{transition:none!important;transform:none!important}
 }
+
+/* RC39 · Conventional organic search experience. This is not Google's index.
+   Real destination first; WAEWEB embedded navigation remains opt-in. */
+.web-results-heading{font-size:15px;font-weight:760;letter-spacing:.015em;color:#dce9ff;margin:2px 0 1px;padding:0 3px}
+.result-card.web-result{background:transparent;border:0;border-bottom:1px solid rgba(134,165,220,.22);border-radius:0;box-shadow:none;min-height:0;padding:20px 5px 24px;margin:0;animation:none}
+.result-card.web-result:hover{transform:none;border-bottom-color:rgba(140,184,250,.53);box-shadow:none;background:linear-gradient(90deg,rgba(29,55,92,.19),transparent)}
+.result-card.web-result .source-row{margin:0 0 12px;gap:11px}
+.result-card.web-result .source-avatar{width:35px;min-width:35px;height:35px;min-height:35px;box-shadow:none;border-radius:50%;font-size:15px;background:#163051}
+.result-card.web-result .source-label{font-size:13px;color:#eef5ff;letter-spacing:0;font-weight:740}
+.result-card.web-result .source-url{color:#a6bcd7;line-height:1.5;font-size:11px;overflow-wrap:anywhere}
+.result-card.web-result .web-result-title{color:#a9ceff;display:block;font-size:clamp(19px,2.2vw,23px);font-weight:740;letter-spacing:-.023em;line-height:1.37;text-decoration:none}
+.result-card.web-result .web-result-title:hover{color:#cee4ff;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
+.result-card.web-result .snippet{color:#bdcbe0;margin:8px 0 0;line-height:1.65;font-size:14px;max-width:760px}
+.result-card.web-result .meta-line{margin-top:13px;gap:9px}
+.result-card.web-result .meta-line .save-button{min-height:38px;padding:7px 12px;background:rgba(24,52,87,.43);border-color:rgba(139,172,227,.24);font-size:11px;flex:0 1 auto}
+.result-card.web-result .meta-line .save-button:first-of-type{border-color:rgba(133,176,243,.42);background:#19365a}
+.result-card.web-result .source-engine{font-size:11px;color:#96abc8;flex-basis:100%}
+.web-results-more{min-height:50px;width:min(100%,720px);margin:14px auto 4px;padding:12px 22px;text-align:center;border:1px solid rgba(147,191,251,.48);border-radius:13px;background:linear-gradient(135deg,#203d64,#132a48);color:#eff6ff;font:inherit;font-weight:760;cursor:pointer;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.web-results-more:hover,.web-results-more:focus-visible{border-color:#aad0ff;background:#254d7f}
+.web-coverage-notice{border:1px solid rgba(138,176,230,.3);border-left:3px solid #90baff;border-radius:13px;background:linear-gradient(135deg,#152a46,#0b1b31);padding:15px 17px;margin:0 0 8px;color:#dce9ff}
+.web-coverage-notice strong{font-size:13px;color:#deebff}
+.web-coverage-notice p{color:#bdcce1;font-size:12px;line-height:1.55;margin:7px 0 12px}
+.web-coverage-notice .link-button{min-height:42px;display:inline-flex;align-items:center;padding:9px 14px;border-color:rgba(152,188,246,.46);background:#244264}
+@media(max-width:600px){
+ .result-card.web-result{padding:17px 2px 22px}
+ .result-card.web-result .web-result-title{font-size:18px}
+ .result-card.web-result .snippet{font-size:13px}
+ .result-card.web-result .meta-line .save-button{flex:1 1 125px;min-height:42px}
+ .result-card.web-result .source-engine{flex-basis:100%}
+ .web-coverage-notice{padding:13px}
+ .web-results-more{min-height:48px}
+}
