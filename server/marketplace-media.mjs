@@ -94,7 +94,8 @@ export function presignedMarketImage(config, key, now = Date.now()) {
   const signature=createHmac("sha256",signingKey(config,day)).update(toSign).digest("hex");
   return config.origin + path + "?" + query + "&X-Amz-Signature=" + signature;
 }
-export async function putMarketImage(config, key, bytes, transport = fetch, now = Date.now()) {
+export async function putMarketImage(config, key, bytes, transport = fetch, now = Date.now(),
+    { ifAbsent = false } = {}) {
   if (!config) fail("media_unavailable",503);
   if (!Buffer.isBuffer(bytes) || bytes.length > MAX_MEDIA_BYTES || !bytes.length)
     fail("media_too_large",413);
@@ -102,8 +103,10 @@ export async function putMarketImage(config, key, bytes, transport = fetch, now 
   const {amz,day}=dates(now), credentialScope=scope(config,day);
   const payloadHash=hex(bytes), endpointHost=host(config);
   const canonicalHeaders="content-type:image/jpeg\nhost:"+endpointHost+
+    (ifAbsent?"\nif-none-match:*":"")+
     "\nx-amz-content-sha256:"+payloadHash+"\nx-amz-date:"+amz+"\n";
-  const signedHeaders="content-type;host;x-amz-content-sha256;x-amz-date";
+  const signedHeaders="content-type;host;"+
+    (ifAbsent?"if-none-match;":"")+"x-amz-content-sha256;x-amz-date";
   const request="PUT\n"+path+"\n\n"+canonicalHeaders+"\n"+signedHeaders+"\n"+payloadHash;
   const toSign="AWS4-HMAC-SHA256\n"+amz+"\n"+credentialScope+"\n"+hex(request);
   const signature=createHmac("sha256",signingKey(config,day)).update(toSign).digest("hex");
@@ -111,15 +114,21 @@ export async function putMarketImage(config, key, bytes, transport = fetch, now 
   try {
     response=await transport(config.origin+path,{
       method:"PUT",headers:{
-        "content-type":"image/jpeg","x-amz-content-sha256":payloadHash,"x-amz-date":amz,
+        "content-type":"image/jpeg",...(ifAbsent?{"if-none-match":"*"}:{}),
+        "x-amz-content-sha256":payloadHash,"x-amz-date":amz,
         authorization:"AWS4-HMAC-SHA256 Credential="+config.accessKey+"/"+credentialScope+
           ", SignedHeaders="+signedHeaders+", Signature="+signature
       },body:bytes,redirect:"manual",signal:AbortSignal.timeout(12000)
     });
   } catch { fail("media_provider_unavailable",503); }
+  if(ifAbsent&&response.status===412)fail("media_object_already_exists",409);
   if (![200,201,204].includes(response.status)) fail("media_provider_unavailable",503);
   return { key, contentType:"image/jpeg", size:bytes.length, checksum:payloadHash };
 }
+// RC20 restore-only conditional PUT; no blind overwrites.
+export const putMarketImageIfAbsent=(config,key,bytes,transport=fetch,now=Date.now())=>
+  putMarketImage(config,key,bytes,transport,now,{ifAbsent:true});
+
 export async function deleteMarketImage(config,key,transport=fetch,now=Date.now()) {
   if (!config) fail("media_unavailable",503);
   const path=objectPath(config,key);
