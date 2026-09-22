@@ -28,6 +28,7 @@ const files = new Map([
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/browser.js", ["browser.js", "text/javascript; charset=utf-8"]],
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
+  ["/omnibox.js", ["omnibox.js", "text/javascript; charset=utf-8"]],
   ["/accounts.js", ["accounts.js", "text/javascript; charset=utf-8"]],
   ["/business-profile.js", ["business-profile.js", "text/javascript; charset=utf-8"]],
   ["/marketplace.js", ["marketplace.js", "text/javascript; charset=utf-8"]],
