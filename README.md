@@ -398,3 +398,8 @@ La recuperación de fotografías del Marketplace ahora conecta las cápsulas cif
 ## RC21 — recuperación offline sin sobrescrituras
 
 `pg:restore-media` exige autorización y confirmación manual, PostgreSQL idéntico al backup, journal de borrados reconciliado y destino de objetos ausente; firma `If-None-Match: *` para bloquear carreras de sobrescritura y verifica SHA-256 tras cada PUT. Puede quedar una restauración parcial que exige intervención; nunca elimina objetos para deshacerla. [Procedimiento](docs/RC21_OBJECT_RESTORE.md). **Vercel sigue HOLD; sin proveedor S3 real certificado.**
+
+
+## RC22 — cobertura completa de respaldos cifrados
+
+`npm run pg:verify-media-set -- <PG_BACKUP> <CAPSULA_0> <CAPSULA_1> ...` verifica offline que **todas** las imágenes referenciadas por ese backup PostgreSQL estén cubiertas exactamente una vez en cápsulas privadas autenticadas, sin huecos, duplicados ni solapamientos. Hasta 100 cápsulas por invocación; exige clave y backup correspondientes, rechaza alteraciones y no toca el proveedor de objetos. [Contrato y límites](docs/RC22_ARCHIVE_SET_COVERAGE.md). **Cobertura local autenticada NO equivale a recuperación productiva certificada. Vercel HOLD.**
