@@ -55,7 +55,7 @@ test("Vercel mode fails closed rather than creating ephemeral accounts or vaults
       WAE_READER_ENABLED: "true"
     });
     assert.equal(accountsEnabled(), false);
-    await assert.rejects(() => getAccount("Bearer " + "a".repeat(43)), { code: "storage_config" });
+    await assert.rejects(() => getAccount("Bearer " + "a".repeat(43)), { code: "accounts_disabled" });
     await assert.rejects(() => registerAccount({
       name: "No debería crearse", email: "blocked@example.test",
       password: "Not-A-Real-Production-Password"
