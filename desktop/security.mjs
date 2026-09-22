@@ -7,8 +7,9 @@ export const MAX_DESKTOP_TABS = 8;
 export function safeDesktopUrl(input, shellOrigin = "") {
   const url = new URL(normalizeBrowserUrl(input, shellOrigin));
   // Deliberately no local/file/app endpoints through untrusted Chromium views.
-  if (isIP(url.hostname) || /^\d+(?:\.\d+){0,3}$/.test(url.hostname) ||
-      url.hostname.endsWith(".localhost")) {
+  const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (isIP(hostname) || /^\d+(?:\.\d+){0,3}$/.test(hostname) ||
+      /\.(?:localhost|internal|local|test|invalid|onion)$/.test(hostname)) {
     throw new TypeError("Los destinos IP y locales no se abren en esta versión.");
   }
   return url.href;
