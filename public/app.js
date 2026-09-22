@@ -518,6 +518,8 @@ byId("reader-form").addEventListener("submit", event => {
 async function loadReaderCapability() {
   try {
     const info = await getJSON("/api/capabilities");
+    const previewBanner=byId("preview-banner");
+    if(previewBanner)previewBanner.hidden = info.previewMode !== true;
     readerEnabled = info.readerEnabled === true;
     readerPanel.hidden = !readerEnabled;
     if (readerEnabled) updateVaultUI();
