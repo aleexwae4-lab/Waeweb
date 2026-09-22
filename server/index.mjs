@@ -1,5 +1,6 @@
 import http from "node:http";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
@@ -10,6 +11,7 @@ import { billingConfig, createStripeCheckout, retrieveStripeSubscription, verify
 import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
+const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
@@ -84,7 +86,7 @@ export async function handler(req, res) {
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
-  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.7.0" });
+  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: VERSION });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
