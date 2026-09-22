@@ -27,7 +27,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10 };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false };
 let activeDirections=null;
 let activeInlineVideo=null;
 function stopInlineVideo(){
@@ -519,6 +519,13 @@ function renderData(data) {
       },"web-results-more");
       more.setAttribute("aria-label","Mostrar "+Math.min(10,remaining)+" resultados web adicionales ya recuperados");
       resultsContainer.append(more);
+    }else if(state.type==="all" && !state.selectedSource && data.hasMore){
+      const more=button(state.loadingMore?"Buscando más páginas…":"Buscar más páginas web",()=>{
+        void loadMoreWebResults();
+      },"web-results-more");
+      more.disabled=state.loadingMore;
+      more.setAttribute("aria-label","Consultar la siguiente página del proveedor web");
+      resultsContainer.append(more);
     }
   }
   // A provider can return a URL without a usable image thumbnail. In that
@@ -543,6 +550,49 @@ function renderData(data) {
         "↗ Continuar búsqueda en Google","link-button")
     );
     resultsContainer.prepend(notice);
+  }
+}
+// Pull an actual subsequent page only on explicit user action. Deduplicate
+// between page boundaries; do not re-fetch Wikipedia as a fake second page.
+async function loadMoreWebResults(){
+  if(state.type!=="all" || !state.data?.hasMore || state.loadingMore || state.selectedSource)return;
+  const page=state.page+1,sequence=state.sequence,query=state.query;
+  state.loadingMore=true;
+  const trigger=resultsContainer.querySelector(".web-results-more");
+  if(trigger){trigger.disabled=true;trigger.textContent="Buscando más páginas…";}
+  try{
+    const extra=await getJSON("/api/search?q="+encodeURIComponent(query)+
+      "&type=all&page="+page,state.controller?.signal);
+    if(sequence!==state.sequence || state.query!==query || state.type!=="all")return;
+    const seen=new Set((state.data.results||[]).map(item=>safeUrl(item.url)));
+    const unique=(extra.results||[]).filter(item=>{
+      const url=safeUrl(item.url);
+      if(!url||seen.has(url))return false;
+      seen.add(url);return true;
+    });
+    const prior=state.data;
+    state.page=page;
+    state.visibleCount+=10;
+    state.data={
+      ...prior,
+      results:[...(prior.results||[]),...unique],
+      sources:[...new Set([...(prior.sources||[]),...(extra.sources||[])])],
+      failedSources:[...new Set([...(prior.failedSources||[]),...(extra.failedSources||[])])],
+      hasMore:unique.length>0 && extra.hasMore===true,
+      webCoverage:prior.webCoverage==="general-index"||extra.webCoverage==="general-index"
+        ?"general-index":"limited"
+    };
+    if(!unique.length)stats.textContent="No se recuperaron páginas web adicionales para esta consulta.";
+    renderData(state.data);
+    if(!unique.length)stats.textContent="No se recuperaron páginas web adicionales para esta consulta.";
+  }catch(error){
+    if(error.name==="AbortError"||sequence!==state.sequence)return;
+    if(trigger){
+      trigger.disabled=false;trigger.textContent="↻ Reintentar más páginas";
+    }
+    stats.textContent="No se pudieron recuperar más páginas: "+error.message;
+  }finally{
+    if(sequence===state.sequence)state.loadingMore=false;
   }
 }
 function renderSearchFallback(query,message){
@@ -918,6 +968,7 @@ async function performSearch(query, type = "all", push = true) {
   state.query = q; state.type = type;
   state.selectedSource = "";
   state.visibleCount = 10;
+  state.page = 1; state.loadingMore = false;
   hero.hidden = true; resultsView.hidden = false;
   heroInput.value = q; resultsInput.value = q; setTab(type);
   if (push) updateAddress(q, type);
