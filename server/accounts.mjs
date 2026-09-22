@@ -10,6 +10,7 @@ import { createListing, validateListing, publicCatalog, searchMarketplace, valid
 import { mediaConfig, mediaSelected, decodeMarketPhoto, makeMediaKey, putMarketImage, deleteMarketImage, presignedMarketImage, ownerImageUrl, MarketMediaError } from "./marketplace-media.mjs";
 import { validId, validateInquiry, validateReport, newInquiry, newReport, publicInquiryReceipt, MarketplaceTrustError } from "./marketplace-trust.mjs";
 import { queueMediaDeletion, pendingMedia, referencedMedia, mediaJournalSummary, mediaReferenceManifest, MediaJournalError } from "./marketplace-lifecycle.mjs";
+import { probeMediaReferences } from "./marketplace-recovery.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -815,4 +816,15 @@ export async function drainMarketMediaQueue({
 export async function auditMarketMediaReferences(base) {
   if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
   return mediaReferenceManifest(await readDb(base));
+}
+
+export async function auditMarketMediaPresence({
+  base, media=mediaConfig(), transport=fetch, offset=0, limit=25
+}={}) {
+  if(!accountsEnabled())fail("accounts_disabled","Cuentas desactivadas.",503);
+  if(base===undefined && !postgresAccountsSelected())
+    throw new MediaJournalError("media_recovery_postgres_required");
+  return probeMediaReferences(await readDb(base),{
+    media,transport,offset,limit,readCurrent:()=>readDb(base)
+  });
 }
