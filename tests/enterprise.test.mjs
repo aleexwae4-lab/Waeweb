@@ -27,21 +27,27 @@ test("WAEWEB footer links to internal enterprise fullscreen access immediately a
   await withServer(async get => {
     const home = await get("/");
     assert.equal(home.status, 200);
-    assert.match(home.body, /href="\\/libros\\.html"[^>]*>▤ Libros →<\\/a><a[^>]*href="\\/enterprise\\.html"[^>]*>Wae os enterprise'<\\/a>/);
-    assert.doesNotMatch(home.body, /href="https:\\/\\/wae-os-enterprice22\\.onrender\\.com/);
+    const books = home.body.indexOf('href="/libros.html"');
+    const enterprise = home.body.indexOf('href="/enterprise.html"');
+    const diagnostics = home.body.indexOf('href="/diagnostico.html"');
+    assert.ok(books >= 0 && enterprise > books && diagnostics > enterprise);
+    assert.ok(home.body.includes("Wae os enterprise'</a>"));
+    assert.ok(!home.body.includes('href="https://wae-os-enterprice22.onrender.com'));
   });
 });
 
-test("enterprise route renders original remote system inside the full-viewport shell", async () => {
+test("enterprise route renders remote system inside a full-viewport shell", async () => {
   await withServer(async get => {
     const page = await get("/enterprise.html");
     assert.equal(page.status, 200);
-    assert.match(page.headers["content-type"], /text\\/html/);
-    assert.match(page.headers["content-security-policy"], /frame-src https:/);
-    assert.match(page.body, /<iframe[^>]*class="enterprise-frame"/);
-    assert.match(page.body, /src="https:\\/\\/wae-os-enterprice22\\.onrender\\.com\\/\\?ui=875d2df7"/);
-    assert.match(page.body, /href="\\/" aria-label="Regresar a WAEWEB"/);
-    assert.match(page.body, /rel="noopener noreferrer"/);
-    assert.equal((await get("/enterprise.css")).status, 200);
+    assert.ok(page.headers["content-type"].includes("text/html"));
+    assert.ok(page.headers["content-security-policy"].includes("frame-src https:"));
+    assert.ok(page.body.includes('<iframe class="enterprise-frame"'));
+    assert.ok(page.body.includes('src="https://wae-os-enterprice22.onrender.com/?ui=875d2df7"'));
+    assert.ok(page.body.includes('href="/" aria-label="Regresar a WAEWEB"'));
+    assert.ok(page.body.includes('rel="noopener noreferrer"'));
+    const styles = await get("/enterprise.css");
+    assert.equal(styles.status, 200);
+    assert.ok(styles.body.includes("height: 100dvh"));
   });
 });
