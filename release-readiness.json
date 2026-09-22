@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC30 integrates first-class directions route panel, server-side OpenRouteService opt-in with verified geometry and turn instructions, and one-shot consensual geolocation (no tracking). Backend returns unavailable when ORS key not configured; demo servers never used; route planning and actual E2E provider not yet proven, production HOLD, Vercel untouched.",
+      "reason": "RC31 adds explicit ORS Pelias address/place lookup with visible precision and candidate selection, no silent first match or address-to-city substitution, and map viewport update for chosen destination. Requires ORS server key, provider terms, street geocoding coverage and real browser E2E. Vercel untouched directly; main intact; HOLD.",
       "evidence": ""
     },
     {

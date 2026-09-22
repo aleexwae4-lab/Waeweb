@@ -20,9 +20,9 @@ export function routingCapabilities(){
     enabled,provider:enabled?"openrouteservice":null,
     modes:Object.keys(MODES),
     requiresExplicitRequest:true,liveNavigation:false,
-    geocodingPrecision:"locality_centroid_or_user_coordinates",
+    geocodingPrecision:"selected_address_or_user_coordinates",
     note:enabled
-      ?"Rutas estimadas. Los nombres de localidades se convierten en centros aproximados; no son direcciones postales ni tráfico en vivo."
+      ?"Rutas estimadas. Selecciona una coincidencia geográfica o utiliza coordenadas; no hay tráfico en tiempo real."
       :"Cómo llegar requiere un proveedor de rutas configurado. No se simulan rutas ni indicaciones."
   };
 }
@@ -32,6 +32,8 @@ function locationValue(value,label){
   return value.trim();
 }
 async function resolveLocation(raw,label){
+  if(!mapCoordinates(raw))
+    throw new DirectionsError("Busca el "+label+" y elige una coincidencia, o escribe latitud,longitud. No se calculará una ruta desde una dirección ambigua.",409,"selection_required");
   let result;
   try { result=await findPlaces(raw); }
   catch(error){
@@ -79,7 +81,7 @@ function decodeRoute(data,origin,destination,mode){
     distanceMeters:summary.distance,durationSeconds:summary.duration,
     steps:instructions,
     source:"openrouteservice",attribution:"© OpenStreetMap contributors · openrouteservice",
-    caveat:"Ruta estimada; no contiene tráfico en tiempo real ni navegación GPS. Si se introducen ciudades, el recorrido va entre centros aproximados, no direcciones exactas."
+    caveat:"Ruta estimada, sin tráfico en tiempo real ni navegación GPS. Los puntos fueron seleccionados por coordenadas; su dirección y acceso vial no se verifican automáticamente."
   };
 }
 export async function planDirections(payload){

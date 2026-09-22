@@ -358,3 +358,13 @@
 .directions-credit{overflow-wrap:anywhere;margin:15px 0 5px}
 .directions-disclaimer{border-top:1px solid #ffffff18;margin:19px 0 0;padding-top:12px}
 @media(max-width:550px){.directions-panel{padding:12px}.directions-form{grid-template-columns:1fr;gap:10px}.directions-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.directions-action{padding:9px 6px;min-width:0}.directions-result-header{align-items:flex-start}.directions-steps{padding-left:22px}}
+
+/* RC31 · Explicit place/address candidate selection, no silent first match. */
+.directions-find{align-self:flex-start;border:1px solid rgba(149,190,255,.38);background:#1d3457;color:#e2eeff;border-radius:11px;padding:9px 14px;font-size:12px;min-height:40px;font-weight:750}
+.directions-find:disabled{opacity:.45;cursor:not-allowed}
+.directions-matches{display:flex;flex-direction:column;gap:7px;min-width:0;max-height:260px;overflow-y:auto;overscroll-behavior:contain}
+.directions-match-status{color:#bbceed;font-size:11px;line-height:1.55;margin:5px 0}
+.directions-candidate{display:block;min-height:47px;text-align:left;border:1px solid rgba(146,180,242,.28);background:#14243d;color:#e2eeff;border-radius:11px;font:inherit;font-size:12px;padding:11px 12px;line-height:1.5;overflow-wrap:anywhere;white-space:normal}
+.directions-candidate:hover,.directions-candidate:focus-visible{background:#27466c;border-color:#a3c9ff}
+.directions-selection{margin:3px 0;color:#afdac6;background:#1a393a;border:1px solid #65bfa24d;border-radius:11px;padding:9px 11px;font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+@media(max-width:550px){.directions-find,.directions-candidate{width:100%}}

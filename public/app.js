@@ -451,6 +451,33 @@ async function renderWeather(query, signal, sequence) {
     if (e.name !== "AbortError" && sequence === state.sequence) weatherSlot.append(stateCard("Clima no disponible", e.message));
   }
 }
+function showDirectionsWithoutLocality(){
+  stopDirections();
+  const stage=element("div","map-stage");
+  stage.hidden=true;
+  const frame=element("iframe","map-iframe");
+  frame.loading="lazy";
+  frame.title="Mapa del destino seleccionado en WAEWEB";
+  frame.referrerPolicy="no-referrer";
+  frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-popups");
+  stage.append(frame);
+  const footnote=element("p","map-attribution");
+  footnote.hidden=true;
+  append(footnote,
+    external("https://www.openstreetmap.org/copyright",
+      "© OpenStreetMap contributors","map-credit-link"),
+    element("span","map-license"," · ODbL · Búsqueda de direcciones: openrouteservice Pelias"));
+  const directions=createDirections({getJSON,element,button,external,copyText,
+    onDestinationSelect:place=>{
+      if(!validMapPlace(place))return;
+      frame.src=osmEmbedUrl(place,3);
+      frame.title="Mapa del destino "+place.name+" en WAEWEB";
+      stage.hidden=false;footnote.hidden=false;
+    }
+  });
+  activeDirections=directions;
+  resultsContainer.append(stage,footnote,directions.root);
+}
 function renderMapPlaces(data) {
   stopDirections();
   const places = Array.isArray(data.results) ? data.results.filter(validMapPlace) : [];
@@ -462,6 +489,7 @@ function renderMapPlaces(data) {
       "↗ Ver más ubicaciones en el mapa original","link-button"));
     resultsContainer.append(card);
     stats.textContent = "Sin coincidencias geográficas · " + data.source;
+    showDirectionsWithoutLocality();
     return;
   }
 
@@ -488,7 +516,14 @@ function renderMapPlaces(data) {
   const visit = external("https://www.openstreetmap.org/","↗ Abrir mapa completo","map-action map-original");
   toolbar.append(zoomOut,zoomIn,copy,visit);
 
-  const directions=createDirections({getJSON,element,button,external,copyText});
+  const directions=createDirections({getJSON,element,button,external,copyText,
+    onDestinationSelect:place=>{
+      if(!validMapPlace(place))return;
+      mapOverride=place;
+      zoom=3;
+      refresh();
+    }
+  });
   activeDirections=directions;
   const stage = element("div","map-stage");
   const frame = element("iframe","map-iframe");
@@ -509,6 +544,7 @@ function renderMapPlaces(data) {
   const picks = element("div","map-picks");
   picks.setAttribute("aria-label","Ubicaciones encontradas");
   let selected = 0, zoom = data.precision === "coordinate" ? 3 : 2;
+  let mapOverride=null;
   const options = places.map((place,index)=>{
     const label = place.name + (place.detail ? " · " + place.detail : "");
     const choice = button(label,()=>select(index),"map-pick");
@@ -517,7 +553,7 @@ function renderMapPlaces(data) {
     return choice;
   });
   function refresh(){
-    const place=places[selected];
+    const place=mapOverride||places[selected];
     placeTitle.textContent=place.name;
     placeDetail.textContent=place.detail || "Ubicación geográfica";
     coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
@@ -526,13 +562,18 @@ function renderMapPlaces(data) {
     visit.href=osmPlaceUrl(place);
     zoomIn.disabled=zoom>=4; zoomOut.disabled=zoom<=0;
     options.forEach((option,i)=>{
-      option.classList.toggle("is-active",i===selected);
-      option.setAttribute("aria-pressed",String(i===selected));
+      option.classList.toggle("is-active",!mapOverride&&i===selected);
+      option.setAttribute("aria-pressed",String(!mapOverride&&i===selected));
     });
     stats.textContent=places.length + (places.length===1 ? " ubicación" : " ubicaciones") +
-      " · " + data.source + " · " + place.name;
+      " · " + (mapOverride?"openrouteservice Pelias":data.source) + " · " + place.name;
   }
-  function select(index){ selected=index;zoom=places[index].precision==="coordinate"?3:2;directions.setDestination(places[index]);refresh(); }
+  function select(index){
+    selected=index;zoom=places[index].precision==="coordinate"?3:2;
+    directions.setDestination(places[index]);
+    mapOverride=null;
+    refresh();
+  }
   function changeZoom(delta){zoom=Math.max(0,Math.min(4,zoom+delta));refresh();}
   const details=element("div","map-place");
   details.append(placeTitle,placeDetail,coords,toolbar);
@@ -540,6 +581,7 @@ function renderMapPlaces(data) {
   if(places.length>1)section.append(element("h3","map-picks-title","Elegir ubicación"),picks);
   resultsContainer.append(section);
   directions.setDestination(places[selected]);
+  mapOverride=null;
   refresh();
 }
 async function renderMap(query,signal,sequence) {
@@ -561,6 +603,7 @@ async function renderMap(query,signal,sequence) {
     card.append(external("https://www.openstreetmap.org/search?query="+encodeURIComponent(query),
       "↗ Abrir búsqueda en el mapa original","link-button"));
     resultsContainer.replaceChildren(card);
+    showDirectionsWithoutLocality();
   }
 }
 // The SAME search bars accept either a query or an explicit HTTPS address.
@@ -606,7 +649,8 @@ async function performSearch(query, type = "all", push = true) {
       state.data=null;state.results=[];state.selectedSource="";
       sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
       resultsContainer.replaceChildren(stateCard("Explorar mapas",
-        "Escribe una ciudad, localidad o latitud y longitud separadas por coma. Las direcciones exactas se consultan en el mapa original."));
+        "Busca una localidad en WAEWEB o usa «Buscar origen / destino» para elegir direcciones y lugares precisos. También puedes escribir coordenadas."));
+      showDirectionsWithoutLocality();
       stats.textContent = "Mapas · Escribe un lugar para comenzar.";
       resultsInput.focus();
     } else {
