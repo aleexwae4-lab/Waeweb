@@ -28,6 +28,10 @@ export async function restoreArchivedMarketMedia(source,current,archive,{
     return blocked("target_mismatch",{targetSnapshotMatchesBackup:false});
   const db=backupMediaRecords(source,key);
   const manifest=mediaIntegrityManifest(db);
+  const journal=db.mediaDeleteQueue??[];
+  if(!Array.isArray(journal)||journal.some(entry=>
+    manifest.records.some(record=>record.key===entry?.key)))
+    fail("media_restore_queued_reference");
   const opened=openMarketMediaArchive(archive,{key,
     postgresChecksum:source.checksum,
     manifestFingerprint:manifest.fingerprint});
@@ -37,10 +41,6 @@ export async function restoreArchivedMarketMedia(source,current,archive,{
         record.checksum!==opened.items[i].checksum||
         record.size!==opened.items[i].size))
     fail("media_restore_reference_mismatch");
-  const journal=db.mediaDeleteQueue??[];
-  if(!Array.isArray(journal)||opened.items.some(item=>
-    journal.some(entry=>entry?.key===item.key)))
-    fail("media_restore_queued_reference");
   // Reject partial or drifted snapshots before ANY object write.
   const unchanged=async()=>{
     try{return sameRecoveryData(source,await readCurrent());}
@@ -72,7 +72,7 @@ export async function restoreArchivedMarketMedia(source,current,archive,{
       await putMarketImageIfAbsent(media,item.key,
         Buffer.from(item.bytes,"base64"),transport);
     }catch(error){
-      return {...blocked(error.code==="media_restore_object_exists"?
+      return {...blocked(["media_restore_object_exists","media_object_already_exists"].includes(error.code)?
         "destination_race_exists":error.code==="media_restore_concurrent_write"?
         "destination_race_conflict":"provider_write_failed",summary),
         status:summary.restored?"partial_recovery":"blocked"};
