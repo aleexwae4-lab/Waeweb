@@ -45,6 +45,8 @@ test("explicit preview serves search/navigation and refuses ALL private or write
     assert.equal((await get("/api/search?q="+long)).status,400,
       "public search remains reachable without external network call");
     assert.equal((await get("/api/weather?place="+long)).status,400);
+    assert.equal((await get("/api/maps?q="+long)).status,400);
+    assert.equal((await (await get("/api/maps?q=20.67%2C-103.35")).json()).results[0].precision,"coordinate");
   }finally{
     if(server.listening)await new Promise(resolve=>server.close(resolve));
     for(const [name,value] of Object.entries(original))

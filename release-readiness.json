@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC25 provides named public serverless endpoints, API-origin marker, unambiguous 401 diagnostics and mobile map/dialog fixes. Cannot certify public search HTTP 401 until deployed endpoint headers and Vercel protection/routing are verified live. Vercel not modified directly. HOLD.",
+      "reason": "RC26 adds public geo lookup and interactive OSM embedded mapping with verified coordinate handling, no synthetic addresses and preview-safe API route. Real mobile E2E, external provider and deployed routing/auth still require verification; Vercel untouched directly. HOLD.",
       "evidence": ""
     },
     {

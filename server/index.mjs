@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
+import { findPlaces, MapsError } from "./maps.mjs";
 import { handleConnect, connectConfig } from "./connect.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
 import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError, vaultStorageReady } from "./vault.mjs";
@@ -29,6 +30,7 @@ const files = new Map([
   ["/browser.js", ["browser.js", "text/javascript; charset=utf-8"]],
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
   ["/omnibox.js", ["omnibox.js", "text/javascript; charset=utf-8"]],
+  ["/maps-core.js", ["maps-core.js", "text/javascript; charset=utf-8"]],
   ["/accounts.js", ["accounts.js", "text/javascript; charset=utf-8"]],
   ["/business-profile.js", ["business-profile.js", "text/javascript; charset=utf-8"]],
   ["/marketplace.js", ["marketplace.js", "text/javascript; charset=utf-8"]],
@@ -105,7 +107,7 @@ export async function handler(req, res) {
   if (previewMode() && u.pathname.startsWith("/api/") &&
       (!["GET","HEAD"].includes(req.method) ||
         !["/api/health","/api/capabilities","/api/search",
-          "/api/weather","/api/marketplace"].includes(u.pathname)))
+          "/api/weather","/api/maps","/api/marketplace"].includes(u.pathname)))
     return write(res,503,{error:"Vista previa: cuentas, pagos y APIs privadas desactivados.",
       previewMode:true});
   if (previewMode() && u.pathname==="/api/marketplace")
@@ -116,7 +118,8 @@ export async function handler(req, res) {
   }
   if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: VERSION, previewMode:previewMode() });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
-    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
+    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
+    mapsEnabled: true, mapPrecision: "locality_centroid_or_user_coordinates",
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
@@ -372,6 +375,11 @@ export async function handler(req, res) {
         const data = await search(q, u.searchParams.get("type") || "all");
         return write(res, data.error ? 400 : 200, data);
       }
+      if (u.pathname === "/api/maps") {
+        if (req.method !== "GET" && req.method !== "HEAD") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+        const data = await findPlaces(u.searchParams.get("q") || "");
+        return write(res, 200, data);
+      }
       if (u.pathname === "/api/weather") {
         const q = u.searchParams.get("place") || "";
         if (q.length > 180) return write(res, 400, { error: "La localidad supera 180 caracteres." });
@@ -380,6 +388,7 @@ export async function handler(req, res) {
       }
       return write(res, 404, { error: "Ruta no encontrada." });
     } catch (error) {
+      if (error instanceof MapsError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof BillingError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof MarketplaceError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof MarketMediaError) return write(res,error.status,{error:"Fotografía no disponible o inválida.",code:error.code});

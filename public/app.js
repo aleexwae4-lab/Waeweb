@@ -1,6 +1,7 @@
 import { createWorkspace, asMarkdown } from "/workspace.js";
 import { openBrowser, hideBrowser } from "/browser.js";
 import { classifyOmnibox } from "/omnibox.js";
+import { osmEmbedUrl, osmPlaceUrl, validMapPlace } from "/maps-core.js";
 "use strict";
 const byId = id => document.getElementById(id);
 const hero = byId("hero");
@@ -433,20 +434,108 @@ async function renderWeather(query, signal, sequence) {
     if (e.name !== "AbortError" && sequence === state.sequence) weatherSlot.append(stateCard("Clima no disponible", e.message));
   }
 }
-function renderMap(query) {
-  state.controller?.abort();
-  state.sequence++;
-  state.query = query; state.type = "maps";
-  hero.hidden = true; resultsView.hidden = false;
-  heroInput.value = query; resultsInput.value = query;
-  setTab("maps");
-  answer.replaceChildren(); weatherSlot.replaceChildren(); panel.replaceChildren(); resultsContainer.replaceChildren();
-  stats.textContent = "Cartografía externa · OpenStreetMap";
-  const map = element("section", "state-card");
-  append(map, element("h2", "", "Explorar mapa"),
-    element("p", "", "Abrir la consulta geográfica en OpenStreetMap. WAE WEB no simula coordenadas ni ubicaciones."));
-  map.append(external("https://www.openstreetmap.org/search?query=" + encodeURIComponent(query), "↗ Ver mapa real", "link-button"));
-  resultsContainer.append(map);
+function renderMapPlaces(data) {
+  const places = Array.isArray(data.results) ? data.results.filter(validMapPlace) : [];
+  resultsContainer.replaceChildren();
+  if (!places.length) {
+    const card = stateCard("No se encontró el lugar",data.message ||
+      "La geocodificación no encontró localidades con ese nombre. Prueba con una ciudad o coordenadas.");
+    card.append(external("https://www.openstreetmap.org/search?query=" + encodeURIComponent(state.query),
+      "↗ Buscar direcciones y lugares en OpenStreetMap","link-button"));
+    resultsContainer.append(card);
+    stats.textContent = "Sin coincidencias geográficas · " + data.source;
+    return;
+  }
+
+  const section = element("section","map-explorer");
+  const heading = element("div","map-heading");
+  const headText = element("div");
+  append(headText,element("span","tag","MAPAS · UBICACIONES REALES"),
+    element("h2","","Explorar " + data.query),
+    element("p","map-description",data.precision === "coordinate"
+      ? "Punto indicado por coordenadas. No equivale a una dirección postal verificada."
+      : "Localidades geocodificadas. El marcador representa un centro aproximado, no una dirección exacta."));
+  const newSearch = button("⌕ Otra ubicación",()=>{resultsInput.focus();resultsInput.select();},"small-action");
+  heading.append(headText,newSearch);
+  section.append(heading);
+
+  const placeTitle = element("h3","map-place-title");
+  const placeDetail = element("p","map-place-detail");
+  const coords = element("p","map-coordinates");
+  const toolbar = element("div","map-toolbar");
+  const zoomOut = button("− Alejar",()=>changeZoom(-1),"map-action");
+  const zoomIn = button("+ Acercar",()=>changeZoom(1),"map-action");
+  const copy = button("⧉ Copiar coordenadas",()=>copyText(
+    places[selected].latitude.toFixed(6) + ", " + places[selected].longitude.toFixed(6)),"map-action");
+  const visit = external("https://www.openstreetmap.org/","↗ Mapa original","map-action map-original");
+  toolbar.append(zoomOut,zoomIn,copy,visit);
+
+  const stage = element("div","map-stage");
+  const frame = element("iframe","map-iframe");
+  frame.title = "Mapa interactivo de OpenStreetMap";
+  frame.loading = "lazy";
+  frame.referrerPolicy = "no-referrer";
+  // A fixed, third-party HTTPS origin may run its own map scripts; no host
+  // origin, top navigation, forms, microphone or geolocation are delegated.
+  frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-popups");
+  stage.append(frame);
+  const footnote = element("p","map-attribution",
+    "Cartografía © colaboradores de OpenStreetMap · Geocodificación: " + data.source +
+    ". Si el mapa no carga, abre el mapa original.");
+  const picks = element("div","map-picks");
+  picks.setAttribute("aria-label","Ubicaciones encontradas");
+  let selected = 0, zoom = data.precision === "coordinate" ? 3 : 2;
+  const options = places.map((place,index)=>{
+    const label = place.name + (place.detail ? " · " + place.detail : "");
+    const choice = button(label,()=>select(index),"map-pick");
+    choice.setAttribute("aria-pressed","false");
+    picks.append(choice);
+    return choice;
+  });
+  function refresh(){
+    const place=places[selected];
+    placeTitle.textContent=place.name;
+    placeDetail.textContent=place.detail || "Ubicación geográfica";
+    coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
+    frame.src=osmEmbedUrl(place,zoom);
+    frame.title="Mapa interactivo de " + place.name + " · OpenStreetMap";
+    visit.href=osmPlaceUrl(place);
+    zoomIn.disabled=zoom>=4; zoomOut.disabled=zoom<=0;
+    options.forEach((option,i)=>{
+      option.classList.toggle("is-active",i===selected);
+      option.setAttribute("aria-pressed",String(i===selected));
+    });
+    stats.textContent=places.length + (places.length===1 ? " ubicación" : " ubicaciones") +
+      " · " + data.source + " · " + place.name;
+  }
+  function select(index){ selected=index;zoom=places[index].precision==="coordinate"?3:2;refresh(); }
+  function changeZoom(delta){zoom=Math.max(0,Math.min(4,zoom+delta));refresh();}
+  const details=element("div","map-place");
+  details.append(placeTitle,placeDetail,coords,toolbar);
+  section.append(details,stage,footnote);
+  if(places.length>1)section.append(element("h3","map-picks-title","Elegir ubicación"),picks);
+  resultsContainer.append(section);
+  refresh();
+}
+async function renderMap(query,signal,sequence) {
+  stats.textContent="Localizando lugares reales…";
+  panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
+  state.data=null;state.results=[];state.selectedSource="";
+  sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
+  resultsContainer.replaceChildren(stateCard("Buscando en el mapa",
+    "Localizando ciudades y coordenadas. No se generan ubicaciones ficticias.",true));
+  try {
+    const data=await getJSON("/api/maps?q="+encodeURIComponent(query),signal);
+    if(sequence!==state.sequence)return;
+    renderMapPlaces(data);
+  } catch(error) {
+    if(error.name==="AbortError"||sequence!==state.sequence)return;
+    stats.textContent="Mapa no disponible";
+    const card=stateCard("No se pudo mostrar el mapa",error.message);
+    card.append(external("https://www.openstreetmap.org/search?query="+encodeURIComponent(query),
+      "↗ Continuar en OpenStreetMap","link-button"));
+    resultsContainer.replaceChildren(card);
+  }
 }
 // The SAME search bars accept either a query or an explicit HTTPS address.
 function runOmnibox(value,type="all",push=true){
@@ -484,7 +573,10 @@ async function performSearch(query, type = "all", push = true) {
       state.type = "maps"; state.query = "";
       hero.hidden = true; resultsView.hidden = false; setTab("maps");
       answer.replaceChildren(); weatherSlot.replaceChildren(); panel.replaceChildren();
-      resultsContainer.replaceChildren(stateCard("Explorar mapas", "Escribe una ciudad, lugar o dirección en la barra superior para consultar el mapa. No se ha realizado ninguna búsqueda."));
+      state.data=null;state.results=[];state.selectedSource="";
+      sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
+      resultsContainer.replaceChildren(stateCard("Explorar mapas",
+        "Escribe una ciudad, localidad o latitud y longitud separadas por coma. Para direcciones exactas, consulta OpenStreetMap."));
       stats.textContent = "Mapas · Escribe un lugar para comenzar.";
       resultsInput.focus();
     } else {
@@ -505,7 +597,7 @@ async function performSearch(query, type = "all", push = true) {
   hero.hidden = true; resultsView.hidden = false;
   heroInput.value = q; resultsInput.value = q; setTab(type);
   if (push) updateAddress(q, type);
-  if (type === "maps") { renderMap(q); return; }
+  if (type === "maps") { await renderMap(q,signal,sequence); return; }
   if (type === "index" && !readerEnabled) {
     stats.textContent="Índice privado desactivado en esta vista.";
     panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
