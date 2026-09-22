@@ -12,6 +12,7 @@ import { validId, validateInquiry, validateReport, newInquiry, newReport, public
 import { queueMediaDeletion, pendingMedia, referencedMedia, mediaJournalSummary, mediaReferenceManifest, MediaJournalError } from "./marketplace-lifecycle.mjs";
 import { probeMediaReferences } from "./marketplace-recovery.mjs";
 import { auditMediaDigests } from "./marketplace-integrity-audit.mjs";
+import { auditMarketObjectInventory } from "./marketplace-object-inventory.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -845,5 +846,22 @@ export async function auditMarketMediaIntegrity({
     throw new MediaJournalError("media_audit_not_authorized");
   return auditMediaDigests(await readDb(base),{
     media,transport,offset,limit,readCurrent:()=>readDb(base)
+  });
+}
+
+// RC20: read-only private S3 inventory compared with encrypted DB references.
+export async function auditMarketMediaInventory({
+  base,media=mediaConfig(),transport=fetch,pages=2
+}={}) {
+  if(!accountsEnabled())fail("accounts_disabled","Cuentas desactivadas.",503);
+  if(base===undefined && !postgresAccountsSelected())
+    throw new MediaJournalError("media_recovery_postgres_required");
+  if(base!==undefined && process.env.NODE_ENV!=="test")
+    throw new MediaJournalError("media_recovery_postgres_required");
+  if(base===undefined && process.env.NODE_ENV!=="test" &&
+      process.env.WAE_MARK_MEDIA_INVENTORY_ACK!=="reviewed-private-object-inventory")
+    throw new MediaJournalError("media_inventory_not_authorized");
+  return auditMarketObjectInventory(await readDb(base),{
+    media,transport,pages,readCurrent:()=>readDb(base)
   });
 }
