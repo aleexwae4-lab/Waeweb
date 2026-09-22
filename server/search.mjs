@@ -78,6 +78,34 @@ export async function googleSearch(query, type = "web") {
     item.image?.thumbnailLink || item.pagemap?.cse_thumbnail?.[0]?.src || null
   )).filter(item => item.title && urlAllowed(item.url));
 }
+// Optional independent web index. No API key is ever sent to the browser.
+export async function braveSearch(query, type = "web") {
+  const token = process.env.BRAVE_SEARCH_API_KEY?.trim();
+  if (!token) return null;
+  const category = ["web", "images", "news", "videos"].includes(type) ? type : "web";
+  const u = new URL("https://api.search.brave.com/res/v1/" + category + "/search");
+  u.search = new URLSearchParams({
+    q: query, count: category === "web" ? "20" : "15", country: "MX",
+    search_lang: "es", safesearch: "strict"
+  }).toString();
+  const response = await fetch(u, {
+    headers: {accept: "application/json", "x-subscription-token": token},
+    signal: AbortSignal.timeout(SOURCE_TIMEOUT)
+  });
+  if (!response.ok) throw new Error("brave_status_" + response.status);
+  const raw = await response.text();
+  if (raw.length > 2500000) throw new Error("brave_too_large");
+  const data = JSON.parse(raw);
+  const items = category === "web" ? data.web?.results : data.results;
+  return (Array.isArray(items) ? items : []).map(item => {
+    const link = item.url;
+    const image = category === "images" || category === "videos"
+      ? item.thumbnail?.src : item.thumbnail?.src || null;
+    return result(item.title || "", link, item.description || item.snippet || item.source || "",
+      "Brave Search", item.page_age || item.page_fetched || null, urlAllowed(image) ? image : null);
+  }).filter(item => item.title && urlAllowed(item.url) &&
+    (category !== "images" || urlAllowed(item.image)));
+}
 export async function openLibrary(query) {
   const u = new URL("https://openlibrary.org/search.json");
   u.search = new URLSearchParams({
@@ -187,14 +215,15 @@ export async function search(query, type = "all", { fresh = false } = {}) {
   if (!fresh && cached && cached.expires > Date.now()) return cached.value;
   const sources = selected === "books" ? [["Open Library", () => openLibrary(q)]]
     : selected === "images"
-    ? [["Wikimedia Commons", () => wikimediaImages(q)], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]]
+    ? [["Wikimedia Commons", () => wikimediaImages(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]]
     : selected === "news"
-    ? [["GDELT · prensa", () => gdeltNews(q)], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
+    ? [["GDELT · prensa", () => gdeltNews(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "news")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
     : selected === "videos"
-    ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "videos")]]
+    ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "videos")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "videos")]]
     : selected === "research"
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Europe PMC", () => europePMC(q)], ["Wikipedia", () => wikipedia(q)]]
-    : [["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q)],
+    : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q)],
+       ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q)],
        ["Wikipedia", () => wikipedia(q)], ["Wikidata", () => wikidata(q)],
        ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)],
        ["Europe PMC", () => europePMC(q)], ["Open Library", () => openLibrary(q)]];
