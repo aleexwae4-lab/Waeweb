@@ -387,10 +387,10 @@ export async function verifyPortableMarketRecovery(packageName,{
     key:accountKey(),postgresChecksum:verified.checksum});
   if(coverage.status!=="complete_set_verified")
     reject("portable_archive_set_incomplete");
-  return {mode:"read_only_portable_recovery_verify",
+  return {...coverage,mode:"read_only_portable_recovery_verify",
     status:"portable_package_verified",
     packageName,sourceBackupVerified:true,
-    ...coverage,copyContentVerified:true,
+    copyContentVerified:true,
     packageArchiveCount:manifest.mediaCount,
     independentFailureDomainVerified:false,
     providerRestoreVerified:false,restoreCertified:false,
