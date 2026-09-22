@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { search } from "./search.mjs";
 import { readPage, ReaderError, safeReaderUrl } from "./reader.mjs";
+import { connectAdmissionReady, acquireConnectPostgres } from "./connect-postgres.mjs";
 
 export const CONNECT_VERSION = "waeweb-connect/v1";
 export const CONNECT_CLIENT_IDS = Object.freeze([
@@ -17,7 +18,7 @@ function json(res, status, payload, headers={}) {
   res.end(JSON.stringify(payload));
 }
 export function connectConfig(env=process.env) {
-  if (env.WAE_CONNECT_ENABLED !== "true") return null;
+  if (env.WAE_CONNECT_ENABLED !== "true" || !connectAdmissionReady(env)) return null;
   let obj;
   try { obj = JSON.parse(env.WAE_CONNECT_CLIENTS_JSON || ""); } catch { return null; }
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
@@ -103,15 +104,26 @@ export async function handleConnect(req,res,{searchProvider=search,reader=readPa
   if (!client) return json(res,401,{error:"invalid_connect_credentials"},
     {"www-authenticate":'Bearer realm="WAEWEB Connect"'});
   if (req.method!==method) return json(res,405,{error:"method_not_allowed"},{allow:method});
-  if (!admission(client)) return json(res,429,{error:"connect_rate_limited"},{"retry-after":"60"});
-  if (method==="GET") return json(res,200,{ok:true,contract:CONNECT_VERSION,
-    client,capabilities:{search:true,stream:true,retrieve:process.env.WAE_CONNECT_READER_ENABLED==="true"},
-    transport:"server_to_server",streamSemantics:"start_then_final_results",
-    browserEngine:"not_remote_chromium"});
-  const inFlight=running.get(client)||0;
-  if (inFlight>=3) return json(res,429,{error:"connect_concurrency_limited"},{"retry-after":"1"});
-  running.set(client,inFlight+1);
+  const shared=process.env.WAE_CONNECT_ADMISSION_MODE==="postgres";
+  let lease;
+  if (shared) {
+    try {
+      lease=await acquireConnectPostgres(client);
+      if (!lease.ok) return json(res,429,{error:lease.reason},
+        {"retry-after":lease.reason==="connect_rate_limited"?"60":"1"});
+    } catch { return json(res,503,{error:"connect_admission_unavailable"}); }
+  } else {
+    if (!admission(client)) return json(res,429,{error:"connect_rate_limited"},{"retry-after":"60"});
+    const inFlight=running.get(client)||0;
+    if (inFlight>=3) return json(res,429,{error:"connect_concurrency_limited"},{"retry-after":"1"});
+    running.set(client,inFlight+1);
+  }
   try {
+    if (method==="GET") return json(res,200,{ok:true,contract:CONNECT_VERSION,
+      client,capabilities:{search:true,stream:true,retrieve:process.env.WAE_CONNECT_READER_ENABLED==="true"},
+      transport:"server_to_server",streamSemantics:"start_then_final_results",
+      admission:shared?"postgres_shared":"local_development",
+      browserEngine:"not_remote_chromium"});
     const params=connectRequest(await bodyJson(req),pathname.endsWith("/retrieve")?"retrieve":"search");
     if (pathname.endsWith("/retrieve")) {
       if (process.env.WAE_CONNECT_READER_ENABLED!=="true") return json(res,503,{error:"connect_reader_disabled"});
@@ -144,7 +156,10 @@ export async function handleConnect(req,res,{searchProvider=search,reader=readPa
       return json(res,422,{error:error.code,message:error.message});
     return json(res,502,{error:"connect_operation_failed"});
   } finally {
-    const count=running.get(client)||1;
-    if (count<=1) running.delete(client); else running.set(client,count-1);
+    if (shared) await lease.release().catch(()=>{});
+    else {
+      const count=running.get(client)||1;
+      if (count<=1) running.delete(client); else running.set(client,count-1);
+    }
   }
 }
