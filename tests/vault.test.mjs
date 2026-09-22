@@ -13,6 +13,8 @@ import { handler } from "../server/index.mjs";
 const tokenA = "wae_a_123456789012345678901234567890xyz";
 const tokenB = "wae_b_123456789012345678901234567890xyz";
 const vaults = JSON.stringify({ org_alpha: tokenA, org_beta: tokenB });
+const keys = JSON.stringify({ org_alpha: "ab".repeat(32), org_beta: "cd".repeat(32) });
+process.env.WAE_VAULT_KEYS_JSON = keys; // Fixture keys only; production keys must be random and external.
 function fixture(url, text, name = "Estudio de pruebas") {
   const hash = content => createHash("sha256").update(content).digest("hex");
   return {
@@ -51,6 +53,11 @@ test("vault files persist across read calls with different tenant hashes and rem
     assert.equal(await vaultStatus("org_alpha", dir), 1);
     const filenames = await readdir(dir);
     assert.equal(filenames.length, 2);
+    for (const name of filenames) {
+      const raw = await readFile(join(dir, name), "utf8");
+      assert.doesNotMatch(raw, /Contenido documental auténtico/);
+      assert.equal(JSON.parse(raw).algorithm, "AES-256-GCM");
+    }
     assert.ok(filenames.every(name => /^[a-f0-9]{64}\.json$/.test(name)));
     assert.ok(filenames.every(name => !name.includes("org_")));
   } finally { await rm(dir, { recursive: true, force: true }); }
@@ -76,20 +83,23 @@ test("reject tampered records and fail closed on corrupt persisted JSON", async 
     const [file] = await readdir(dir);
     const path = join(dir, file);
     const data = JSON.parse(await readFile(path, "utf8"));
-    data.documents[0].text = "Texto alterado por un atacante";
+    const bytes = Buffer.from(data.ciphertext, "base64");
+    bytes[0] ^= 1;
+    data.ciphertext = bytes.toString("base64");
     const { writeFile } = await import("node:fs/promises");
     await writeFile(path, JSON.stringify(data));
-    await assert.rejects(() => loadVault("org_alpha", dir), { code: "corrupt_vault" });
+    await assert.rejects(() => loadVault("org_alpha", dir), { code: "decrypt_failed" });
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 test("HTTP tenant endpoints deny missing auth, prevent cross-tenant reads, and reject URL GET", async () => {
   const prev = {
     reader: process.env.WAE_READER_ENABLED, vaults: process.env.WAE_VAULTS_JSON,
-    dir: process.env.WAE_VAULT_DIR
+    dir: process.env.WAE_VAULT_DIR, keys: process.env.WAE_VAULT_KEYS_JSON
   };
   const dir = await mkdtemp(join(tmpdir(), "waeweb-vault-api-"));
   process.env.WAE_READER_ENABLED = "true";
   process.env.WAE_VAULTS_JSON = vaults;
+  process.env.WAE_VAULT_KEYS_JSON = keys;
   process.env.WAE_VAULT_DIR = dir;
   const doc = fixture("https://api.example.org/document", text);
   await storeDocument("org_alpha", doc, dir);
@@ -106,7 +116,7 @@ test("HTTP tenant endpoints deny missing auth, prevent cross-tenant reads, and r
     const other = await (await fetch(base + "/api/index/search?q=Contenido", { headers: bHeaders })).json();
     assert.equal(own.count, 1);
     assert.equal(other.count, 0);
-    assert.equal(own.persistence, "local_disk_per_vault");
+    assert.equal(own.persistence, "encrypted_local_disk_per_vault");
     assert.equal((await fetch(base + "/api/index/document?id=" + doc.id, { headers: bHeaders })).status, 404);
     assert.equal((await fetch(base + "/api/index/document?id=" + doc.id, { headers: aHeaders })).status, 200);
     assert.equal((await fetch(base + "/api/read?url=https://example.org", { headers: aHeaders })).status, 405);
@@ -117,7 +127,7 @@ test("HTTP tenant endpoints deny missing auth, prevent cross-tenant reads, and r
   } finally {
     await new Promise(resolve => server.close(resolve));
     for (const [key, value] of Object.entries(prev)) {
-      const name = key === "reader" ? "WAE_READER_ENABLED" : key === "vaults" ? "WAE_VAULTS_JSON" : "WAE_VAULT_DIR";
+      const name = key === "reader" ? "WAE_READER_ENABLED" : key === "vaults" ? "WAE_VAULTS_JSON" : key === "keys" ? "WAE_VAULT_KEYS_JSON" : "WAE_VAULT_DIR";
       if (value === undefined) delete process.env[name]; else process.env[name] = value;
     }
     await rm(dir, { recursive: true, force: true });
