@@ -108,7 +108,7 @@ test("RC21 preflights entire batch and rejects unknown HEAD or queued keys",asyn
     key,media,transport:denied.transport});
   assert.equal(d.reason,"destination_not_confirmed_missing");
   assert.equal(denied.calls.filter(c=>c.method==="PUT").length,0);
-  const queuedDb=makeDb();
+  const queuedDb=makeDb(2);
   queuedDb.mediaDeleteQueue=[{key:records[0].key,queuedAt:new Date().toISOString()}];
   const queuedSource=snapshot(queuedDb),empty=store();
   await assert.rejects(()=>restoreArchivedMarketMedia(
