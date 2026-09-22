@@ -8,7 +8,7 @@ const el=(tag)=>document.createElementNS(svgNS,tag);
 const finite=n=>typeof n==="number"&&Number.isFinite(n);
 const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
 const normLon=x=>((x+180)%360+360)%360-180;
-export function createNativeMap(){
+export function createNativeMap({onSelectPlace=()=>{}}={}){
   const root=document.createElement("section");
   root.className="wae-native-map";
   root.setAttribute("aria-label","Mapa geográfico interactivo WAEWEB");
@@ -18,7 +18,7 @@ export function createNativeMap(){
   toolbar.append(title,tag);
   const area=document.createElement("div");area.className="wae-native-map-area";
   const svg=el("svg");svg.setAttribute("viewBox","0 0 900 460");
-  svg.setAttribute("role","img");svg.setAttribute("aria-label","Coordenadas geográficas, puntos seleccionados y ruta cuando está disponible. No muestra calles.");
+  svg.setAttribute("role","img");svg.setAttribute("aria-label","Mapa interactivo de calles, ubicaciones geocodificadas y rutas verificadas.");
   svg.setAttribute("preserveAspectRatio","xMidYMid meet");
   svg.setAttribute("tabindex","0");
   area.append(svg);
@@ -38,6 +38,7 @@ export function createNativeMap(){
   const details=document.createElement("p");details.className="wae-native-map-detail";details.setAttribute("aria-live","polite");
   root.append(toolbar,area,details,footer);
   let center={latitude:23.6,longitude:-102.5},level=0,point=null,geometry=null,label="",disposed=false,streetsEnabled=true;
+  let places=[],selectedIndex=-1;
   const spans=[{lat:40,lon:78},{lat:14,lon:28},{lat:4.5,lon:9},{lat:1.4,lon:2.8},{lat:.4,lon:.8},{lat:.1,lon:.2},{lat:.025,lon:.05}];
   function project(lon,lat){
     const span=spans[level];
@@ -105,13 +106,33 @@ export function createNativeMap(){
         path.setAttribute("class","wae-map-real-route");svg.append(path);
       }
     }
+    // Pins represent geocoder matches or explicit coordinates, never invented POIs.
+    places.forEach((place,index)=>{
+      if(index===selectedIndex||!validMapPlace(place))return;
+      const p=project(place.longitude,place.latitude);
+      if(p.x<0||p.x>900||p.y<0||p.y>460)return;
+      const pin=el("circle");
+      pin.setAttribute("cx",String(p.x));pin.setAttribute("cy",String(p.y));
+      pin.setAttribute("r","11");pin.setAttribute("class","wae-map-candidate");
+      pin.setAttribute("data-map-place",String(index));
+      pin.setAttribute("tabindex","0");pin.setAttribute("role","button");
+      pin.setAttribute("aria-label","Seleccionar "+(place.detail||place.name||"ubicación"));
+      const caption=el("title");caption.textContent=place.detail||place.name||"Ubicación";
+      pin.append(caption);svg.append(pin);
+    });
     if(point&&validMapPlace(point)){
       const p=project(point.longitude,point.latitude);
       if(p.x>=0&&p.x<=900&&p.y>=0&&p.y<=460){
         const halo=el("circle");halo.setAttribute("cx",p.x);halo.setAttribute("cy",p.y);
         halo.setAttribute("r","21");halo.setAttribute("class","wae-map-marker-halo");svg.append(halo);
         const marker=el("circle");marker.setAttribute("cx",p.x);marker.setAttribute("cy",p.y);
-        marker.setAttribute("r","9");marker.setAttribute("class","wae-map-marker");svg.append(marker);
+        marker.setAttribute("r","9");marker.setAttribute("class","wae-map-marker");
+        if(selectedIndex>=0){
+          marker.setAttribute("data-map-place",String(selectedIndex));
+          marker.setAttribute("tabindex","0");marker.setAttribute("role","button");
+          marker.setAttribute("aria-label","Ubicación seleccionada: "+(label||"Marcador"));
+        }
+        svg.append(marker);
         const title=el("title");title.textContent=label||"Ubicación marcada";marker.append(title);
       }
     }
@@ -127,6 +148,11 @@ export function createNativeMap(){
       :"Vista geográfica propia. Pulsa «Calles» para cargar únicamente la cartografía visible de OpenStreetMap. Las rutas aparecen solo si el proveedor devuelve geometría real.";
   }
   function toggleStreets(){streetsEnabled=!streetsEnabled;draw();}
+  function setPlaces(items,activeIndex=0){
+    places=(Array.isArray(items)?items:[]).filter(validMapPlace).slice(0,12);
+    selectedIndex=places.length?clamp(Math.trunc(activeIndex)||0,0,places.length-1):-1;
+    draw();
+  }
   function setView(place,zoom=3){
     if(!validMapPlace(place))return;
     point=place;center={latitude:clamp(place.latitude,-90,90),longitude:normLon(place.longitude)};
@@ -134,7 +160,7 @@ export function createNativeMap(){
     level=clamp(Math.trunc(zoom)+1,0,spans.length-1);
     geometry=null;draw();
   }
-  function setWorld(){point=null;geometry=null;level=0;center={latitude:23.6,longitude:-102.5};label="";draw();}
+  function setWorld(){point=null;geometry=null;level=0;center={latitude:23.6,longitude:-102.5};label="";places=[];selectedIndex=-1;draw();}
   function changeZoom(amount){level=clamp(level+amount,0,spans.length-1);draw();}
   function setRoute(coords){
     if(!Array.isArray(coords)||coords.length<2||coords.length>6000)return;
@@ -149,14 +175,41 @@ export function createNativeMap(){
     }
     draw();
   }
-  let drag=null;
+  let drag=null,gesture=null,dragged=false;
+  const pointers=new Map();
+  const distance=()=>{
+    const [a,b]=[...pointers.values()];
+    return a&&b?Math.hypot(a.x-b.x,a.y-b.y):0;
+  };
+  function activatePin(target){
+    const pin=target?.closest?.("[data-map-place]");
+    if(!pin||dragged)return false;
+    const index=Number(pin.getAttribute("data-map-place"));
+    if(!Number.isInteger(index)||index<0||index>=places.length)return false;
+    onSelectPlace(index);
+    return true;
+  }
+  svg.addEventListener("click",e=>{activatePin(e.target);});
   svg.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="touch"){
+      pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(pointers.size===2){drag=null;gesture={distance:distance(),level};svg.setPointerCapture?.(e.pointerId);return;}
+    }
+    if(e.target?.closest?.("[data-map-place]"))return;
     if(e.button!==0)return;
-    drag={x:e.clientX,y:e.clientY,center:{...center}};
+    drag={x:e.clientX,y:e.clientY,center:{...center}};dragged=false;
     svg.setPointerCapture?.(e.pointerId);
   });
   svg.addEventListener("pointermove",e=>{
+    if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(gesture&&pointers.size>=2){
+      const factor=distance()/Math.max(1,gesture.distance);
+      const next=clamp(gesture.level+(factor>1.35?1:factor<0.74?-1:0),0,spans.length-1);
+      if(level!==next){level=next;draw();}
+      return;
+    }
     if(!drag)return;
+    if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>5)dragged=true;
     const rect=svg.getBoundingClientRect();
     if(!rect.width||!rect.height)return;
     center={
@@ -165,7 +218,14 @@ export function createNativeMap(){
     };
     draw();
   });
-  for(const name of ["pointerup","pointercancel"])svg.addEventListener(name,()=>{drag=null;});
+  for(const name of ["pointerup","pointercancel"])svg.addEventListener(name,e=>{
+    pointers.delete(e.pointerId);drag=null;
+    if(pointers.size<2)gesture=null;
+  });
+  svg.addEventListener("keydown",e=>{
+    if(e.key!=="Enter"&&e.key!==" ")return;
+    if(activatePin(e.target))e.preventDefault();
+  });
   svg.addEventListener("wheel",e=>{e.preventDefault();changeZoom(e.deltaY<0?1:-1);},{passive:false});
   svg.addEventListener("keydown",e=>{
     const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];
@@ -176,5 +236,5 @@ export function createNativeMap(){
     }else if(e.key==="+"){changeZoom(1);}else if(e.key==="-"){changeZoom(-1);}
   });
   draw();
-  return {root,setView,setWorld,setRoute,changeZoom,toggleStreets,dispose(){disposed=true;drag=null;}};
+  return {root,setView,setPlaces,setWorld,setRoute,changeZoom,toggleStreets,dispose(){disposed=true;drag=null;gesture=null;pointers.clear();}};
 }
