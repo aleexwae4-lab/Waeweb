@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
 import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError } from "./vault.mjs";
+import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const files = new Map([
@@ -47,15 +48,16 @@ export async function handler(req, res) {
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
-  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.4.0" });
+  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.5.0" });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
-    readerEnabled: process.env.WAE_READER_ENABLED === "true" && Boolean(vaultConfig()),
+    readerEnabled: process.env.WAE_READER_ENABLED === "true" && encryptionReady(vaultConfig(), vaultKeysConfig()),
     vaultRequired: true,
-    indexPersistence: "local_disk_per_vault",
+    indexPersistence: "encrypted_local_disk_per_vault",
+    encryption: "AES-256-GCM",
     deploymentConnected: false
   });
   if (req.method === "POST" && u.pathname !== "/api/read") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
@@ -63,7 +65,7 @@ export async function handler(req, res) {
     if (limited(req)) return write(res, 429, { error: "Demasiadas consultas. Intenta de nuevo en un minuto." }, { "retry-after": "60" });
     try {
       if (u.pathname === "/api/index/search" || u.pathname === "/api/index/document" || u.pathname === "/api/read") {
-        if (process.env.WAE_READER_ENABLED !== "true" || !vaultConfig()) {
+        if (process.env.WAE_READER_ENABLED !== "true" || !encryptionReady(vaultConfig(), vaultKeysConfig())) {
           return write(res, 503, { error: "Bóvedas no configuradas o lector desactivado." });
         }
         const vault = authenticateVault(req.headers.authorization);
@@ -88,7 +90,7 @@ export async function handler(req, res) {
           }
           const page = await readPage(target);
           const saved = await storeDocument(vault, page);
-          return write(res, 200, { ...saved.record, indexSize: saved.records.size, persistence: "local_disk_per_vault" });
+          return write(res, 200, { ...saved.record, indexSize: saved.records.size, persistence: "encrypted_local_disk_per_vault" });
         }
         if (req.method !== "GET") return write(res, 405, { error: "Método no permitido." }, { allow: "GET" });
         const records = await loadVault(vault);
