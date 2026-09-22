@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Operator-only: never accept DB credentials, keys or backup JSON on the command line.
-import { backupPostgres, verifyPostgresBackup, restorePostgresBackup, verifyRestoredMarketplaceMedia, backupMarketMediaForPostgres, verifyMarketMediaBackup, restoreMarketMediaForPostgres, verifyMarketMediaArchiveSet } from "../server/pg-recovery.mjs";
+import { backupPostgres, verifyPostgresBackup, restorePostgresBackup, verifyRestoredMarketplaceMedia, backupMarketMediaForPostgres, verifyMarketMediaBackup, restoreMarketMediaForPostgres, verifyMarketMediaArchiveSet, exportPortableMarketRecovery, verifyPortableMarketRecovery } from "../server/pg-recovery.mjs";
 const [, , action, filename, confirmation, approval] = process.argv;
 try {
   let result;
@@ -24,6 +24,10 @@ try {
     result=await verifyMarketMediaArchiveSet(filename,process.argv.slice(4));
     if(result.status!=="complete_set_verified")process.exitCode=2;
   }
+  else if(action==="export-portable" && filename && process.argv.length>4)
+    result=await exportPortableMarketRecovery(filename,process.argv.slice(4));
+  else if(action==="verify-portable" && filename && !confirmation)
+    result=await verifyPortableMarketRecovery(filename);
   else if (action === "restore-media" && filename && confirmation &&
       approval === "--confirm-offline-media-restore") {
     result=await restoreMarketMediaForPostgres(filename,confirmation,{offlineConfirmed:true});
