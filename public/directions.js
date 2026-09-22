@@ -2,7 +2,7 @@ import {routeDiagram,durationLabel,distanceLabel} from "/directions-core.js";
 
 // A first-class directions panel inside the existing WAEWEB Maps tab.
 // Explicit submit only: no live tracking, no implicit geolocation or reroutes.
-export function createDirections({getJSON,element,button,external,copyText,onDestinationSelect=()=>{}}){
+export function createDirections({getJSON,element,button,external,copyText,onDestinationSelect=()=>{},onRoute=()=>{}}){
   const root=element("section","directions-panel");
   root.setAttribute("aria-label","Cómo llegar e indicaciones de ruta");
   root.append(element("span","tag","WAEWEB · CÓMO LLEGAR"),
@@ -197,6 +197,7 @@ export function createDirections({getJSON,element,button,external,copyText,onDes
   }
   function showRoute(result){
     outcome.replaceChildren();lastResult=result;
+    onRoute(result);
     const header=element("div","directions-result-header");
     header.append(element("strong","","Ruta "+mode.options[mode.selectedIndex].text),
       element("span","directions-metric",distanceLabel(result.distanceMeters)+" · "+

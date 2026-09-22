@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC32 adds client-only exact-coordinate map rendering when /api/maps is HTTP 401/unavailable, an always-visible neutral map overview with source fallback, and a public read-only 401 diagnostic page that distinguishes x-waeweb-api responses, missing API routes and route-provider config. Live waeweb.vercel.app could not be reached by tools; available Vercel connector did not list Waeweb. Production is NOT verified or authorized; main and direct Vercel unchanged. HOLD.",
+      "reason": "RC33 removes the blocked third-party map iframe in favor of WAEWEB-owned responsive, interactive geographic SVG with numeric coordinates, markers and verified provider route geometry; no street basemap is claimed. Translator keeps its input and controls responsive on API 401, offers reconnect, local browser Translation API when supported, and explicit-click server fallback. Production WAEWEB still on inaccessible/out-of-scope Vercel project; no proof published, no third-party street map or self-hosted translation model; direct Vercel/main unchanged, HOLD.",
       "evidence": ""
     },
     {

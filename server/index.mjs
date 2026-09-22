@@ -42,6 +42,7 @@ const files = new Map([
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
   ["/omnibox.js", ["omnibox.js", "text/javascript; charset=utf-8"]],
   ["/maps-core.js", ["maps-core.js", "text/javascript; charset=utf-8"]],
+  ["/native-map.js", ["native-map.js", "text/javascript; charset=utf-8"]],
   ["/directions.js", ["directions.js", "text/javascript; charset=utf-8"]],
   ["/directions-core.js", ["directions-core.js", "text/javascript; charset=utf-8"]],
   ["/translator.js", ["translator.js", "text/javascript; charset=utf-8"]],

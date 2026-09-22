@@ -87,13 +87,10 @@ test("WAEWEB map frontend remains integrated, attributable and isolated",async()
   const app=await readFile(new URL("../public/app.js",import.meta.url),"utf8");
   const html=await readFile(new URL("../public/index.html",import.meta.url),"utf8");
   assert.match(app,/\/api\/maps\?q=/);
-  assert.match(app,/osmEmbedUrl/);
-  assert.match(app,/map-iframe/);
-  assert.match(app,/allow-scripts allow-same-origin/);
+  assert.match(app,/createNativeMap/);
+  assert.doesNotMatch(app,/<iframe|document\.createElement\("iframe"\)|element\("iframe"/);
   assert.match(app,/WAEWEB · MAPAS/);
-  assert.match(app,/© OpenStreetMap contributors/);
-  assert.match(app,/https:\/\/www\.openstreetmap\.org\/copyright/);
-  assert.match(app,/map-credit-link/);
+  assert.match(app,/https:\/\/www\.openstreetmap\.org/);
   assert.doesNotMatch(app,/Mapa interactivo de OpenStreetMap/);
   assert.doesNotMatch(app,/↗ Mapa original/);
   assert.doesNotMatch(app,/© colaboradores de OpenStreetMap/);

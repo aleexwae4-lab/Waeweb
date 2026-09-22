@@ -29,9 +29,9 @@ test("maps creates the existing map viewer before any public API for user coordi
     "the local-coordinate branch must precede remote request");
   assert.match(map,/precision:"coordinate"/);
   assert.match(map,/\/diagnostico\.html/);
-  assert.match(app,/Vista general de México · no representa tu ubicación/);
+  assert.match(app,/Vista general nativa de coordenadas/);
   assert.match(app,/showDirectionsWithoutLocality/);
-  assert.match(app,/© OpenStreetMap contributors/);
+  assert.match(app,/createNativeMap/);
   assert.doesNotMatch(map,/tile\.openstreetmap\.org/,"no uncontrolled tile scraping");
 });
 
@@ -75,7 +75,7 @@ test("Node serves public map and diagnostic assets even in isolated preview",asy
     assert.equal(point.headers.get("x-waeweb-api"),"1");
     const health=await fetch(base+"/api/health");
     assert.equal(health.status,200);
-    assert.match((await health.json()).version,/rc\.32/);
+    assert.match((await health.json()).version,/rc\.33/);
     const blocked=await fetch(base+"/api/account/register",{method:"POST"});
     assert.equal(blocked.status,503,"diagnostics cannot unlock accounts");
   }finally{

@@ -3,6 +3,7 @@ import { openBrowser, hideBrowser } from "/browser.js";
 import { classifyOmnibox } from "/omnibox.js";
 import { osmEmbedUrl, osmPlaceUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
 import {createDirections} from "/directions.js";
+import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
 "use strict";
 const byId = id => document.getElementById(id);
@@ -453,32 +454,18 @@ async function renderWeather(query, signal, sequence) {
 }
 function showDirectionsWithoutLocality(){
   stopDirections();
-  const stage=element("div","map-stage");
-  const frame=element("iframe","map-iframe");
-  frame.loading="lazy";
-  frame.title="Mapa del destino seleccionado en WAEWEB";
-  frame.referrerPolicy="no-referrer";
-  frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-popups");
-  // General overview is an actual OSM iframe, not the visitor's location.
-  // It is rendered without the /api/maps endpoint.
-  frame.src="https://www.openstreetmap.org/export/embed.html?"+
-    new URLSearchParams({bbox:"-117.1,14.4,-86.4,32.9",layer:"mapnik"});
-  frame.title="Vista general de México, no indica tu ubicación";
-  stage.append(frame);
+  const map=createNativeMap();
+  const stage=map.root;
   const note=element("p","map-description",
-    "Vista general de México · no representa tu ubicación. Si la cartografía externa no carga, utiliza «Abrir mapa original».");
-  const footnote=element("p","map-attribution");
-  append(footnote,
-    external("https://www.openstreetmap.org/copyright",
-      "© OpenStreetMap contributors","map-credit-link"),
-    element("span","map-license"," · ODbL · Búsqueda de direcciones: openrouteservice Pelias"));
+    "Vista general nativa de coordenadas. Busca un lugar para situar un punto en el visor.");
+  const footnote=element("p","map-attribution",
+    "Visor geográfico WAEWEB · sin capas callejeras · Geocodificación: openrouteservice Pelias cuando esté disponible.");
   const directions=createDirections({getJSON,element,button,external,copyText,
     onDestinationSelect:place=>{
       if(!validMapPlace(place))return;
-      frame.src=osmEmbedUrl(place,3);
-      frame.title="Mapa del destino "+place.name+" en WAEWEB";
-      stage.hidden=false;footnote.hidden=false;
-    }
+      map.setView(place,3);
+    },
+    onRoute:route=>map.setRoute(route.geometry)
   });
   activeDirections=directions;
   resultsContainer.append(note,stage,footnote,directions.root);
@@ -519,39 +506,30 @@ function renderMapPlaces(data) {
   const zoomOut = button("− Alejar",()=>changeZoom(-1),"map-action");
   const zoomIn = button("+ Acercar",()=>changeZoom(1),"map-action");
   const copy = button("⧉ Copiar coordenadas",()=>copyText(
-    places[selected].latitude.toFixed(6) + ", " + places[selected].longitude.toFixed(6)),"map-action");
+    (mapOverride||places[selected]).latitude.toFixed(6) + ", " +
+    (mapOverride||places[selected]).longitude.toFixed(6)),"map-action");
   const visit = external("https://www.openstreetmap.org/","↗ Abrir mapa completo","map-action map-original");
   toolbar.append(zoomOut,zoomIn,copy,visit);
 
+  const map=createNativeMap();
   const directions=createDirections({getJSON,element,button,external,copyText,
     onDestinationSelect:place=>{
       if(!validMapPlace(place))return;
       mapOverride=place;
       zoom=3;
       refresh();
-    }
+    },
+    onRoute:route=>map.setRoute(route.geometry)
   });
   activeDirections=directions;
-  const stage = element("div","map-stage");
-  const frame = element("iframe","map-iframe");
-  frame.title = "Mapa interactivo integrado en WAEWEB";
-  frame.loading = "lazy";
-  frame.referrerPolicy = "no-referrer";
-  // A fixed, third-party HTTPS origin may run its own map scripts; no host
-  // origin, top navigation, forms, microphone or geolocation are delegated.
-  frame.setAttribute("sandbox","allow-scripts allow-same-origin allow-popups");
-  stage.append(frame);
-  // OSM's copyright acknowledgement remains readable and directly beside
-  // the embedded map. Branding is WAEWEB; provenance is not removed or hidden.
-  const footnote = element("p","map-attribution");
-  append(footnote,
-    external("https://www.openstreetmap.org/copyright",
-      "© OpenStreetMap contributors","map-credit-link"),
-    element("span","map-license"," · ODbL · Localidades: " + data.source));
+  const stage = map.root;
+  const footnote = element("p","map-attribution",
+    "Visor WAEWEB · coordenadas de "+data.source+
+    " · sin mapa de calles; rutas solo desde un proveedor habilitado.");
   const picks = element("div","map-picks");
   picks.setAttribute("aria-label","Ubicaciones encontradas");
   let selected = 0, zoom = data.precision === "coordinate" ? 3 : 2;
-  let mapOverride=null;
+  let mapOverride=null,shownPlace=null;
   const options = places.map((place,index)=>{
     const label = place.name + (place.detail ? " · " + place.detail : "");
     const choice = button(label,()=>select(index),"map-pick");
@@ -561,11 +539,10 @@ function renderMapPlaces(data) {
   });
   function refresh(){
     const place=mapOverride||places[selected];
+    if(shownPlace!==place){map.setView(place,zoom);shownPlace=place;}
     placeTitle.textContent=place.name;
     placeDetail.textContent=place.detail || "Ubicación geográfica";
     coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
-    frame.src=osmEmbedUrl(place,zoom);
-    frame.title="Mapa de " + place.name + " en WAEWEB";
     visit.href=osmPlaceUrl(place);
     zoomIn.disabled=zoom>=4; zoomOut.disabled=zoom<=0;
     options.forEach((option,i)=>{
@@ -581,7 +558,9 @@ function renderMapPlaces(data) {
     mapOverride=null;
     refresh();
   }
-  function changeZoom(delta){zoom=Math.max(0,Math.min(4,zoom+delta));refresh();}
+  function changeZoom(delta){
+    zoom=Math.max(0,Math.min(4,zoom+delta));map.changeZoom(delta);refresh();
+  }
   const details=element("div","map-place");
   details.append(placeTitle,placeDetail,coords,toolbar);
   section.append(details,stage,footnote,directions.root);

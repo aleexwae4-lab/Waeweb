@@ -98,5 +98,9 @@ test("translator tab remains next to index and never requests a vault token",asy
   assert.match(ui,/\/api\/translate\/capabilities/);
   assert.match(ui,/\/api\/translate"/);
   assert.match(app,/function renderTranslator/);
-  assert.match(ui,/No introduzcas datos confidenciales/);
+  assert.doesNotMatch(ui,/No se pudo conectar con la API del traductor:/);
+  assert.doesNotMatch(ui,/No introduzcas datos confidenciales\. El texto se comparte con un proveedor externo/);
+  assert.match(ui,/↻ Reconectar/);
+  assert.match(ui,/globalThis\.Translator/);
+  assert.match(ui,/translate\.disabled=false/);
 });
