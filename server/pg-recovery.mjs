@@ -10,7 +10,8 @@ import { vaultKeysConfig, encryptionReady, openVaultEnvelope } from "./crypto.mj
 import { mediaConfig } from "./marketplace-media.mjs";
 import { assessRestoredMarketplaceMedia, sameRecoveryData, backupMediaRecords } from "./marketplace-restored-audit.mjs";
 import { mediaIntegrityManifest } from "./marketplace-integrity-audit.mjs";
-import { createMarketMediaArchive, openMarketMediaArchive } from "./marketplace-object-archive.mjs";
+import { createMarketMediaArchive, openMarketMediaArchive,
+  restoreMarketMediaArchive } from "./marketplace-object-archive.mjs";
 import { saveMarketMediaArchive, loadMarketMediaArchive } from "./marketplace-object-archive-io.mjs";
 
 const TYPE = "waeweb-encrypted-postgres-recovery";
@@ -286,4 +287,30 @@ export async function verifyMarketMediaBackup(mediaFilename,postgresFilename){
   return {filename:mediaFilename,postgresFilename,
     ...result.summary,referenceMatchesPostgres:true,
     contentsEncrypted:true,releaseApproval:"not_evaluated"};
+}
+
+
+/**
+ * RC20 write-capable command, NEVER automatic: source PG backup must match
+ * live/offline PG target byte-for-byte before touching any object.
+ */
+export async function restoreMarketMediaForPostgres(mediaFilename,postgresFilename,{
+  media=mediaConfig(),transport=fetch,confirm=false
+}={}){
+  if(!confirm)reject("media_restore_confirmation_required");
+  if(!media)reject("media_restore_provider_required");
+  const {snapshot:source}=await readSnapshot(postgresFilename);
+  const current=(await consistentSnapshot()).snapshot;
+  if(!sameRecoveryData(source,current))reject("media_restore_target_mismatch");
+  const db=backupMediaRecords(source,accountKey());
+  const archive=await loadMarketMediaArchive(mediaFilename);
+  return restoreMarketMediaArchive(db,archive,{
+    key:accountKey(),postgresChecksum:source.checksum,
+    media,transport,confirm,
+    readCurrent:async()=>{
+      const latest=(await consistentSnapshot()).snapshot;
+      if(!sameRecoveryData(source,latest))reject("media_restore_database_changed");
+      return backupMediaRecords(latest,accountKey());
+    }
+  });
 }
