@@ -7,6 +7,8 @@ import { postgresAccountsConfig } from "./accounts-postgres.mjs";
 import { accountKey } from "./accounts.mjs";
 import { vaultConfig, decodeEncryptedVault } from "./vault.mjs";
 import { vaultKeysConfig, encryptionReady, openVaultEnvelope } from "./crypto.mjs";
+import { mediaConfig } from "./marketplace-media.mjs";
+import { assessRestoredMarketplaceMedia } from "./marketplace-restored-audit.mjs";
 
 const TYPE = "waeweb-encrypted-postgres-recovery";
 const MAX_BYTES = 160 * 1024 * 1024;
@@ -208,4 +210,29 @@ export async function restorePostgresBackup(filename, { offlineConfirmed = false
     if (error instanceof RecoveryError) throw error;
     reject("recovery_database");
   } finally { await connection.end().catch(() => {}); }
+}
+
+/**
+ * RC19 operator-only preflight. Verifies an encrypted backup against the
+ * current PostgreSQL snapshot and checks each referenced JPEG via bounded GET.
+ * NO DB writes, object PUT/DELETE, restore, or public API access.
+ * This does not certify object backups or any real disaster recovery.
+ */
+export async function verifyRestoredMarketplaceMedia(filename,{
+  media=mediaConfig(),transport=fetch,offset=0,limit=5
+}={}) {
+  if(process.env.NODE_ENV!=="test" &&
+      process.env.WAE_MARKET_MEDIA_AUDIT_ACK!=="reviewed-read-only-media-audit")
+    reject("media_recovery_audit_not_authorized");
+  if(!media)reject("media_recovery_provider_required");
+  // Always authenticate the offline encrypted bundle before comparing it.
+  const {snapshot:source,result}=await readSnapshot(filename);
+  const current=(await consistentSnapshot()).snapshot;
+  const report=await assessRestoredMarketplaceMedia(source,current,{
+    key:accountKey(),media,transport,offset,limit,
+    readCurrent:async()=>(await consistentSnapshot()).snapshot
+  });
+  return { ...report, backupChecksum:result.checksum,
+    sourceBackupVerified:true, objectBackupVerified:false,
+    restoreCertified:false, releaseApproval:"not_evaluated" };
 }
