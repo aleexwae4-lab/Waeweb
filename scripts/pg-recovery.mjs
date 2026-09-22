@@ -21,8 +21,11 @@ try {
   else if (action === "verify-media-backup" && filename && confirmation)
     result=await verifyMarketMediaBackup(filename,confirmation);
   else if (action === "restore-media" && filename && confirmation &&
-      approval === "--confirm-offline-empty-objects")
-    result=await restoreMarketMediaForPostgres(filename,confirmation,{confirm:true});
+      approval === "--confirm-offline-media-restore") {
+    result=await restoreMarketMediaForPostgres(filename,confirmation,{offlineConfirmed:true});
+    if(result.status==="blocked"||result.status==="partial_recovery")
+      process.exitCode=2;
+  }
   else if (action === "restore" && filename &&
       confirmation === "--confirm-offline-empty-target")
     result = await restorePostgresBackup(filename, { offlineConfirmed: true });
