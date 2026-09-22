@@ -1,4 +1,5 @@
 import { parseQuery, rankResults, researchBrief } from "./intelligence.mjs";
+import {videoIdentity, verifiedVideoResults, youtubeDataVideos} from "./video-discovery.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -70,7 +71,7 @@ export async function googleSearch(query, type = "web", page = 1) {
   if(type==="web" && page>1)params.start=String((page-1)*10+1);
   if (type === "images") params.searchType = "image";
   if (type === "news") params.q = query + " noticias actualidad";
-  if (type === "videos") params.q = query + " site:youtube.com/watch";
+  if (type === "videos") params.q = query;
   u.search = new URLSearchParams(params).toString();
   const data = await json(u);
   const items=(data.items || []).map(item => result(
@@ -189,6 +190,7 @@ export async function wikimediaVideos(query){
       url,"Video de archivo multimedia abierto · "+video.mime,
       "Wikimedia Commons · Video",null,
       urlAllowed(video.thumburl)?video.thumburl:null);
+    item.platform="Wikimedia Commons";
     // Only an actual video URL furnished by Commons may be played in-app.
     // No guessed YouTube embeds or fabricated stream URLs.
     if(/^https:\/\/upload\.wikimedia\.org\//.test(video.url||""))
@@ -237,13 +239,33 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
   const key = selected + ":" + page + ":" + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
   if (!fresh && cached && cached.expires > Date.now()) return cached.value;
+  const videoQuery=spec.site?q+" site:"+spec.site:q;
+  const platformAllowed=host=>!spec.site||
+    host===spec.site||host.endsWith("."+spec.site)||
+    spec.site.endsWith("."+host);
   const sources = selected === "books" ? [["Open Library", () => openLibrary(q)]]
     : selected === "images"
     ? [["Wikimedia Commons", () => wikimediaImages(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]]
     : selected === "news"
     ? [["GDELT · prensa", () => gdeltNews(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "news")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
     : selected === "videos"
-    ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "videos")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "videos")]]
+    ? [
+      ...(platformAllowed("youtube.com")?[["YouTube",()=>youtubeDataVideos(q)]]:[]),
+      ["Wikimedia Commons · Video", () => wikimediaVideos(q)],
+      ["Brave · Vídeos",()=>braveSearch(videoQuery,"videos")],
+      ...(platformAllowed("youtube.com")?[
+        ["Brave · YouTube",async()=>verifiedVideoResults(
+          await braveSearch(q+" site:youtube.com","web"),"YouTube")],
+        ["Google · YouTube",async()=>verifiedVideoResults(
+          await googleSearch(q+" site:youtube.com","web"),"YouTube")]
+      ]:[]),
+      ...(platformAllowed("tiktok.com")?[
+        ["Brave · TikTok",async()=>verifiedVideoResults(
+          await braveSearch(q+" site:tiktok.com","web"),"TikTok")],
+        ["Google · TikTok",async()=>verifiedVideoResults(
+          await googleSearch(q+" site:tiktok.com","web"),"TikTok")]
+      ]:[])
+    ]
     : selected === "research"
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Europe PMC", () => europePMC(q)], ["Wikipedia", () => wikipedia(q)]]
     : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
@@ -269,6 +291,16 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
       ))moreFromProviders=true;
     }
   });
+  if(selected==="videos"){
+    for(const item of results){
+      const identity=videoIdentity(item.url);
+      if(identity){
+        item.platform=identity.platform;
+        item.videoId=identity.videoId;
+        item.url=identity.canonical;
+      }
+    }
+  }
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, page, hasMore: selected==="all" && moreFromProviders,
