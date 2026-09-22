@@ -25,8 +25,11 @@ export function accountKey(raw = process.env.WAE_ACCOUNTS_KEY) {
 }
 export function accountsEnabled() {
   const store = process.env.WAE_ACCOUNTS_STORE || "file";
+  // An ephemeral serverless instance MUST NOT accept signups into its own local disk.
+  // PostgreSQL is an explicit opt-in; a misconfigured DB never falls back to files.
   return process.env.WAE_ACCOUNTS_ENABLED === "true" && Boolean(accountKey()) &&
-    (store === "file" || store === "postgres" && Boolean(postgresAccountsConfig()));
+    (store === "file" && process.env.VERCEL !== "1" ||
+      store === "postgres" && Boolean(postgresAccountsConfig()));
 }
 function basePath(root = process.env.WAE_ACCOUNTS_DIR || ".wae-private-accounts") {
   if (!root || String(root).includes("\0")) fail("storage_config", "Directorio de cuentas inválido.", 503);
