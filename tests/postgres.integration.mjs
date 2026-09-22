@@ -10,7 +10,8 @@ import {
 import {
   accountsEnabled, registerAccount, loginAccount, getAccount,
   logoutAccount, addBusiness, updateBusinessVisibility,
-  listPublicBusinesses
+  listPublicBusinesses, addMarketListing, setMarketListingVisibility,
+  getPublicMarketCatalog, browseMarketplace
 } from "../server/accounts.mjs";
 
 const exec = promisify(execFile);
@@ -73,6 +74,25 @@ await closeAccountsPostgres();`;
   });
   assert.equal((await updateBusinessVisibility("Bearer " + alice.token, business.id, true)).visibility, "public");
   assert.equal((await listPublicBusinesses("Negocio persistente")).businesses[0].id, business.id);
+  const listing = await addMarketListing("Bearer " + alice.token,business.id,{
+    kind:"service",title:"Consultoría avanzada",category:"Tecnología",
+    description:"Servicio de tecnología con persistencia cifrada.",
+    price:"2499.00",availability:"available"
+  });
+  assert.equal((await browseMarketplace({q:"consultoría"})).total,0,
+    "private listing must never leak through PostgreSQL");
+  await setMarketListingVisibility("Bearer " + alice.token,business.id,listing.id,true);
+  assert.equal((await getPublicMarketCatalog(business.id)).items[0].priceCents,249900);
+  const catalogWorker = `import { browseMarketplace } from "./server/accounts.mjs";
+import { closeAccountsPostgres } from "./server/accounts-postgres.mjs";
+const result=await browseMarketplace({q:"Consultoría",kind:"service",city:"Guadalajara"});
+console.log(JSON.stringify({count:result.total,price:result.items[0]?.priceCents}));
+await closeAccountsPostgres();`;
+  const crossProcess=await exec(process.execPath,["--input-type=module","-e",catalogWorker],{
+    env:{...process.env},maxBuffer:128*1024
+  });
+  assert.deepEqual(JSON.parse(crossProcess.stdout.trim()),{count:1,price:249900});
+
   await logoutAccount("Bearer " + alice.token);
   await assert.rejects(() => getAccount("Bearer " + alice.token),
     { code: "not_authenticated" });
