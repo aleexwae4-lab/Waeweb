@@ -227,6 +227,10 @@ async function start() {
       const check = await windowRef.webContents.executeJavaScript(`(async () => {
         const response = await fetch("/api/health");
         const health = await response.json();
+        const guardedPost = await fetch("/api/account/login", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({})
+        });
         const initial = await window.waeDesktop.getState();
         const opened = await window.waeDesktop.open(null, true);
         const closed = await window.waeDesktop.close(opened.activeId);
@@ -234,12 +238,13 @@ async function start() {
           bridge: window.waeDesktop?.isNative === true,
           address: !!document.getElementById("browser-address"),
           api: response.ok && health.product === "WAE WEB",
+          sameOriginPost: guardedPost.status !== 403,
           before: initial.tabs.length,
           during: opened.tabs.length,
           after: closed.tabs.length
         };
       })()`);
-      if (!check.bridge || !check.address || !check.api || check.before !== 0 ||
+      if (!check.bridge || !check.address || !check.api || !check.sameOriginPost || check.before !== 0 ||
           check.during !== 1 || check.after !== 0) throw new Error("Smoke assertion: " + JSON.stringify(check));
       console.log("WAEWEB_NATIVE_SMOKE_PASS", JSON.stringify(check));
     } catch (error) {
