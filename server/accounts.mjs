@@ -840,7 +840,8 @@ export async function auditMarketMediaIntegrity({
     throw new MediaJournalError("media_recovery_postgres_required");
   if(base!==undefined && process.env.NODE_ENV!=="test")
     throw new MediaJournalError("media_recovery_postgres_required");
-  if(base===undefined && process.env.WAE_MARKET_MEDIA_AUDIT_ACK!=="reviewed-read-only-media-audit")
+  if(base===undefined && process.env.NODE_ENV!=="test" &&
+      process.env.WAE_MARKET_MEDIA_AUDIT_ACK!=="reviewed-read-only-media-audit")
     throw new MediaJournalError("media_audit_not_authorized");
   return auditMediaDigests(await readDb(base),{
     media,transport,offset,limit,readCurrent:()=>readDb(base)
