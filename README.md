@@ -374,3 +374,8 @@ La auditoría del operador `npm run marketplace:media:probe` comprueba por HEAD 
 ## RC18 — integridad criptográfica de fotografías
 
 Además de comprobar presencia, `npm run marketplace:media:integrity` recupera cada JPEG privado en lotes acotados y compara sus bytes reales con `imageSha256` + `imageBytes` almacenados dentro del registro cifrado. Detecta alteración del contenido, formato/MIME inválido, ausencia, permisos, metadatos legados y cambios concurrentes sin exponer imagen, object key, hash o URL firmada en el reporte. Requiere autorización operativa fuera de CI. [Alcance y límites](docs/RC18_MEDIA_INTEGRITY.md). **No certifica backup/restore; Vercel continúa HOLD.**
+
+
+## RC19 — recuperación coherente PostgreSQL + fotografías
+
+`npm run pg:verify-media -- <backup>` autentica el bundle cifrado de recuperación, exige que el snapshot PostgreSQL restaurado coincida exactamente con ese punto de recuperación y después verifica por lotes los JPEG privados referenciados contra su SHA-256/tamaño. Si el destino difiere, no toca el proveedor de objetos; los cambios concurrentes invalidan el lote. [Procedimiento y límites](docs/RC19_JOINT_RECOVERY_PREFLIGHT.md). **Es un preflight de recuperación, no una certificación de backup del bucket. Vercel continúa HOLD.**
