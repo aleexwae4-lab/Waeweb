@@ -1,16 +1,19 @@
 {
   "name": "waeweb",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
-  "description": "WAE WEB — secure opt-in web reader with isolated persistent research vaults",
+  "description": "WAE WEB — encrypted isolated research vaults and verified offline backup tools",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "start": "node server/index.mjs",
     "test": "node --test",
-    "check": "node --check server/index.mjs && node --check server/search.mjs && node --check server/intelligence.mjs && node --check server/reader.mjs && node --check public/app.js && node --check public/workspace.js && node --check server/vault.mjs"
+    "check": "node --check server/index.mjs && node --check server/search.mjs && node --check server/intelligence.mjs && node --check server/reader.mjs && node --check public/app.js && node --check public/workspace.js && node --check server/vault.mjs && node --check server/crypto.mjs && node --check server/backup.mjs && node --check scripts/vault-ops.mjs",
+    "vault:backup": "node scripts/vault-ops.mjs backup",
+    "vault:verify": "node scripts/vault-ops.mjs verify",
+    "vault:restore": "node scripts/vault-ops.mjs restore"
   },
   "license": "UNLICENSED"
 }
