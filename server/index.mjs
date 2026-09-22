@@ -9,6 +9,7 @@ const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
+  ["/workspace.js", ["workspace.js", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
   ["/favicon.svg", ["favicon.svg", "image/svg+xml"]],
   ["/robots.txt", ["robots.txt", "text/plain; charset=utf-8"]]
@@ -44,10 +45,12 @@ export async function handler(req, res) {
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
-  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.1.0" });
+  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.2.0" });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Wikimedia Commons", "Open-Meteo"],
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
+    researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
+    localResearchLibrary: true,
     deploymentConnected: false
   });
   if (u.pathname.startsWith("/api/")) {
