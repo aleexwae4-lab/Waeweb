@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Operator-only: never accept DB credentials, keys or backup JSON on the command line.
-import { backupPostgres, verifyPostgresBackup, restorePostgresBackup, verifyRestoredMarketplaceMedia, backupMarketMediaForPostgres, verifyMarketMediaBackup } from "../server/pg-recovery.mjs";
-const [, , action, filename, confirmation] = process.argv;
+import { backupPostgres, verifyPostgresBackup, restorePostgresBackup, verifyRestoredMarketplaceMedia, backupMarketMediaForPostgres, verifyMarketMediaBackup, restoreMarketMediaForPostgres } from "../server/pg-recovery.mjs";
+const [, , action, filename, confirmation, approval] = process.argv;
 try {
   let result;
   if (action === "backup" && !filename && !confirmation) result = await backupPostgres();
@@ -20,6 +20,9 @@ try {
   }
   else if (action === "verify-media-backup" && filename && confirmation)
     result=await verifyMarketMediaBackup(filename,confirmation);
+  else if (action === "restore-media" && filename && confirmation &&
+      approval === "--confirm-offline-empty-objects")
+    result=await restoreMarketMediaForPostgres(filename,confirmation,{confirm:true});
   else if (action === "restore" && filename &&
       confirmation === "--confirm-offline-empty-target")
     result = await restorePostgresBackup(filename, { offlineConfirmed: true });
