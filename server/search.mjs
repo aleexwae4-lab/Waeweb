@@ -36,7 +36,7 @@ export async function crossref(query) {
   const u = new URL("https://api.crossref.org/works");
   u.search = new URLSearchParams({ query, rows: "6", select: "DOI,title,abstract,URL,published,container-title" }).toString();
   const data = await json(u);
-  return (data.message?.items || []).map(item => {
+  return (data.message?.items || []).filter(item => item.DOI).map(item => {
     const dateParts = item.published?.["date-parts"]?.[0];
     const date = Array.isArray(dateParts) && dateParts.length ? String(dateParts[0]) : null;
     const title = item.title?.[0] || item.DOI;
@@ -110,7 +110,7 @@ export async function search(query, type = "all") {
   if (spec.errors.length) return { error: spec.errors.join(" ") };
   if (q.length < 2) return { error: "Escribe al menos dos caracteres de búsqueda además de los filtros." };
   const selected = ["all", "images", "news", "videos", "research"].includes(type) ? type : "all";
-  const key = selected + ":" + q.toLocaleLowerCase("es");
+  const key = selected + ":" + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return cached.value;
   const sources = selected === "images"
