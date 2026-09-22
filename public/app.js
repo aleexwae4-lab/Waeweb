@@ -30,8 +30,10 @@ const weatherSlot = byId("weather-slot");
 let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false };
 let activeDirections=null;
 let activeInlineVideo=null;
+let activeVideoFrame=null;
 function stopInlineVideo(){
   if(activeInlineVideo){activeInlineVideo.pause();activeInlineVideo.removeAttribute("src");activeInlineVideo.load();activeInlineVideo=null;}
+  if(activeVideoFrame){activeVideoFrame.remove();activeVideoFrame=null;}
 }
 function stopDirections(){activeDirections?.dispose();activeDirections=null;}
 const translator = createTranslator({getJSON,resultsContainer,stats,sourceFilter,answer,weatherSlot,panel});
@@ -222,7 +224,12 @@ function renderResult(item, index) {
   }
   append(card, row, title);
   if (state.type === "books") card.append(element("span", "tag media-context", "Ficha bibliográfica · Comprueba edición y disponibilidad en origen"));
-  if (state.type === "videos") card.append(element("span", "tag media-context", "Vídeo · Ver en la fuente original"));
+  if (state.type === "videos"){
+    const platform=item.platform||"Web";
+    card.append(element("span","tag media-context","Vídeo · Ver en la fuente original"));
+    card.append(element("span","tag media-context video-platform",
+      platform==="YouTube"?"▶ YouTube":platform==="TikTok"?"♪ TikTok":"▷ "+platform));
+  }
   if (item.snippet) card.append(element("p", "snippet", item.snippet));
   if(state.type==="videos" && /^https:\/\/upload\.wikimedia\.org\//.test(item.mediaUrl||"")){
     const stream=element("video","video-native-player");
@@ -249,6 +256,34 @@ function renderResult(item, index) {
     },"save-button");
     card.append(play,stream,playback);
   }
+  if(state.type==="videos" && item.platform==="YouTube" &&
+    /^[A-Za-z0-9_-]{11}$/.test(item.videoId||"")){
+    const player=element("div","youtube-player-slot");
+    const message=element("p","video-playback-status");
+    message.setAttribute("role","status");
+    const play=button("▶ Reproducir YouTube aquí",()=>{
+      // A third-party YouTube frame is loaded only after explicit consent.
+      if(activeVideoFrame && activeVideoFrame.parentElement===player){
+        stopInlineVideo();
+        play.textContent="▶ Reproducir YouTube aquí";
+        message.textContent="Reproductor cerrado.";
+        return;
+      }
+      stopInlineVideo();
+      const frame=element("iframe","youtube-inline-frame");
+      frame.src="https://www.youtube-nocookie.com/embed/"+item.videoId;
+      frame.title="Reproductor de YouTube: "+item.title;
+      frame.loading="lazy";
+      frame.referrerPolicy="strict-origin-when-cross-origin";
+      frame.allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share";
+      frame.allowFullscreen=true;
+      player.replaceChildren(frame);
+      activeVideoFrame=frame;
+      play.textContent="Ⅱ Cerrar reproductor";
+      message.textContent="Si el autor restringe la reproducción integrada, abre el vídeo original.";
+    },"save-button");
+    card.append(play,player,message);
+  }
   const meta = element("div", "meta-line");
   if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
   if (state.type==="all" && item.source)
@@ -265,7 +300,10 @@ function renderResult(item, index) {
   }, "save-button");
   save.disabled = workspace.has(url);
   meta.append(save);
-  if(state.type !== "all")meta.append(external(url, "↗ Abrir sitio original", "save-button"));
+  if(state.type !== "all")meta.append(external(url,
+    state.type==="videos" && item.platform==="TikTok"?"↗ Ver clip en TikTok":
+    state.type==="videos" && item.platform==="YouTube"?"↗ Ver en YouTube":
+    "↗ Abrir sitio original", "save-button"));
   if (readerEnabled && url.startsWith("https://")) {
     meta.append(button("⌕ Leer e indexar", () => requestRead(url), "save-button"));
   }
@@ -503,6 +541,17 @@ function renderData(data) {
     const grid = renderImages(state.results);
     if (grid.children.length) resultsContainer.append(grid);
   } else {
+    if(state.type==="videos" && state.query){
+      const links=element("nav","video-platform-links");
+      links.setAttribute("aria-label","Búsqueda directa de clips");
+      links.append(
+        external("https://www.youtube.com/results?search_query="+encodeURIComponent(state.query),
+          "▶ Buscar en YouTube","link-button"),
+        external("https://www.tiktok.com/search?q="+encodeURIComponent(state.query),
+          "♪ Buscar en TikTok","link-button")
+      );
+      resultsContainer.append(links);
+    }
     if(state.type==="all" && state.results.length)
       resultsContainer.append(element("h2","web-results-heading","Resultados web"));
     const displayed=state.type==="all"
@@ -607,6 +656,7 @@ function renderSearchFallback(query,message){
     ],
     videos:[
       ["https://www.youtube.com/results?search_query="+encoded,"↗ Vídeos en YouTube"],
+      ["https://www.tiktok.com/search?q="+encoded,"↗ Clips en TikTok"],
       ["https://commons.wikimedia.org/w/index.php?search="+encoded+"&title=Special:MediaSearch&type=video","↗ Vídeos en Wikimedia Commons"]
     ],
     books:[
