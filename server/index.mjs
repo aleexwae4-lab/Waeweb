@@ -14,6 +14,8 @@ const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
+  ["/browser.js", ["browser.js", "text/javascript; charset=utf-8"]],
+  ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
   ["/accounts.js", ["accounts.js", "text/javascript; charset=utf-8"]],
   ["/business-profile.js", ["business-profile.js", "text/javascript; charset=utf-8"]],
   ["/workspace.js", ["workspace.js", "text/javascript; charset=utf-8"]],
@@ -53,7 +55,7 @@ async function jsonBody(req, maxBytes = 3000) {
   } catch { throw new AccountError("invalid_json", "JSON inválido.", 400); }
 }
 const security = {
-  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'",
+  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; font-src 'self'; frame-src https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'",
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-frame-options": "DENY",
