@@ -140,6 +140,7 @@
             <button type="button" class="tab active" role="tab" aria-selected="true" data-type="all">✧ Todo</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="research">◇ Investigación</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="index" hidden>⌕ Índice WAE</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-type="translate">🌐 Traductor</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="books">▤ Libros</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="businesses" hidden>♙ Negocios</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="images">▧ Imágenes</button>
@@ -234,6 +235,7 @@
     <div class="dialog-head"><h2>WAE WEB</h2><button type="button" id="close-dialog" class="icon-button" aria-label="Cerrar">✕</button></div>
     <p>Busca fuentes abiertas y visita URLs HTTPS desde la misma pantalla. La búsqueda pública no necesita bóveda.</p>
     <details><summary>Fuentes y precisión</summary><p>Wikipedia, Crossref, OpenAlex, Open Library, Wikimedia Commons y Open-Meteo; Google Programmable Search requiere configuración del servidor. Una cita no implica verificación independiente. Noticias y videos no se inventan si falta proveedor. El panorama de investigación es extractivo, no una respuesta de IA.</p></details>
+    <details><summary>Traductor e idiomas</summary><p>WAEWEB traduce texto mediante un proveedor externo solo al pulsar Traducir; no accede a las bóvedas. MyMemory limita tamaño y cuota. LibreTranslate requiere configuración del servidor. Evita información confidencial y revisa traducciones especializadas.</p></details>
     <details><summary>Filtros y biblioteca</summary><p>site:, after:, before:, source:, "frase" y -término operan sobre resultados recuperados. La biblioteca del navegador es local y no se sincroniza.</p></details>
     <details><summary>Lector y seguridad</summary><p>El lector privado es opt-in y admite únicamente páginas públicas HTTPS con validación DNS, límites y robots.txt. El servidor cifra documentos mediante AES-256-GCM por bóveda. Se necesitan claves fuertes, TLS y almacenamiento duradero. Ninguna página remota recibe permiso para ejecutar código dentro de WAEWEB.</p></details>
     <details><summary>Negocios y despliegue</summary><p>Las cuentas y fichas requieren activación del servidor; son privadas por defecto y solo se publican por elección expresa como autodeclaradas. La sesión de cuenta es independiente de la bóveda. Para verificar el despliegue consulta /api/health y /api/capabilities; la interfaz visible por sí sola no demuestra conexión al backend.</p></details>

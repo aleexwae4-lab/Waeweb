@@ -2,6 +2,7 @@ import { createWorkspace, asMarkdown } from "/workspace.js";
 import { openBrowser, hideBrowser } from "/browser.js";
 import { classifyOmnibox } from "/omnibox.js";
 import { osmEmbedUrl, osmPlaceUrl, validMapPlace } from "/maps-core.js";
+import { createTranslator } from "/translator.js";
 "use strict";
 const byId = id => document.getElementById(id);
 const hero = byId("hero");
@@ -25,6 +26,16 @@ const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
 let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "" };
+const translator = createTranslator({getJSON,resultsContainer,stats,sourceFilter,answer,weatherSlot,panel});
+function renderTranslator(push=true){
+  state.controller?.abort();state.sequence++;
+  speechSynthesisSafeCancel();hideBrowser();
+  state.type="translate";state.query="";state.data=null;state.results=[];
+  hero.hidden=true;resultsView.hidden=false;resultsInput.value="";setTab("translate");
+  sourceFilter.hidden=true;
+  if(push)history.pushState({type:"translate"},"",location.pathname+"?type=translate");
+  translator.show();
+}
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -62,6 +73,7 @@ function setTab(type) {
   });
 }
 function goHome() {
+  translator.hide();sourceFilter.hidden=false;
   hideBrowser();
   state.controller?.abort();
   state.sequence++;
@@ -569,6 +581,8 @@ function runOmnibox(value,type="all",push=true){
   return performSearch(intent.value,type,push);
 }
 async function performSearch(query, type = "all", push = true) {
+  translator.hide();sourceFilter.hidden=false;
+  if(type==="translate"){renderTranslator(push);return;}
   hideBrowser();
   const q = query.trim().slice(0, 180);
   if (q.length < 2) {
@@ -725,10 +739,10 @@ async function loadReaderCapability() {
 loadReaderCapability();
 document.addEventListener("wae:browser:read", event => requestRead(event.detail.url));
 byId("hero-form").addEventListener("submit", event => { event.preventDefault(); runOmnibox(heroInput.value); });
-byId("results-form").addEventListener("submit", event => { event.preventDefault(); runOmnibox(resultsInput.value, state.type); });
+byId("results-form").addEventListener("submit", event => { event.preventDefault(); runOmnibox(resultsInput.value, state.type==="translate"?"all":state.type); });
 byId("home-button").addEventListener("click", goHome);
 document.querySelectorAll("[data-query]").forEach(chip => chip.addEventListener("click", () => runOmnibox(chip.dataset.query)));
-document.querySelectorAll("[data-type]").forEach(tab => tab.addEventListener("click", () => performSearch(state.query || resultsInput.value, tab.dataset.type)));
+document.querySelectorAll("[data-type]").forEach(tab => tab.addEventListener("click", () => tab.dataset.type==="translate" ? renderTranslator() : performSearch(state.query || resultsInput.value, tab.dataset.type)));
 byId("copy-search").addEventListener("click", () => copyText(location.href));
 sourceFilter.addEventListener("change", () => {
   state.selectedSource = sourceFilter.value;
@@ -754,7 +768,9 @@ window.addEventListener("popstate", () => {
   const params = new URLSearchParams(location.search);
   const q = params.get("q");
   if (q) runOmnibox(q, params.get("type") || "all", false);
-  else { state.controller?.abort(); state.sequence++; hero.hidden = false; resultsView.hidden = true; }
+  else if(params.get("type")==="translate")renderTranslator(false);
+  else { translator.hide();state.controller?.abort(); state.sequence++; hero.hidden = false; resultsView.hidden = true; }
 });
 const params = new URLSearchParams(location.search);
 if (params.get("q")) runOmnibox(params.get("q"), params.get("type") || "all", false);
+else if(params.get("type")==="translate")renderTranslator(false);

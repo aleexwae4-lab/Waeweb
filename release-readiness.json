@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC27 brands first-party WAEWEB map UI while keeping visible OpenStreetMap contributors/ODbL credit adjacent to map. Does not hide cross-origin embed content. Deployed routing/auth and mobile E2E remain unverified; Vercel untouched directly. HOLD.",
+      "reason": "RC28 adds translator tab and short-text external translation through MyMemory or configured LibreTranslate, with explicit user submission, preview-safe POST and private vault isolation. Provider quotas, deployed HTTP access, commercial terms and mobile E2E need live verification. Vercel untouched directly; HOLD.",
       "evidence": ""
     },
     {
