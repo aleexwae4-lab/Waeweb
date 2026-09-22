@@ -47,7 +47,7 @@ export async function handler(req, res) {
   catch { return write(res, 400, { error: "URL inválida." }); }
   if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.2.0" });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
-    providers: ["Wikipedia", "Crossref", "OpenAlex", "Wikimedia Commons", "Open-Meteo"],
+    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
