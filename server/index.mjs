@@ -100,8 +100,9 @@ export async function handler(req, res) {
     localResearchLibrary: true,
     readerEnabled: readerAvailable(),
     vaultRequired: true,
-    indexPersistence: readerAvailable() && process.env.WAE_VAULT_STORE === "postgres" ?
-      "encrypted_postgres_per_vault" : "encrypted_local_disk_per_vault",
+    indexPersistence: !readerAvailable() ? "disabled" :
+      process.env.WAE_VAULT_STORE === "postgres" ?
+        "encrypted_postgres_per_vault" : "encrypted_local_disk_per_vault",
     encryption: "AES-256-GCM",
     accountsEnabled: accountsEnabled(),
     promotionsEnabled: Boolean(billingConfig()) && accountsEnabled(),
