@@ -240,6 +240,10 @@ export async function logoutAccount(header, base) {
 }
 function businessValue(data) {
   const website = typeof data?.website === "string" ? data.website.trim() : "";
+  // Optional public business contact. Require explicit international E.164 consent.
+  const whatsapp = typeof data?.whatsapp === "string" ? data.whatsapp.trim() : "";
+  if (whatsapp && !/^\+[1-9]\d{7,14}$/.test(whatsapp))
+    fail("invalid_whatsapp","Usa el prefijo internacional, por ejemplo +5213312345678.");
   let safeWebsite = null;
   if (website) {
     try {
@@ -253,7 +257,8 @@ function businessValue(data) {
     category: nameValue(data?.category, 2, 80, "Sector"),
     city: nameValue(data?.city, 2, 100, "Ciudad"),
     description: data?.description ? nameValue(data.description, 2, 800, "Descripción") : "",
-    website: safeWebsite
+    website: safeWebsite,
+    whatsapp: whatsapp || null
   };
 }
 export async function listBusinesses(header, base) {
@@ -428,6 +433,7 @@ function publicBusiness(item) {
   return {
     id: item.id, name: item.name, category: item.category, city: item.city,
     description: item.description, website: item.website,
+    whatsapp: item.whatsapp || null,
     verification: "self_declared"
   };
 }
