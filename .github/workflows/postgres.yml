@@ -13,6 +13,8 @@ on:
       - "server/marketplace-object-archive.mjs"
       - "server/marketplace-object-archive-io.mjs"
       - "server/marketplace-object-restore.mjs"
+      - "server/marketplace-archive-set.mjs"
+      - "tests/marketplace-archive-set.test.mjs"
       - "tests/marketplace-object-restore.test.mjs"
       - "tests/marketplace-object-archive.test.mjs"
       - "tests/marketplace-object-inventory.test.mjs"
