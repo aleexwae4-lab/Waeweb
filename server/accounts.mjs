@@ -11,6 +11,7 @@ import { mediaConfig, mediaSelected, decodeMarketPhoto, makeMediaKey, putMarketI
 import { validId, validateInquiry, validateReport, newInquiry, newReport, publicInquiryReceipt, MarketplaceTrustError } from "./marketplace-trust.mjs";
 import { queueMediaDeletion, pendingMedia, referencedMedia, mediaJournalSummary, mediaReferenceManifest, MediaJournalError } from "./marketplace-lifecycle.mjs";
 import { probeMediaReferences } from "./marketplace-recovery.mjs";
+import { auditMediaDigests } from "./marketplace-integrity-audit.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -701,7 +702,7 @@ export async function uploadMarketPhoto(header, businessId, listingId, data, bas
     fail("listing_missing","Publicación no encontrada.",404);
   const bytes=decodeMarketPhoto(data?.imageDataUrl);
   const key=makeMediaKey(businessId,listingId);
-  await putMarketImage(media,key,bytes,transport);
+  const savedImage=await putMarketImage(media,key,bytes,transport);
   let previousKey;
   let item;
   try {
@@ -713,6 +714,7 @@ export async function uploadMarketPhoto(header, businessId, listingId, data, bas
       if (previousKey && previousKey !== key) queueMediaDeletion(db,previousKey);
       // The object has been uploaded before committing its reference.
       Object.assign(listing,{imageKey:key,imageType:"image/jpeg",imageDataUrl:null,
+        imageSha256:savedImage.checksum,imageBytes:savedImage.size,
         updatedAt:new Date().toISOString()});
       return listing;
     },base);
@@ -767,6 +769,7 @@ export async function removeMarketPhoto(header,businessId,listingId,base,
     oldKey=listing.imageKey;
     queueMediaDeletion(db,oldKey);
     listing.imageKey=null;listing.imageType=null;listing.imageDataUrl=null;
+    listing.imageSha256=null;listing.imageBytes=null;
     listing.updatedAt=new Date().toISOString();
     return listing;
   },base);
@@ -825,6 +828,21 @@ export async function auditMarketMediaPresence({
   if(base===undefined && !postgresAccountsSelected())
     throw new MediaJournalError("media_recovery_postgres_required");
   return probeMediaReferences(await readDb(base),{
+    media,transport,offset,limit,readCurrent:()=>readDb(base)
+  });
+}
+
+export async function auditMarketMediaIntegrity({
+  base,media=mediaConfig(),transport=fetch,offset=0,limit=5
+}={}) {
+  if(!accountsEnabled())fail("accounts_disabled","Cuentas desactivadas.",503);
+  if(base===undefined && !postgresAccountsSelected())
+    throw new MediaJournalError("media_recovery_postgres_required");
+  if(base!==undefined && process.env.NODE_ENV!=="test")
+    throw new MediaJournalError("media_recovery_postgres_required");
+  if(base===undefined && process.env.WAE_MARKET_MEDIA_AUDIT_ACK!=="reviewed-read-only-media-audit")
+    throw new MediaJournalError("media_audit_not_authorized");
+  return auditMediaDigests(await readDb(base),{
     media,transport,offset,limit,readCurrent:()=>readDb(base)
   });
 }
