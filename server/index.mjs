@@ -12,6 +12,7 @@ import { billingConfig, createStripeCheckout, retrieveStripeSubscription, verify
 import { MarketplaceError } from "./marketplace.mjs";
 import { MarketplaceTrustError } from "./marketplace-trust.mjs";
 import { mediaConfig, MarketMediaError } from "./marketplace-media.mjs";
+import { MediaJournalError } from "./marketplace-lifecycle.mjs";
 import { accountsEnabled, listOwnerListings, addMarketListing, editMarketListing, setMarketListingVisibility, deleteMarketListing, getPublicMarketCatalog, browseMarketplace, uploadMarketPhoto, getMarketPhotoLink, getPublicMarketPhotoLink, removeMarketPhoto, getMarketInquiries, sendMarketInquiry, reportMarketListing, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
@@ -364,6 +365,7 @@ export async function handler(req, res) {
       if (error instanceof BillingError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof MarketplaceError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof MarketMediaError) return write(res,error.status,{error:"Fotografía no disponible o inválida.",code:error.code});
+      if (error instanceof MediaJournalError) return write(res,error.status,{error:"Almacenamiento de fotografías pendiente de revisión.",code:error.code});
       if (error instanceof MarketplaceTrustError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof AccountError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
