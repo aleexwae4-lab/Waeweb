@@ -13,7 +13,7 @@ async function checkRoute(api,path,status) {
     const response=await fetch("http://127.0.0.1:"+server.address().port+path);
     assert.equal(response.status,status,path);
     assert.equal(response.headers.get("x-waeweb-api"),"1",path);
-    assert.match(response.headers.get("content-type")||"",/application\\/json/);
+    assert.ok((response.headers.get("content-type")||"").includes("application/json"));
     return await response.json();
   } finally {if(server.listening)await new Promise(resolve=>server.close(resolve));}
 }
