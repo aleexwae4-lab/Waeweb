@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
+import { readAndIndex, searchIndex, indexSize, getIndexedDocument, ReaderError } from "./reader.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const files = new Map([
@@ -45,17 +46,44 @@ export async function handler(req, res) {
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
-  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.2.0" });
+  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.3.0" });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
+    readerEnabled: process.env.WAE_READER_ENABLED === "true",
+    indexSize: indexSize(),
+    indexPersistence: "memory_only",
     deploymentConnected: false
   });
   if (u.pathname.startsWith("/api/")) {
     if (limited(req)) return write(res, 429, { error: "Demasiadas consultas. Intenta de nuevo en un minuto." }, { "retry-after": "60" });
     try {
+      if (u.pathname === "/api/index/search") {
+        const q = u.searchParams.get("q") || "";
+        if (q.length > 180) return write(res, 400, { error: "La consulta supera 180 caracteres." });
+        const data = searchIndex(q);
+        return write(res, data.error ? 400 : 200, data);
+      }
+      if (u.pathname === "/api/read") {
+        if (process.env.WAE_READER_ENABLED !== "true") {
+          return write(res, 503, { error: "Lector desactivado. Configura WAE_READER_ENABLED=true solo en un entorno de desarrollo controlado." });
+        }
+        const target = u.searchParams.get("url") || "";
+        if (!target || target.length > 1800) return write(res, 400, { error: "Proporciona una URL HTTPS de máximo 1800 caracteres." });
+        try {
+          const data = await readAndIndex(target);
+          return write(res, 200, data);
+        } catch (error) {
+          if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
+          throw error;
+        }
+      }
+      if (u.pathname === "/api/index/document") {
+        const data = getIndexedDocument(u.searchParams.get("id") || "");
+        return data ? write(res, 200, data) : write(res, 404, { error: "Documento no disponible en el índice temporal." });
+      }
       if (u.pathname === "/api/search") {
         const q = u.searchParams.get("q") || "";
         if (q.length > 180) return write(res, 400, { error: "La consulta supera 180 caracteres." });
