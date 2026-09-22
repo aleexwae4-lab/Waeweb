@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC20 adds signed bounded S3 inventory plus private AES-256-GCM JPEG capsules tied to an authenticated PostgreSQL recovery checksum; RC21 adds offline missing-only conditional PUT restore and post-write SHA-256 checks in disposable CI. No independent cloud backup, provider IAM/versioning validation, cross-store transaction or measured RPO/RTO. HOLD.",
+      "reason": "RC22 authenticates an operator-supplied complete set of encrypted media capsules against one verified PostgreSQL backup, with duplicate/overlap/gap detection and bounded 100-file audit. RC21 tested missing-only conditional PUT recovery in disposable CI. Still no independent external custody, real-provider versioning/IAM restore test, full catalog beyond per-run limit, cross-store transaction or measured RPO/RTO. HOLD.",
       "evidence": ""
     },
     {
@@ -41,7 +41,7 @@
     {
       "id": "marketplace",
       "status": "blocked",
-      "reason": "RC20 detects referenced, queued, orphan-candidate and missing objects without deletion and archives verified JPEG bytes into encrypted offline batches. RC21 requires matching PostgreSQL backup/target and empty deletion journal before conditional no-overwrite object restore. Real provider rehearsal, independent copy custody, legacy migration, E2E mobile, privacy, payments and external security review remain blocked. HOLD."
+      "reason": "RC22 distinguishes complete PostgreSQL-bound local archive coverage from incomplete/overlapping/tampered media capsules without object writes; RC21 restores only confirmed-missing objects. Real-provider recovery, custody, legacy migration, E2E mobile, privacy, moderation, payments and external security validation remain blocked. HOLD."
     }
   ]
 }
