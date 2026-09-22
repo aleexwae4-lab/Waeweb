@@ -9,6 +9,8 @@ on:
       - "server/marketplace-recovery.mjs"
       - "server/marketplace-integrity.mjs"
       - "server/marketplace-integrity-audit.mjs"
+      - "server/marketplace-object-inventory.mjs"
+      - "tests/marketplace-object-inventory.test.mjs"
       - "server/marketplace-restored-audit.mjs"
       - "tests/marketplace-restored-audit.test.mjs"
       - "tests/marketplace-integrity.test.mjs"
