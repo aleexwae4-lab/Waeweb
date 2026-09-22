@@ -61,6 +61,14 @@ async function showProfile(id) {
       }
     } catch { /* A malformed optional URL is never rendered as an active link. */ }
   }
+  if (typeof b.whatsapp === "string" && /^\\+[1-9]\\d{7,14}$/.test(b.whatsapp)) {
+    const contact=textNode("a","business-primary","WhatsApp comercial ↗");
+    contact.href="https://wa.me/"+b.whatsapp.slice(1);
+    contact.target="_blank";
+    contact.rel="noopener noreferrer";
+    contact.referrerPolicy="no-referrer";
+    actions.append(contact);
+  }
   const copy = textNode("button", "business-primary", "⧉ Compartir este perfil");
   copy.type = "button";
   copy.addEventListener("click", async () => {
