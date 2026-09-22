@@ -120,8 +120,8 @@ test("reader API is opt-in and does not issue network calls by default", async (
     assert.match((await response.json()).error, /Lector desactivado/);
     const caps = await (await fetch(base + "/api/capabilities")).json();
     assert.equal(caps.readerEnabled, false);
-    assert.equal(caps.indexPersistence, "memory_only");
-    assert.equal((await fetch(base + "/api/index/search?q=a")).status, 400);
+    assert.equal(caps.indexPersistence, "local_disk_per_vault");
+    assert.equal((await fetch(base + "/api/index/search?q=a")).status, 503);
   } finally {
     await new Promise(resolve => server.close(resolve));
     if (previous !== undefined) process.env.WAE_READER_ENABLED = previous;
