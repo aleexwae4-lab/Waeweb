@@ -32,7 +32,7 @@ export function listingCard(item) {
     el("p","business-fineprint",
       item.availability === "available" ? "Disponible (declarado)" : "No disponible")
   );
-  const a = el("a","business-primary market-profile-link","Ver empresa y contactar →");
+  const a = el("a","business-primary market-profile-link","Ver perfil de empresa →");
   a.href = "/?business=" + encodeURIComponent(item.businessId);
   body.append(a); card.append(body);
   return card;
