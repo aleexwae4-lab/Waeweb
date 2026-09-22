@@ -95,6 +95,21 @@ function usableUrl(value) {
       !url.username && !url.password && Boolean(url.hostname);
   }catch{return false;}
 }
+function safeBrief(value) {
+  if(!value || typeof value!=="object" || Array.isArray(value) ||
+     value.kind!=="extractive" || !Array.isArray(value.notes))return null;
+  const notes=value.notes.filter(note=>note && typeof note==="object" &&
+    usableUrl(note.url)).slice(0,4).map(note=>({
+    statement:textField(note.statement,400),title:textField(note.title,300),
+    source:textField(note.source,120),url:note.url,
+    date:textField(note.date,40)||null
+  })).filter(note=>note.statement && note.title && note.source);
+  return {
+    kind:"extractive",label:textField(value.label,120),notes,
+    domainsRepresented:new Set(notes.map(n=>new URL(n.url).hostname)).size,
+    disclaimer:"Extractos atribuidos a fuentes externas; no son verificación independiente."
+  };
+}
 export function safeResults(payload,params) {
   if(!payload || typeof payload!=="object" || Array.isArray(payload))
     return {ok:false,contract:CONNECT_VERSION,error:"invalid_search_response"};
@@ -124,7 +139,7 @@ export function safeResults(payload,params) {
     results:mapped,sources,failedSources,
     fetchedAt:typeof payload.fetchedAt==="string" &&
       !Number.isNaN(Date.parse(payload.fetchedAt))?payload.fetchedAt:new Date().toISOString(),
-    brief:payload.brief&&typeof payload.brief==="object"?null:textField(payload.brief,1200)||null,
+    brief:safeBrief(payload.brief),
     freshness:params.fresh?"bypass_waeweb_cache":"standard_cache",
     disclaimer:"Fuentes externas no verificadas; un resultado parcial no implica cobertura exhaustiva."
   };
