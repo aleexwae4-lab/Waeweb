@@ -8,7 +8,10 @@ import { accountKey } from "./accounts.mjs";
 import { vaultConfig, decodeEncryptedVault } from "./vault.mjs";
 import { vaultKeysConfig, encryptionReady, openVaultEnvelope } from "./crypto.mjs";
 import { mediaConfig } from "./marketplace-media.mjs";
-import { assessRestoredMarketplaceMedia } from "./marketplace-restored-audit.mjs";
+import { assessRestoredMarketplaceMedia, sameRecoveryData, backupMediaRecords } from "./marketplace-restored-audit.mjs";
+import { mediaIntegrityManifest } from "./marketplace-integrity-audit.mjs";
+import { createMarketMediaArchive, openMarketMediaArchive } from "./marketplace-object-archive.mjs";
+import { saveMarketMediaArchive, loadMarketMediaArchive } from "./marketplace-object-archive-io.mjs";
 
 const TYPE = "waeweb-encrypted-postgres-recovery";
 const MAX_BYTES = 160 * 1024 * 1024;
@@ -235,4 +238,52 @@ export async function verifyRestoredMarketplaceMedia(filename,{
   return { ...report, backupChecksum:result.checksum,
     sourceBackupVerified:true, objectBackupVerified:false,
     restoreCertified:false, releaseApproval:"not_evaluated" };
+}
+
+
+/**
+ * RC20: export up to 5 authentic JPEG bytes to an AES-256-GCM sealed private
+ * file bound to an authenticated PostgreSQL backup checksum.
+ * No object write, no automatic restore, no public API.
+ */
+export async function backupMarketMediaForPostgres(filename,{
+  media=mediaConfig(),transport=fetch,offset=0,limit=5
+}={}){
+  if(process.env.NODE_ENV!=="test" &&
+    process.env.WAE_MARK_MEDIA_BACKUP_ACK!=="reviewed-private-media-backup")
+    reject("media_backup_not_authorized");
+  if(!media)reject("media_backup_provider_required");
+  const {snapshot:source}=await readSnapshot(filename);
+  const current=(await consistentSnapshot()).snapshot;
+  if(!sameRecoveryData(source,current))reject("media_backup_target_mismatch");
+  const db=backupMediaRecords(source,accountKey());
+  const {archive,summary}=await createMarketMediaArchive(db,{
+    key:accountKey(),postgresChecksum:source.checksum,media,transport,offset,limit,
+    readCurrent:async()=>{
+      const latest=(await consistentSnapshot()).snapshot;
+      if(!sameRecoveryData(source,latest))reject("media_backup_database_changed");
+      return backupMediaRecords(latest,accountKey());
+    }
+  });
+  const file=await saveMarketMediaArchive(archive);
+  return {...file,...summary,releaseApproval:"not_evaluated"};
+}
+
+/** Offline authenticity check only. Does not require any S3 credentials. */
+export async function verifyMarketMediaBackup(mediaFilename,postgresFilename){
+  const {snapshot:source}=await readSnapshot(postgresFilename);
+  const db=backupMediaRecords(source,accountKey());
+  const manifest=mediaIntegrityManifest(db);
+  const archive=await loadMarketMediaArchive(mediaFilename);
+  const result=openMarketMediaArchive(archive,{key:accountKey(),
+    postgresChecksum:source.checksum,manifestFingerprint:manifest.fingerprint});
+  const expected=manifest.records.slice(archive.offset,archive.offset+archive.count);
+  if(expected.length!==result.items.length||expected.some((record,i)=>
+      record.key!==result.items[i].key||
+      record.checksum!==result.items[i].checksum||
+      record.size!==result.items[i].size))
+    reject("media_archive_reference_mismatch");
+  return {filename:mediaFilename,postgresFilename,
+    ...result.summary,referenceMatchesPostgres:true,
+    contentsEncrypted:true,releaseApproval:"not_evaluated"};
 }
