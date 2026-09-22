@@ -109,7 +109,7 @@ export async function braveSearch(query, type = "web") {
 export async function openLibrary(query) {
   const u = new URL("https://openlibrary.org/search.json");
   u.search = new URLSearchParams({
-    q: query, limit: "10", fields: "key,title,author_name,first_publish_year,cover_i"
+    q: query, limit: "20", fields: "key,title,author_name,first_publish_year,cover_i"
   }).toString();
   const data = await json(u);
   return (data.docs || []).filter(item => /^\/works\/OL\d+W$/.test(item.key || "")).map(item => {
@@ -197,8 +197,14 @@ export async function gdeltNews(query){
 export function dedupe(items) {
   const seen = new Set();
   return items.filter(item => {
-    const key = item.url.toLowerCase().replace(/\/$/, "");
-    if (!item.title || !urlAllowed(item.url) || seen.has(key)) return false;
+    if(!item.title || !urlAllowed(item.url))return false;
+    const url=new URL(item.url);
+    // Preserve case-sensitive paths and meaningful query parameters. Only
+    // discard tracking identifiers, fragments and an optional path slash.
+    for(const key of [...url.searchParams.keys()])
+      if(/^utm_/i.test(key)||/^(fbclid|gclid|msclkid)$/i.test(key))url.searchParams.delete(key);
+    const key=url.origin.toLowerCase()+url.pathname.replace(/\/$/,"")+url.search;
+    if(seen.has(key))return false;
     seen.add(key);
     return true;
   });
@@ -243,7 +249,7 @@ export async function search(query, type = "all", { fresh = false } = {}) {
   payload.brief = selected === "all" || selected === "research" ? researchBrief(payload.results) : null;
   // Never freeze a transient outage or an unconfigured search category in
   // the cache. A legitimate zero-hit response from a reachable source may cache.
-  if (available.some(name => !name.endsWith(" no configurado"))) {
+  if (!errors.length && available.some(name => !name.endsWith(" no configurado"))) {
     if (cache.size > 200) cache.clear();
     cache.set(key, { value: payload, expires: Date.now() + (selected === "news" ? 60000 : 300000) });
   }
