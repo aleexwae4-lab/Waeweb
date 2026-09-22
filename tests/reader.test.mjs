@@ -42,6 +42,8 @@ test("robots parser honors target agent, wildcards, precedence and Allow overrid
   assert.equal(robotsPermits("User-agent: *\nDisallow: /private\nAllow: /private/public\n", "/private/secret"), false);
   assert.equal(robotsPermits("User-agent: *\nDisallow: /private\nAllow: /private/public\n", "/private/public/help"), true);
   assert.equal(robotsPermits("User-agent: *\nDisallow: /\n", "/"), false);
+  assert.equal(robotsPermits("User-agent: *\nDisallow: /private$\n", "/private"), false);
+  assert.equal(robotsPermits("User-agent: *\nDisallow: /private$\n", "/private/public"), true);
 });
 test("extract HTML strips executable markup, titles, entities and tags", () => {
   const data = extractHtml('<html><head><title>WAE &amp; ciencia</title><style>bad</style></head><body><nav>menu</nav><main><h1>Informe</h1><p>La ciencia &lt;avanza&gt;.</p><script>steal()</script></main></body></html>');
