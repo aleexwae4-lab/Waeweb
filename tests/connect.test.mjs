@@ -148,6 +148,19 @@ test("Connect distinguishes verified zero hits, partial outages and no available
   assert.equal(partial.status,"partial");
   assert.deepEqual(partial.failedSources,["Crossref"]);
   assert.equal(partial.results.length,1);
+  const brief=safeResults({
+    query:"evidencia",sources:["Wikipedia"],failedSources:[],
+    results:[{title:"Hecho con fuente",url:"https://example.org/evidence",
+      snippet:"Extracto documentado",source:"Wikipedia"}],
+    brief:{kind:"extractive",label:"Panorama documental",
+      notes:[{statement:"Hecho atribuido",title:"Página",
+        source:"Wikipedia",url:"https://example.org/evidence"}]}
+  },params);
+  assert.equal(brief.brief.kind,"extractive");
+  assert.equal(brief.brief.notes[0].source,"Wikipedia");
+  assert.equal(brief.brief.notes[0].url,"https://example.org/evidence");
+  assert.match(brief.brief.disclaimer,/no son verificación/);
+
   const unavailable=safeResults({query:"evidencia",results:[],
     sources:["Google no configurado"],failedSources:["Wikipedia"]},params);
   assert.equal(unavailable.ok,false);
