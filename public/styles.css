@@ -148,3 +148,24 @@
 .browser-empty p{max-width:470px;font-size:14px;color:#506281}
 @media(max-width:720px){.browser-view{padding:4px 9px 20px}.browser-disclaimer{font-size:11px}.browser-toolbar{gap:4px;padding:7px}.browser-tool,.browser-go{padding:9px 7px;font-size:11px}.browser-external{max-width:76px;white-space:normal;text-align:center}.browser-form{padding-left:6px;gap:4px}.browser-form input{font-size:12px}.browser-tab{min-width:105px}.browser-context{flex-wrap:wrap}.browser-launch{padding:8px;font-size:11px}.browser-privacy{font-size:11px}}
 @media(max-width:430px){.browser-launch{font-size:0}.browser-launch:before{content:"◎";font-size:17px}.browser-toolbar{flex-wrap:wrap}.browser-form{order:-1;flex:1 0 100%;width:100%}.browser-external{max-width:none}}
+
+
+/* WAEWEB Marketplace RC13 */
+.market-filter{display:grid;grid-template-columns:minmax(180px,2fr) minmax(130px,.8fr) minmax(150px,1fr) auto;gap:12px;align-items:end;margin:24px 0;padding:18px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.025)}
+.market-filter label,.market-owner-select{display:flex;flex-direction:column;gap:7px;color:#b8c5da;font-size:12px;font-weight:650}
+.market-filter input,.market-filter select,.market-owner-select select,.business-form select{width:100%;border:1px solid rgba(153,175,224,.24);background:#101827;color:#eef4ff;padding:11px 13px;border-radius:12px}
+.market-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:16px;margin:18px 0}
+.market-card{background:linear-gradient(145deg,rgba(22,29,45,.95),rgba(9,13,23,.93));border:1px solid var(--line);border-radius:20px;overflow:hidden;min-width:0;box-shadow:0 12px 35px rgba(0,0,0,.18);transition:transform .18s,border-color .18s}
+.market-card:hover{transform:translateY(-3px);border-color:rgba(112,169,255,.38)}
+.market-photo{width:100%;height:190px;display:block;object-fit:cover;background:#111827}
+.market-placeholder{height:190px;display:grid;place-items:center;font-size:48px;color:#61708b;background:linear-gradient(135deg,#111a2d,#171329)}
+.market-card-body{padding:17px}.market-card-body h3{margin:9px 0 4px;font-size:17px}.market-price{font-size:18px;font-weight:800;color:#dce9ff;margin:6px 0}.market-profile-link{display:inline-block;text-decoration:none;margin-top:9px}
+.market-pages{display:flex;justify-content:center;align-items:center;gap:13px;margin:20px 0;color:#9cabc2;font-size:12px}
+.market-owner{margin-top:30px;border-top:1px solid var(--line);padding-top:28px}.market-owner-select{max-width:520px;margin:17px 0}
+.market-owner-layout{display:grid;grid-template-columns:minmax(280px,.9fr) minmax(0,1.35fr);gap:22px;align-items:start}.market-owner-list{display:flex;flex-direction:column;gap:11px}
+.market-owner-card{display:grid;grid-template-columns:110px minmax(0,1fr);gap:14px;border:1px solid var(--line);border-radius:17px;padding:12px;background:rgba(255,255,255,.025)}
+.market-owner-thumb{width:110px;height:110px;border-radius:12px;object-fit:cover;background:#111827}.market-owner-card-body h4{margin:6px 0;font-size:15px}.market-owner-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.market-photo-preview{border:1px dashed rgba(150,175,230,.28);padding:9px;border-radius:14px}.market-photo-preview img{width:100%;max-height:220px;object-fit:contain;border-radius:10px}
+.business-catalog{margin-top:24px;padding-top:22px;border-top:1px solid var(--line)}.business-catalog h3{font-size:18px}.business-catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+@media(max-width:850px){.market-filter{grid-template-columns:1fr 1fr}.market-owner-layout{grid-template-columns:1fr}}
+@media(max-width:550px){.market-filter{grid-template-columns:1fr}.market-grid{grid-template-columns:1fr 1fr;gap:10px}.market-photo,.market-placeholder{height:135px}.market-card-body{padding:13px}.market-owner-card{grid-template-columns:82px minmax(0,1fr)}.market-owner-thumb{width:82px;height:82px}.business-catalog-grid{grid-template-columns:1fr 1fr}}
