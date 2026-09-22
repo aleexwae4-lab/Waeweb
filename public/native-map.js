@@ -14,7 +14,7 @@ export function createNativeMap(){
   root.setAttribute("aria-label","Mapa geográfico interactivo WAEWEB");
   const toolbar=document.createElement("div");toolbar.className="wae-native-map-toolbar";
   const title=document.createElement("strong");title.textContent="WAEWEB · MAPA";
-  const tag=document.createElement("span");tag.className="wae-native-map-badge";tag.textContent="Vista geográfica nativa";
+  const tag=document.createElement("span");tag.className="wae-native-map-badge";tag.textContent="Calles · OpenStreetMap";
   toolbar.append(title,tag);
   const area=document.createElement("div");area.className="wae-native-map-area";
   const svg=el("svg");svg.setAttribute("viewBox","0 0 900 460");
@@ -31,13 +31,13 @@ export function createNativeMap(){
   make("⌖ Centrar",()=>{if(point)setView(point);else setWorld();});
   const streets=make("▧ Calles",()=>toggleStreets());
   streets.setAttribute("aria-label","Activar o desactivar cartografía de calles");
-  streets.setAttribute("aria-pressed","false");
+  streets.setAttribute("aria-pressed","true");
   area.append(controls);
   const footer=document.createElement("p");footer.className="wae-native-map-note";
-  footer.textContent="Vista geográfica propia. Pulsa «Calles» para cargar únicamente la cartografía visible de OpenStreetMap. Las rutas aparecen solo si el proveedor devuelve geometría real.";
+  footer.textContent="© OpenStreetMap contributors · cartografía visible cargada por defecto. Las rutas aparecen solo si el proveedor devuelve geometría real.";
   const details=document.createElement("p");details.className="wae-native-map-detail";details.setAttribute("aria-live","polite");
   root.append(toolbar,area,details,footer);
-  let center={latitude:23.6,longitude:-102.5},level=0,point=null,geometry=null,label="",disposed=false,streetsEnabled=false;
+  let center={latitude:23.6,longitude:-102.5},level=0,point=null,geometry=null,label="",disposed=false,streetsEnabled=true;
   const spans=[{lat:40,lon:78},{lat:14,lon:28},{lat:4.5,lon:9},{lat:1.4,lon:2.8},{lat:.4,lon:.8},{lat:.1,lon:.2},{lat:.025,lon:.05}];
   function project(lon,lat){
     const span=spans[level];
@@ -166,7 +166,7 @@ export function createNativeMap(){
     draw();
   });
   for(const name of ["pointerup","pointercancel"])svg.addEventListener(name,()=>{drag=null;});
-  svg.addEventListener("wheel",e=>{if(!e.ctrlKey)return;e.preventDefault();changeZoom(e.deltaY<0?1:-1);},{passive:false});
+  svg.addEventListener("wheel",e=>{e.preventDefault();changeZoom(e.deltaY<0?1:-1);},{passive:false});
   svg.addEventListener("keydown",e=>{
     const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];
     if(delta){
