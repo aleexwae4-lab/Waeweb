@@ -64,7 +64,7 @@ test("RC23 detects missing ciphertext, byte corruption, injected files and symli
     await rm(join(path,"extra.txt"));
     await rename(media,join(base,"held.media"));
     await assert.rejects(()=>readPortableRecovery(a.packageName,{root}),
-      {code:"portable_file_missing"});
+      {code:"portable_unexpected_file"});
     await symlink(join(base,"held.media"),media);
     await assert.rejects(()=>readPortableRecovery(a.packageName,{root}),
       {code:"portable_file_unsafe"});
