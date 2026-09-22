@@ -29,6 +29,10 @@ const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
 let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "" };
 let activeDirections=null;
+let activeInlineVideo=null;
+function stopInlineVideo(){
+  if(activeInlineVideo){activeInlineVideo.pause();activeInlineVideo.removeAttribute("src");activeInlineVideo.load();activeInlineVideo=null;}
+}
 function stopDirections(){activeDirections?.dispose();activeDirections=null;}
 const translator = createTranslator({getJSON,resultsContainer,stats,sourceFilter,answer,weatherSlot,panel});
 function renderTranslator(push=true){
@@ -203,6 +207,31 @@ function renderResult(item, index) {
   if (state.type === "books") card.append(element("span", "tag media-context", "Ficha bibliográfica · Comprueba edición y disponibilidad en origen"));
   if (state.type === "videos") card.append(element("span", "tag media-context", "Vídeo · Ver en la fuente original"));
   if (item.snippet) card.append(element("p", "snippet", item.snippet));
+  if(state.type==="videos" && /^https:\/\/upload\.wikimedia\.org\//.test(item.mediaUrl||"")){
+    const stream=element("video","video-native-player");
+    stream.controls=true;stream.preload="none";stream.playsInline=true;
+    stream.referrerPolicy="no-referrer";
+    if(safeUrl(item.image))stream.poster=safeUrl(item.image);
+    stream.hidden=true;
+    const playback=element("p","video-playback-status");
+    playback.setAttribute("role","status");
+    const play=button("▷ Reproducir aquí",()=>{
+      if(activeInlineVideo && activeInlineVideo!==stream)stopInlineVideo();
+      if(stream.hidden){
+        stream.hidden=false;stream.src=item.mediaUrl;activeInlineVideo=stream;
+        play.textContent="Ⅱ Pausar";
+        stream.play().catch(()=>{
+          playback.textContent="Este archivo no se pudo reproducir aquí. Usa el enlace a la fuente original.";
+          play.textContent="▷ Reintentar";
+        });
+      }else if(stream.paused){
+        activeInlineVideo=stream;
+        stream.play().catch(()=>{playback.textContent="Reproducción no disponible. Abre la fuente original.";});
+        play.textContent="Ⅱ Pausar";
+      }else{stream.pause();play.textContent="▷ Continuar";}
+    },"save-button");
+    card.append(play,stream,playback);
+  }
   const meta = element("div", "meta-line");
   if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
   meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Navegar aquí", () => openBrowser(url), "save-button"));
@@ -423,6 +452,7 @@ function renderPublicBusiness(item) {
   return card;
 }
 function renderData(data) {
+  stopInlineVideo();
   state.data = data;
   const allResults = data.results || [];
   const options = [...new Set(allResults.map(item => item.source).filter(Boolean))].sort();
@@ -803,6 +833,7 @@ function showEmptyCategory(type,push=true){
   if(push)history.pushState({type},"",location.pathname+"?type="+encodeURIComponent(type));
 }
 async function performSearch(query, type = "all", push = true) {
+  stopInlineVideo();
   stopDirections();
   translator.hide();sourceFilter.hidden=false;
   if(type==="translate"){renderTranslator(push);return;}
