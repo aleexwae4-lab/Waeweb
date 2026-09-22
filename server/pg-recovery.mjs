@@ -292,23 +292,25 @@ export async function verifyMarketMediaBackup(mediaFilename,postgresFilename){
 
 
 /**
- * RC20 write-capable command, NEVER automatic: source PG backup must match
- * live/offline PG target byte-for-byte before touching any object.
+ * RC21 operator-confirmed OFFLINE restore, bounded to one authenticated
+ * archive and exactly the PostgreSQL snapshot it was created for.
  */
 export async function restoreMarketMediaForPostgres(mediaFilename,postgresFilename,{
-  media=mediaConfig(),transport=fetch,confirm=false
+  media=mediaConfig(),transport=fetch,offlineConfirmed=false
 }={}){
-  if(!confirm)reject("media_restore_confirmation_required");
-  if(process.env.NODE_ENV!=="test"&&
-     process.env.WAE_MARK_MEDIA_RESTORE_ACK!=="reviewed-offline-missing-objects-only")
+  if(!offlineConfirmed ||
+      process.env.NODE_ENV!=="test" &&
+      process.env.WAE_MARK_MEDIA_RESTORE_ACK!=="reviewed-offline-missing-objects-only")
     reject("media_restore_not_authorized");
   if(!media)reject("media_restore_provider_required");
   const {snapshot:source}=await readSnapshot(postgresFilename);
-  const current=(await consistentSnapshot()).snapshot;
-  if(!sameRecoveryData(source,current))reject("media_restore_target_mismatch");
   const archive=await loadMarketMediaArchive(mediaFilename);
-  return restoreArchivedMarketMedia(source,current,archive,{
+  const current=(await consistentSnapshot()).snapshot;
+  const report=await restoreArchivedMarketMedia(source,current,archive,{
     key:accountKey(),media,transport,
     readCurrent:async()=>(await consistentSnapshot()).snapshot
   });
+  return {...report,mediaFilename,postgresFilename,
+    sourceBackupVerified:true,releaseApproval:"not_evaluated",
+    restoreCertified:false};
 }
