@@ -6,7 +6,7 @@ import { search, weather } from "./search.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
 import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError } from "./vault.mjs";
 import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
-import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusinessVisibility, listPublicBusinesses } from "./accounts.mjs";
+import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const files = new Map([
@@ -14,6 +14,7 @@ const files = new Map([
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/accounts.js", ["accounts.js", "text/javascript; charset=utf-8"]],
+  ["/business-profile.js", ["business-profile.js", "text/javascript; charset=utf-8"]],
   ["/workspace.js", ["workspace.js", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
   ["/favicon.svg", ["favicon.svg", "image/svg+xml"]],
@@ -80,7 +81,7 @@ export async function handler(req, res) {
   let u;
   try { u = new URL(req.url, "http://localhost"); }
   catch { return write(res, 400, { error: "URL inválida." }); }
-  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.6.0" });
+  if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: "0.7.0" });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Open-Meteo"],
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
@@ -91,20 +92,23 @@ export async function handler(req, res) {
     indexPersistence: "encrypted_local_disk_per_vault",
     encryption: "AES-256-GCM",
     accountsEnabled: accountsEnabled(),
-    businessRegistration: accountsEnabled() ? "owner_only_self_declared" : "disabled",
+    businessRegistration: accountsEnabled() ? "owner_controlled_self_declared" : "disabled",
+    publicBusinessProfiles: accountsEnabled(),
     deploymentConnected: false
   });
   const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses", "/api/businesses/public"]);
   const businessDelete = /^\/api\/businesses\/[0-9a-f-]{36}$/i.test(u.pathname);
+  const businessEdit = /^\/api\/businesses\/[0-9a-f-]{36}\/profile$/i.test(u.pathname);
+  const businessPublicProfile = /^\/api\/businesses\/public\/[0-9a-f-]{36}$/i.test(u.pathname);
   if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname))
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
-  if (req.method === "PATCH" && !businessDelete) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
+  if (req.method === "PATCH" && !businessDelete && !businessEdit) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (req.method === "DELETE" && !businessDelete)
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (u.pathname.startsWith("/api/")) {
     if (limited(req)) return write(res, 429, { error: "Demasiadas consultas. Intenta de nuevo en un minuto." }, { "retry-after": "60" });
     try {
-      if (accountRoutes.has(u.pathname) || businessDelete) {
+      if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile) {
         if (!accountsEnabled()) return write(res, 503, { error: "Cuentas desactivadas. Configura WAE_ACCOUNTS_ENABLED y WAE_ACCOUNTS_KEY en el servidor." });
         if (req.method === "POST" && (u.pathname === "/api/account/register" || u.pathname === "/api/account/login")) {
           const action = u.pathname.endsWith("register") ? "register" : "login";
@@ -119,6 +123,9 @@ export async function handler(req, res) {
         if (req.method === "POST" && u.pathname === "/api/account/logout") {
           return write(res, 200, await logoutAccount(req.headers.authorization));
         }
+        if (businessPublicProfile && req.method === "GET") {
+          return write(res, 200, await getPublicBusiness(u.pathname.slice("/api/businesses/public/".length)));
+        }
         if (u.pathname === "/api/businesses/public" && req.method === "GET") {
           return write(res, 200, await listPublicBusinesses(u.searchParams.get("q") || ""));
         }
@@ -128,6 +135,11 @@ export async function handler(req, res) {
         if (u.pathname === "/api/businesses" && req.method === "POST") {
           const body = await jsonBody(req);
           return write(res, 201, { business: await addBusiness(req.headers.authorization, body) });
+        }
+        if (businessEdit && req.method === "PATCH") {
+          const body = await jsonBody(req);
+          return write(res, 200, { business: await updateBusiness(req.headers.authorization,
+            u.pathname.slice("/api/businesses/".length, -"/profile".length), body) });
         }
         if (businessDelete && req.method === "PATCH") {
           const body = await jsonBody(req);
