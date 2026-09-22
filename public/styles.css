@@ -734,3 +734,21 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .youtube-inline-frame{min-height:195px}
  .video-result .meta-line .save-button{flex:1 1 130px}
 }
+
+/* RC41 · Platform-specific discovery: accessible counts, touch-sized controls,
+   truthful provider availability and direct origin-first clip navigation. */
+.video-platform-filters{display:flex;flex-wrap:wrap;gap:8px;padding:6px 0 11px}
+.video-platform-filter{min-height:44px;min-width:80px;padding:9px 15px;border:1px solid rgba(143,184,240,.35);border-radius:999px;background:#101e32;color:#c8d8ee;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
+.video-platform-filter:hover,.video-platform-filter:focus-visible{border-color:#9ec8ff;background:#213c62;color:#f4f9ff}
+.video-platform-filter[aria-pressed="true"]{background:linear-gradient(135deg,#315b90,#203b66);border-color:#a7ceff;color:#fff;box-shadow:0 5px 18px rgba(9,25,49,.34)}
+.video-coverage-notice{padding:14px 16px;border:1px solid rgba(145,185,241,.36);border-left:3px solid #91baff;border-radius:13px;background:linear-gradient(135deg,#152941,#0d1a30);color:#dce9ff;margin:2px 0 12px}
+.video-coverage-notice strong{font-size:13px;font-weight:800}
+.video-coverage-notice p{font-size:12px;line-height:1.58;color:#bdcbe2;margin:7px 0 0}
+.video-result a.result-title{text-decoration:none;color:#abd0ff}
+.video-result a.result-title:hover{text-decoration:underline;text-underline-offset:4px}
+@media(max-width:600px){
+ .video-platform-filters{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:11px}
+ .video-platform-filter{flex:0 0 auto;scroll-snap-align:start}
+ .video-coverage-notice{padding:12px 13px}
+}
+@media(prefers-reduced-motion:reduce){.video-platform-filter{transition:none}}
