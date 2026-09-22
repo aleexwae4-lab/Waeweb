@@ -5,6 +5,10 @@ let enabled = false;
 let session = null; // Deliberately not stored in localStorage, cookies, URLs or HTML.
 let profile = null;
 let editingBusiness = null;
+let selectedBusiness = "";
+let editingListing = null;
+let photoData = undefined;
+let ownerRequest = 0;
 const text = (node, value) => { node.textContent = String(value ?? ""); return node; };
 function make(tag, className = "", value) {
   const node = document.createElement(tag);
@@ -19,6 +23,9 @@ function say(message, success = false) {
 function showAccount() {
   $("hero").hidden = true;
   $("results-view").hidden = true;
+  $("marketplace-view").hidden = true;
+  $("business-profile-view").hidden = true;
+  $("browser-view").hidden = true;
   view.hidden = false;
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (!enabled) say("Las cuentas todavía no están activadas en este servidor. El registro real se habilita mediante la configuración privada del operador.");
@@ -60,6 +67,7 @@ function signedOut() {
   $("account-auth").hidden = false;
   $("business-dashboard").hidden = true;
   $("business-list").replaceChildren();
+  resetOwnerMarketplace();
   text($("business-count"), 0);
   $("register-form").reset(); $("login-form").reset(); resetBusinessForm();
   setAuthMode("login");
@@ -87,7 +95,7 @@ async function api(path, { method = "GET", payload, auth = false } = {}) {
   return data;
 }
 function busy(form, value) {
-  for (const element of form.querySelectorAll("button,input,textarea")) element.disabled = value;
+  for (const element of form.querySelectorAll("button,input,textarea,select")) element.disabled = value;
 }
 async function submitForm(form, action) {
   if (!enabled) { say("Registro desactivado en este servidor."); return; }
@@ -166,6 +174,16 @@ function businessCard(business) {
     });
     article.append(copy);
   }
+  const catalog = make("button","small-action","▦ Gestionar catálogo");
+  catalog.type="button";
+  catalog.addEventListener("click",()=>{
+    selectedBusiness=business.id;
+    $("marketplace-business-select").value=business.id;
+    resetListingForm();
+    refreshOwnerListings();
+    $("owner-marketplace").scrollIntoView({behavior:"smooth",block:"start"});
+  });
+  article.append(catalog);
   const remove = make("button", "small-action", "Eliminar ficha");
   remove.type = "button";
   remove.addEventListener("click", async () => {
@@ -189,6 +207,19 @@ async function refreshBusinesses() {
   if (!businesses.length) list.append(make("p", "business-empty",
     "Todavía no has registrado negocios. Utiliza el formulario para crear tu primera ficha."));
   for (const business of businesses) list.append(businessCard(business));
+  const selection=$("marketplace-business-select");
+  selection.replaceChildren(make("option","","Elige un negocio registrado"));
+  selection.firstChild.value="";
+  for (const business of businesses) {
+    const option=make("option","",business.name);
+    option.value=business.id;
+    selection.append(option);
+  }
+  if (selectedBusiness && !businesses.some(b=>b.id===selectedBusiness)) selectedBusiness="";
+  if (!selectedBusiness && businesses.length) selectedBusiness=businesses[0].id;
+  selection.value=selectedBusiness;
+  await refreshOwnerListings();
+
 }
 async function loadCapability() {
   try {
@@ -242,3 +273,191 @@ $("business-form").addEventListener("submit", async event => {
 });
 $("business-cancel-edit").addEventListener("click", resetBusinessForm);
 loadCapability();
+
+function ownerSay(message,success=false) {
+  const node=$("marketplace-owner-status");
+  node.textContent=message || "";
+  node.classList.toggle("success",success);
+}
+function resetListingForm() {
+  editingListing=null;
+  photoData=undefined;
+  $("listing-form").reset();
+  $("listing-form-title").textContent="Nuevo producto o servicio";
+  $("listing-save").textContent="Guardar publicación privada";
+  $("listing-cancel-edit").hidden=true;
+  $("listing-preview").replaceChildren();
+  $("listing-preview").hidden=true;
+  $("listing-photo-remove").hidden=true;
+}
+function resetOwnerMarketplace() {
+  selectedBusiness="";
+  ownerRequest++;
+  resetListingForm();
+  $("marketplace-business-select").replaceChildren();
+  $("listing-form").hidden=true;
+  $("listing-owner-list").replaceChildren();
+  text($("listing-count"),0);
+  ownerSay("");
+}
+function picture(item) {
+  const wrapper=make("div","market-photo-preview");
+  if(item.imageDataUrl?.startsWith("data:image/")) {
+    const image=make("img","market-photo");
+    image.src=item.imageDataUrl;
+    image.alt="Fotografía de "+item.title;
+    wrapper.append(image);
+  } else wrapper.append(make("span","market-placeholder","▦"));
+  return wrapper;
+}
+function priceLabel(item) {
+  return item.priceCents==null?"Consultar precio":
+    new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN"}).format(item.priceCents/100);
+}
+function renderOwnerListing(item) {
+  const card=make("article","business-entry market-owner-card");
+  card.append(picture(item),make("h3","",item.title),
+    make("p","business-meta",(item.kind==="service"?"Servicio":"Producto")+
+      " · "+item.category+" · "+priceLabel(item)),
+    make("p","business-desc",item.description));
+  card.append(make("p","business-fineprint",item.visibility==="public"
+    ?"Visible públicamente":"Privado · Solo tú"));
+  const edit=make("button","small-action","Editar");
+  edit.type="button";
+  edit.addEventListener("click",()=>{
+    editingListing=item.id;
+    const form=$("listing-form");
+    for(const field of ["kind","title","category","description","availability"])
+      form.elements.namedItem(field).value=item[field]||"";
+    form.elements.namedItem("price").value=item.priceCents==null?"":String(item.priceCents/100);
+    photoData=undefined;
+    showPhoto(item.imageDataUrl);
+    $("listing-form-title").textContent="Editar publicación";
+    $("listing-save").textContent="Guardar cambios";
+    $("listing-cancel-edit").hidden=false;
+    form.scrollIntoView({behavior:"smooth",block:"start"});
+  });
+  const visibility=make("button","small-action",
+    item.visibility==="public"?"Ocultar":"Publicar");
+  visibility.type="button";
+  visibility.addEventListener("click",async()=>{
+    const published=item.visibility!=="public";
+    if(published&&!window.confirm("¿Publicar este anuncio en Marketplace como información no verificada?"))return;
+    visibility.disabled=true;
+    try {
+      await api("/api/businesses/"+selectedBusiness+"/listings/"+item.id+"/visibility",{
+        method:"PATCH",auth:true,payload:{published}});
+      await refreshOwnerListings();
+      ownerSay(published?"Anuncio publicado.":"El anuncio vuelve a ser privado.",true);
+    }catch(e){ownerSay(e.message);visibility.disabled=false;}
+  });
+  const remove=make("button","small-action","Eliminar");
+  remove.type="button";
+  remove.addEventListener("click",async()=>{
+    if(!window.confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer."))return;
+    remove.disabled=true;
+    try {
+      await api("/api/businesses/"+selectedBusiness+"/listings/"+item.id,{
+        method:"DELETE",auth:true});
+      if(editingListing===item.id)resetListingForm();
+      await refreshOwnerListings();
+      ownerSay("Publicación eliminada.",true);
+    }catch(e){ownerSay(e.message);remove.disabled=false;}
+  });
+  card.append(edit,visibility,remove);
+  return card;
+}
+async function refreshOwnerListings() {
+  const serial=++ownerRequest;
+  $("listing-form").hidden=!selectedBusiness;
+  const list=$("listing-owner-list");
+  list.replaceChildren();
+  text($("listing-count"),0);
+  if(!selectedBusiness) {
+    list.append(make("p","business-empty","Registra o selecciona una empresa para crear su catálogo."));
+    return;
+  }
+  try {
+    const result=await api("/api/businesses/"+selectedBusiness+"/listings",{auth:true});
+    if(serial!==ownerRequest || !session)return;
+    text($("listing-count"),result.items.length+" / "+result.limit);
+    if(!result.items.length)
+      list.append(make("p","business-empty","Empieza agregando tu primer producto o servicio. Se guarda privado."));
+    for(const item of result.items)list.append(renderOwnerListing(item));
+  }catch(e){if(serial===ownerRequest)ownerSay(e.message);}
+}
+function showPhoto(data) {
+  const preview=$("listing-preview");
+  preview.replaceChildren();
+  preview.hidden=!data;
+  $("listing-photo-remove").hidden=!data;
+  if(data) {
+    const img=make("img","market-photo");
+    img.src=data;
+    img.alt="Vista previa de fotografía";
+    preview.append(img);
+  }
+}
+async function resizePhoto(file) {
+  if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024)
+    throw Error("Selecciona JPEG, PNG o WebP de hasta 5 MB.");
+  const bitmap=await createImageBitmap(file);
+  try {
+    for(const max of [720,600,480,360,260]) {
+      const scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
+      const canvas=document.createElement("canvas");
+      canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+      canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+      const ctx=canvas.getContext("2d");
+      ctx.fillStyle="#ffffff";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+      for(const quality of [.78,.64,.5]) {
+        const output=canvas.toDataURL("image/jpeg",quality);
+        if(output.length<64*1024) return output;
+      }
+    }
+    throw Error("La fotografía sigue siendo demasiado grande: prueba otra.");
+  } finally {bitmap.close?.();}
+}
+$("marketplace-business-select").addEventListener("change",event=>{
+  selectedBusiness=event.target.value;
+  resetListingForm();
+  ownerSay("");
+  refreshOwnerListings();
+});
+$("listing-photo").addEventListener("change",async event=>{
+  const input=event.currentTarget,file=input.files?.[0];
+  if(!file)return;
+  input.disabled=true;
+  try {
+    photoData=await resizePhoto(file);
+    showPhoto(photoData);
+    ownerSay("Fotografía preparada. Guarda la publicación para conservarla.",true);
+  }catch(e){ownerSay(e.message);}
+  finally{input.disabled=false;input.value="";}
+});
+$("listing-photo-remove").addEventListener("click",()=>{
+  photoData=null;
+  showPhoto(null);
+  ownerSay("La fotografía se quitará al guardar.",true);
+});
+$("listing-cancel-edit").addEventListener("click",resetListingForm);
+$("listing-form").addEventListener("submit",async event=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  if(!selectedBusiness||!form.reportValidity())return;
+  const businessId=selectedBusiness;
+  const body=Object.fromEntries(new FormData(form).entries());
+  if(photoData!==undefined)body.imageDataUrl=photoData;
+  busy(form,true);
+  try{
+    await api("/api/businesses/"+businessId+"/listings"+
+      (editingListing?"/"+editingListing:""),{
+      method:editingListing?"PATCH":"POST",auth:true,payload:body});
+    resetListingForm();
+    await refreshOwnerListings();
+    ownerSay("Publicación guardada. Pulsa Publicar cuando quieras hacerla visible.",true);
+  }catch(e){ownerSay(e.message);}
+  finally{busy(form,false);}
+});
