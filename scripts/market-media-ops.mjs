@@ -18,7 +18,7 @@ try {
     console.log(JSON.stringify(result,null,2));
     if(result.status==="attention_required")process.exitCode=2;
   }else if(action==="integrity" &&
-      (!confirmation || /^--offset=(0|[1-9]\\d{0,5})$/.test(confirmation))){
+      (!confirmation || /^--offset=(0|[1-9]\d{0,5})$/.test(confirmation))){
     const offset=confirmation?Number(confirmation.slice("--offset=".length)):0;
     const result=await auditMarketMediaIntegrity({offset});
     console.log(JSON.stringify(result,null,2));
