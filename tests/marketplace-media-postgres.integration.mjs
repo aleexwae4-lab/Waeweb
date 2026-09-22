@@ -2,8 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { createHash } from "node:crypto";
+import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { backupPostgres, backupMarketMediaForPostgres, verifyMarketMediaBackup } from "../server/pg-recovery.mjs";
 import { loginAccount, listBusinesses, addMarketListing, listOwnerListings,
-  setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaPresence, auditMarketMediaIntegrity } from "../server/accounts.mjs";
+  setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaPresence, auditMarketMediaIntegrity, auditMarketMediaInventory } from "../server/accounts.mjs";
 import { readAccountsPostgres, closeAccountsPostgres } from "../server/accounts-postgres.mjs";
 import { handler } from "../server/index.mjs";
 
@@ -20,7 +24,9 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
   const original=Object.fromEntries(["WAE_MARKET_MEDIA_STORE","WAE_MEDIA_ENDPOINT",
     "WAE_MEDIA_BUCKET","WAE_MEDIA_REGION","WAE_MEDIA_ACCESS_KEY_ID",
     "WAE_MEDIA_SECRET_ACCESS_KEY","WAE_MEDIA_ALLOW_LOCAL_TEST",
-    "WAE_MARKET_MEDIA_CLEANUP_ACK"].map(x=>[x,process.env[x]]));
+    "WAE_MARKET_MEDIA_CLEANUP_ACK","WAE_PG_BACKUP_DIR",
+    "WAE_MEDIA_BACKUP_DIR"].map(x=>[x,process.env[x]]));
+  const privateTestDir=await mkdtemp(join(tmpdir(),"wae-media-rc20-"));
   const photos=new Map();
   const provider=http.createServer(async(req,res)=>{
     const chunks=[];
@@ -42,6 +48,19 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
       if(!bytes){res.writeHead(404);return res.end();}
       res.writeHead(200,{"content-length":String(bytes.length)});
       return res.end();
+    }
+    if(req.method==="GET" && new URL(req.url,"http://localhost").searchParams.get("list-type")==="2"){
+      if(!req.headers.authorization?.startsWith("AWS4-HMAC-SHA256 ")){
+        res.writeHead(403);return res.end();
+      }
+      const prefix="/"+process.env.WAE_MEDIA_BUCKET+"/";
+      const keys=[...photos.keys()].filter(path=>path.startsWith(prefix))
+        .map(path=>path.slice(prefix.length));
+      const xml='<?xml version="1.0"?><ListBucketResult><IsTruncated>false</IsTruncated>'+
+        keys.map(k=>"<Contents><Key>"+k+"</Key></Contents>").join("")+
+        "</ListBucketResult>";
+      res.writeHead(200,{"content-type":"application/xml"});
+      return res.end(xml);
     }
     if(req.method==="GET") {
       const u=new URL(req.url,"http://localhost");
@@ -119,6 +138,35 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     assert.equal(integrity.status,"batch_verified_only");
     assert.equal(integrity.restoreCertified,false);
     assert.equal(JSON.stringify(integrity).includes(saved.imageKey),false);
+    // RC20: signed, read-only ListObjects inventory against encrypted references.
+    const inventory=await auditMarketMediaInventory({pages:1});
+    assert.equal(inventory.status,"inventory_checked_only");
+    assert.equal(inventory.referenced,1);
+    assert.equal(inventory.orphanCandidates,0);
+    assert.equal(inventory.objectBackupVerified,false);
+    assert.equal(JSON.stringify(inventory).includes(saved.imageKey),false);
+    // RC20: create a real ciphertext-only offline capsule bound to the PG snapshot.
+    const pgDirectory=join(privateTestDir,"postgres");
+    const mediaDirectory=join(privateTestDir,"media");
+    await mkdir(pgDirectory,{mode:0o700});
+    await mkdir(mediaDirectory,{mode:0o700});
+    process.env.WAE_PG_BACKUP_DIR=pgDirectory;
+    process.env.WAE_MEDIA_BACKUP_DIR=mediaDirectory;
+    const pgBackup=await backupPostgres();
+    const objectBackup=await backupMarketMediaForPostgres(pgBackup.filename);
+    assert.equal(objectBackup.checked,1);
+    assert.equal(objectBackup.contentsEncrypted,true);
+    assert.equal(objectBackup.restoreCertified,false);
+    assert.equal(objectBackup.noDeletionPerformed,true);
+    const capsule=await readFile(join(mediaDirectory,objectBackup.filename),"utf8");
+    assert.equal(capsule.includes(saved.imageKey),false);
+    assert.equal(capsule.includes(jpeg.toString("base64")),false);
+    assert.equal(capsule.includes("postgres-owner@example.test"),false);
+    const verifiedCapsule=await verifyMarketMediaBackup(
+      objectBackup.filename,pgBackup.filename);
+    assert.equal(verifiedCapsule.verified,1);
+    assert.equal(verifiedCapsule.referenceMatchesPostgres,true);
+    assert.equal(verifiedCapsule.restoreCertified,false);
     const photoPath="/"+process.env.WAE_MEDIA_BUCKET+"/"+saved.imageKey;
     const originalPhoto=photos.get(photoPath);
     const tamperedPhoto=Buffer.from(originalPhoto);
@@ -161,6 +209,7 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     if(app.listening)await new Promise(resolve=>app.close(resolve));
     if(provider.listening)await new Promise(resolve=>provider.close(resolve));
     await closeAccountsPostgres().catch(()=>{});
+    await rm(privateTestDir,{recursive:true,force:true});
     for(const [key,value] of Object.entries(original)){
       if(value===undefined)delete process.env[key];else process.env[key]=value;
     }
