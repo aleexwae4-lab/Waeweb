@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "Existe adaptador de API Node con ruta catch-all y pruebas HTTP locales PASS, pero faltan validación de ruteo/build en Vercel real, protección antiabuso distribuida y pruebas de runtime desplegado; NO desplegado.",
+      "reason": "WAEWEB tiene adaptador API HTTP local y Connect v1 probado. Las cuotas Connect ya usan PostgreSQL compartido con CI multiproceso PASS; faltan build/ruteo real en Vercel, pruebas E2E de los tres Render y validación del runtime desplegado.",
       "evidence": ""
     },
     {
@@ -17,7 +17,7 @@
     {
       "id": "identity-and-abuse",
       "status": "blocked",
-      "reason": "Faltan verificacion de correo, recuperacion de contrasena y controles antiabuso distribuidos.",
+      "reason": "Connect v1 tiene tokens distintos, admisión PostgreSQL global y proxy Universal Core con secreto entrante separado, pero faltan correo/recovery, controles distribuidos por usuario para login/registro/consumidores y pruebas de abuso en infraestructura real.",
       "evidence": ""
     },
     {
