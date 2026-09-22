@@ -102,6 +102,9 @@ test("HTTP account and business routes work with bearer auth; public service rem
   }
   try {
     assert.equal((await (await fetch(base + "/api/capabilities")).json()).accountsEnabled, true);
+    const ui = await fetch(base + "/accounts.js");
+    assert.equal(ui.status, 200);
+    assert.match(await ui.text(), /business-dashboard/);
     assert.equal((await fetch(base + "/api/account/me")).status, 401);
     const response = await post("/api/account/register", alice);
     assert.equal(response.status, 201);
