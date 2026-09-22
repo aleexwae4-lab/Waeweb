@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { loginAccount, listBusinesses, addMarketListing, listOwnerListings,
-  setMarketListingVisibility, getPublicMarketCatalog } from "../server/accounts.mjs";
+  setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue } from "../server/accounts.mjs";
 import { readAccountsPostgres, closeAccountsPostgres } from "../server/accounts-postgres.mjs";
 import { handler } from "../server/index.mjs";
 
@@ -19,7 +19,8 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
   assert.equal(process.env.WAE_ACCOUNTS_STORE,"postgres");
   const original=Object.fromEntries(["WAE_MARKET_MEDIA_STORE","WAE_MEDIA_ENDPOINT",
     "WAE_MEDIA_BUCKET","WAE_MEDIA_REGION","WAE_MEDIA_ACCESS_KEY_ID",
-    "WAE_MEDIA_SECRET_ACCESS_KEY","WAE_MEDIA_ALLOW_LOCAL_TEST"].map(x=>[x,process.env[x]]));
+    "WAE_MEDIA_SECRET_ACCESS_KEY","WAE_MEDIA_ALLOW_LOCAL_TEST",
+    "WAE_MARKET_MEDIA_CLEANUP_ACK"].map(x=>[x,process.env[x]]));
   const photos=new Map();
   const provider=http.createServer(async(req,res)=>{
     const chunks=[];
@@ -117,6 +118,14 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     const removed=await api(endpoint,"DELETE",undefined,owner.token);
     assert.equal(removed.status,200);
     assert.equal((await api(endpoint,"GET",undefined,owner.token)).status,404);
+    assert.equal(photos.size,1,"image is queued rather than deleted immediately");
+    assert.equal((await inspectMarketMediaQueue()).queued,1);
+    process.env.WAE_MARKET_MEDIA_CLEANUP_ACK="reviewed-object-deletions";
+    const cleaned=await drainMarketMediaQueue({
+      confirm:true,now:Date.now()+360000
+    });
+    assert.equal(cleaned.removed,1);
+    assert.equal(cleaned.remaining,0);
     assert.equal(photos.size,0);
   }finally{
     if(app.listening)await new Promise(resolve=>app.close(resolve));
