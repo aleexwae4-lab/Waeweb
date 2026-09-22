@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Explicit, operator-only media maintenance. Never logs object keys or credentials.
-import { inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaReferences, auditMarketMediaPresence, auditMarketMediaIntegrity } from "../server/accounts.mjs";
+import { inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaReferences, auditMarketMediaPresence, auditMarketMediaIntegrity, auditMarketMediaInventory } from "../server/accounts.mjs";
 try {
   if(process.env.WAE_ACCOUNTS_STORE!=="postgres" ||
       process.env.WAE_MARKET_MEDIA_STORE!=="s3")
@@ -26,6 +26,12 @@ try {
   }else if(action==="verify" && (!confirmation || /^--offset=(0|[1-9]\d{0,5})$/.test(confirmation))){
     const offset=confirmation?Number(confirmation.slice("--offset=".length)):0;
     const result=await auditMarketMediaIntegrity({offset});
+    console.log(JSON.stringify(result,null,2));
+    if(result.status==="attention_required")process.exitCode=2;
+  }else if(action==="inventory" &&
+      (!confirmation || /^--pages=[1-5]$/.test(confirmation))){
+    const pages=confirmation?Number(confirmation.slice("--pages=".length)):2;
+    const result=await auditMarketMediaInventory({pages});
     console.log(JSON.stringify(result,null,2));
     if(result.status==="attention_required")process.exitCode=2;
   }else if(action==="cleanup" && confirmation==="--confirm-deletion"){
