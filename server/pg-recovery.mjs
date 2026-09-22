@@ -12,6 +12,7 @@ import { assessRestoredMarketplaceMedia, sameRecoveryData, backupMediaRecords } 
 import { mediaIntegrityManifest } from "./marketplace-integrity-audit.mjs";
 import { createMarketMediaArchive, openMarketMediaArchive } from "./marketplace-object-archive.mjs";
 import { saveMarketMediaArchive, loadMarketMediaArchive } from "./marketplace-object-archive-io.mjs";
+import { restoreArchivedMarketMedia } from "./marketplace-object-restore.mjs";
 
 const TYPE = "waeweb-encrypted-postgres-recovery";
 const MAX_BYTES = 160 * 1024 * 1024;
