@@ -11,7 +11,7 @@
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "RC11: backup cifrado PostgreSQL, restauración atómica y rollback bajo fallo inyectado PASS en CI (35722504174); se agregan controles de carpetas privadas, permisos y rechazo de symlinks. Pendiente PASS del HEAD RC11, backups externos, recuperación en DB del proveedor, migración file→PostgreSQL y objetivos RPO/RTO. HOLD.",
+      "reason": "RC11 account/vault encrypted PostgreSQL recovery PASS in CI; RC15 photos are separate S3 objects and NOT included in PostgreSQL snapshots. Before launch validate DB + object backup/restore together, real provider, legacy file migration, offsite retention and RPO/RTO. HOLD.",
       "evidence": ""
     },
     {
@@ -41,7 +41,7 @@
     {
       "id": "marketplace",
       "status": "blocked",
-      "reason": "RC14 implementa solicitudes comerciales con consentimiento y bandeja privada, reportes autenticados y moderación manual offline con bloqueo de republicación. Faltan object storage, controles distribuidos antiabuso, procedimiento de apelación, eliminación/retención de datos, E2E móvil y moderación operativa en infraestructura real. HOLD."
+      "reason": "RC15: S3-compatible private JPEG adapter, scoped short-lived signed image links, PostgreSQL encrypted references, owner/public ACL and isolated PostgreSQL+local S3 integration PASS (35731684911). Production remains blocked pending real provider/permissions, object backup/restore, legacy inline migration, orphan cleanup, mobile/security and moderation operations."
     }
   ]
 }
