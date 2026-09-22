@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Explicit, operator-only media maintenance. Never logs object keys or credentials.
-import { inspectMarketMediaQueue, drainMarketMediaQueue } from "../server/accounts.mjs";
+import { inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaReferences } from "../server/accounts.mjs";
 try {
   if(process.env.WAE_ACCOUNTS_STORE!=="postgres" ||
       process.env.WAE_MARKET_MEDIA_STORE!=="s3")
@@ -8,6 +8,9 @@ try {
   const [, ,action,confirmation]=process.argv;
   if(action==="inspect" && !confirmation){
     const result=await inspectMarketMediaQueue();
+    console.log(JSON.stringify({mode:"read_only",...result},null,2));
+  }else if(action==="manifest" && !confirmation){
+    const result=await auditMarketMediaReferences();
     console.log(JSON.stringify({mode:"read_only",...result},null,2));
   }else if(action==="cleanup" && confirmation==="--confirm-deletion"){
     const result=await drainMarketMediaQueue({confirm:true});
