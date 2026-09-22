@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#030407">
+  <meta name="description" content="WAEWEB Libros: espacio editorial para autores independientes. Guarda borradores y conoce el modelo de regalías 70/30.">
+  <title>Libros para autores · WAEWEB</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/libros.css">
+  <script type="module" src="/libros.js"></script>
+</head>
+<body class="book-page">
+  <div class="ambient" aria-hidden="true"><div class="blob one"></div><div class="blob two"></div><div class="blob three"></div></div>
+  <div class="app-shell">
+    <header class="topbar book-topbar">
+      <a class="brand-small book-brand" href="/" aria-label="Volver al buscador WAEWEB">wae<span class="brand-dot">.</span></a>
+      <nav class="book-topnav" aria-label="Navegación editorial">
+        <a href="#catalogo">Explorar libros</a>
+        <a href="#como-funciona">Cómo funciona</a>
+        <a class="book-top-cta" href="#publicar">Mi espacio de autor →</a>
+      </nav>
+    </header>
+    <main id="book-main">
+      <section class="book-hero" aria-labelledby="book-title">
+        <div class="book-hero-copy">
+          <span class="book-eyebrow">WAEWEB · EDITORIAL DIGITAL</span>
+          <h1 id="book-title">Tu historia merece <em>encontrar lectores.</em></h1>
+          <p>Una librería digital pensada para autores independientes. Diseña tu ficha, prepara tu libro y entiende cuánto ganarías por cada venta, sin pasos innecesarios.</p>
+          <div class="book-hero-cta">
+            <a class="book-primary" href="#publicar">Empezar mi libro gratis →</a>
+            <a class="book-secondary" href="#catalogo">Explorar la librería</a>
+          </div>
+          <p class="book-hero-note">Crear cuenta y preparar un libro: sin cuota de entrada. La venta pública está pendiente de activar pagos, alojamiento seguro y revisión editorial.</p>
+        </div>
+        <div class="book-hero-art" aria-hidden="true">
+          <div class="book-glow"></div>
+          <div class="book-cover book-cover-back"><span>WAEWEB</span><strong>ESCRIBE<br>TU<br>HISTORIA</strong><small>EDICIÓN DIGITAL</small></div>
+          <div class="book-cover book-cover-front"><span>WAEWEB LIBROS</span><strong>LA<br>PRÓXIMA<br>GRAN<br>HISTORIA</strong><small>TU LIBRO AQUÍ</small></div>
+          <div class="book-floating-tag">Tu portada. Tu voz. Tus lectores.</div>
+        </div>
+      </section>
+      <div class="book-trustbar" aria-label="Beneficios para autores">
+        <span>✦ Registro gratuito*</span><span>✦ Preparación sin cuota*</span><span>✦ 70 % para el autor</span><span>✦ 30 % para WAEWEB</span>
+      </div>
+      <section id="catalogo" class="book-section book-catalog" aria-labelledby="catalog-title">
+        <div class="book-section-heading"><div><span class="book-eyebrow">LIBRERÍA DIGITAL</span><h2 id="catalog-title">Descubre nuevas historias</h2><p>Un espacio para libros de autores independientes, con fichas claras y vistas previas antes de comprar.</p></div><a href="#publicar" class="book-secondary">Publicar mi libro →</a></div>
+        <div class="book-filter-row"><label class="book-search-label" for="book-query">Buscar libros y autores <input id="book-query" type="search" maxlength="80" placeholder="Título, autor o tema…"></label><label for="book-genre">Género <select id="book-genre"><option value="">Todos los géneros</option><option>Narrativa</option><option>Negocios</option><option>Educación</option><option>Salud y bienestar</option><option>Derecho</option><option>Tecnología</option><option>Infantil</option><option>Poesía</option><option>Otros</option></select></label></div>
+        <div id="book-catalog-result" class="book-catalog-empty" role="status" aria-live="polite">
+          <div class="book-empty-icon" aria-hidden="true">▤</div><h3>Las primeras historias se están preparando</h3>
+          <p>Aún no hay libros verificados a la venta. No mostramos portadas ni reseñas ficticias.</p><a href="#publicar" class="book-primary">Ser de los primeros autores →</a>
+        </div>
+      </section>
+      <section id="como-funciona" class="book-section" aria-labelledby="steps-title">
+        <div class="book-section-heading"><div><span class="book-eyebrow">PUBLICA SIN COMPLICACIONES</span><h2 id="steps-title">Tu libro, en cuatro pasos</h2></div></div>
+        <div class="book-steps">
+          <article><span>01</span><h3>Crea tu cuenta</h3><p>Regístrate gratis como autor con nombre, correo y contraseña, cuando el registro esté habilitado.</p></article>
+          <article><span>02</span><h3>Describe tu obra</h3><p>Título, sinopsis, categoría y precio en pesos mexicanos. Guarda una ficha de borrador sin publicar nada por accidente.</p></article>
+          <article><span>03</span><h3>Prepara tus archivos</h3><p>Selecciona un PDF o EPUB y una portada. Revisa el libro antes de enviarlo: los archivos aún no se suben a servidores.</p></article>
+          <article><span>04</span><h3>Publica y vende</h3><p>La publicación y el cobro se habilitarán solo con almacenamiento, validación de derechos, pagos y regalías reales.</p></article>
+        </div>
+      </section>
+      <section class="book-split-section" aria-labelledby="royalty-title">
+        <div><span class="book-eyebrow">REGLAS CLARAS</span><h2 id="royalty-title">Sin pagar por empezar.<br><em>Gana cuando vendes.</em></h2><p>La propuesta de WAEWEB es una participación del 30 % y un 70 % para el autor por venta. El cálculo mostrado es ilustrativo, previo a impuestos, reembolsos y cualquier cargo de procesamiento que se acuerde antes del lanzamiento.</p><p class="book-fineprint">No se aceptan pagos ni se generan regalías reales en esta versión. La liquidación, facturación, derechos y calendario de pagos necesitan términos y operación verificables.</p></div>
+        <div class="book-royalty-card"><span class="book-eyebrow">EJEMPLO ILUSTRATIVO · MXN</span><label for="royalty-price">Precio de tu libro <input id="royalty-price" type="number" min="20" max="10000" step="0.01" inputmode="decimal" value="199"></label><div class="book-royalty-total"><span>Precio de referencia</span><strong id="royalty-gross">$199.00</strong></div><div class="book-royalty-track" aria-hidden="true"><span></span><span></span></div><div class="book-royalty-line"><span>Tu parte · 70 %</span><strong id="royalty-author">$139.30</strong></div><div class="book-royalty-line"><span>WAEWEB · 30 %</span><strong id="royalty-platform">$59.70</strong></div><p id="royalty-message" class="book-fineprint" role="status">Cálculo orientativo, no pago garantizado.</p></div>
+      </section>
+      <section id="publicar" class="book-section book-publish" aria-labelledby="publish-title">
+        <div class="book-section-heading"><div><span class="book-eyebrow">ESTUDIO DE AUTOR</span><h2 id="publish-title">Prepara tu próximo libro</h2><p>Todo en una sola pantalla. Puedes guardar la ficha en este dispositivo sin crear una cuenta ni subir el manuscrito.</p></div></div>
+        <div id="book-live-status" class="book-live-status" role="status" aria-live="polite">Comprobando disponibilidad de cuentas y publicación…</div>
+        <div class="book-studio-grid">
+          <div class="book-editor-column">
+            <section class="book-card" aria-labelledby="author-heading"><div class="book-step-heading"><span>01</span><div><h3 id="author-heading">Tu cuenta de autor</h3><p>Gratis. Sin pagos de registro.</p></div></div>
+              <div id="author-account-status" class="book-inline-status" role="status"></div>
+              <div id="author-account-fields">
+                <div class="book-auth-tabs"><button id="author-mode-register" type="button" class="is-active">Crear cuenta</button><button id="author-mode-login" type="button">Ya tengo cuenta</button></div>
+                <form id="author-auth-form" class="book-form" autocomplete="on">
+                  <div id="author-name-wrap"><label for="author-name">Nombre público del autor</label><input id="author-name" name="name" minlength="2" maxlength="100" autocomplete="name" placeholder="Cómo aparecerá tu nombre" required></div>
+                  <label for="author-email">Correo electrónico</label><input id="author-email" name="email" type="email" maxlength="254" autocomplete="email" placeholder="tu@correo.com" required>
+                  <label for="author-password">Contraseña</label><input id="author-password" name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" placeholder="Mínimo 12 caracteres" required>
+                  <button id="author-auth-submit" class="book-primary" type="submit" disabled>Crear cuenta gratis</button>
+                </form>
+              </div>
+              <div id="author-signed-in" hidden><p id="author-greeting"></p><p class="book-fineprint">Tu sesión se conserva únicamente mientras esta pestaña esté abierta.</p><button id="author-logout" class="book-secondary" type="button">Cerrar sesión</button></div>
+              <p class="book-fineprint">El registro en producción requiere cuentas seguras y almacenamiento duradero. En vista previa se mantiene desactivado.</p>
+            </section>
+            <section class="book-card" aria-labelledby="manuscript-heading"><div class="book-step-heading"><span>02</span><div><h3 id="manuscript-heading">Cuéntanos de tu libro</h3><p>Solo lo necesario para crear una ficha atractiva.</p></div></div>
+              <form id="book-draft-form" class="book-form">
+                <label for="draft-title">Título del libro</label><input id="draft-title" name="title" type="text" minlength="3" maxlength="120" placeholder="El título de tu historia" required>
+                <label for="draft-author">Nombre de autor o seudónimo</label><input id="draft-author" name="author" type="text" minlength="2" maxlength="100" placeholder="Tu nombre editorial" required>
+                <label for="draft-genre">Categoría</label><select id="draft-genre" name="genre" required><option value="">Selecciona una categoría</option><option>Narrativa</option><option>Negocios</option><option>Educación</option><option>Salud y bienestar</option><option>Derecho</option><option>Tecnología</option><option>Infantil</option><option>Poesía</option><option>Otros</option></select>
+                <label for="draft-description">Sinopsis</label><textarea id="draft-description" name="description" rows="5" minlength="40" maxlength="1800" placeholder="¿De qué trata tu libro? Cuéntalo en unas líneas…" required></textarea>
+                <label for="draft-price">Precio de venta propuesto (MXN)</label><input id="draft-price" name="price" type="number" min="20" max="10000" step="0.01" inputmode="decimal" value="199" required>
+                <div class="book-draft-actions"><button id="book-save-draft" class="book-primary" type="submit">Guardar borrador local</button><button id="book-reset-draft" class="book-secondary" type="button">Nuevo borrador</button></div>
+                <p id="book-draft-message" class="book-inline-status" role="status" aria-live="polite">Los borradores se guardan solo en este navegador. No se publican ni se sincronizan.</p>
+              </form>
+            </section>
+            <section class="book-card" aria-labelledby="files-heading"><div class="book-step-heading"><span>03</span><div><h3 id="files-heading">Manuscrito y portada</h3><p>Revisa tus archivos antes de publicar.</p></div></div>
+              <div class="book-form"><label for="book-manuscript">Manuscrito PDF o EPUB · máximo 40 MB</label><input id="book-manuscript" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip"><p id="manuscript-state" class="book-fineprint">No hay ningún archivo seleccionado.</p>
+              <label for="book-cover">Portada JPG, PNG o WebP · máximo 5 MB</label><input id="book-cover" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"><p id="cover-state" class="book-fineprint">Puedes utilizar una portada propia.</p><div class="book-file-actions"><button id="book-preview-file" class="book-secondary" type="button" disabled>Ver mi archivo</button><button id="book-preview-cover" class="book-secondary" type="button" disabled>Ver mi portada</button></div></div>
+              <p class="book-fineprint">Archivos seleccionados localmente: no se suben ni quedan guardados con el borrador. Conserva tus originales.</p>
+            </section>
+            <section class="book-card book-final-step" aria-labelledby="sale-heading"><div class="book-step-heading"><span>04</span><div><h3 id="sale-heading">Listo para publicar</h3><p>Primero aseguramos la entrega y las regalías.</p></div></div>
+              <label class="book-checkbox"><input id="book-rights" type="checkbox"><span>Confirmo que soy titular de los derechos necesarios o tengo autorización para publicar este contenido.</span></label>
+              <button id="book-publish-action" class="book-primary" type="button" disabled>Publicación y ventas aún no disponibles</button>
+              <p id="book-publish-status" class="book-fineprint" role="status">La publicación pública permanece desactivada: no aceptamos manuscritos, compras ni pagos en esta versión.</p>
+            </section>
+          </div>
+          <aside class="book-preview-column" aria-label="Vista previa de la ficha editorial">
+            <div class="book-preview-card"><span class="book-eyebrow">VISTA PREVIA · SOLO EN TU DISPOSITIVO</span><div id="book-cover-preview" class="book-cover-placeholder" aria-label="Portada de ejemplo, no un libro real"><span>WAEWEB LIBROS</span><strong id="book-preview-cover-title">TU PRÓXIMA HISTORIA</strong><small>PORTADA DE BORRADOR</small></div><span id="book-preview-genre" class="book-chip">Categoría pendiente</span><h3 id="book-preview-title">El título de tu libro</h3><p id="book-preview-author">Por tu nombre de autor</p><p id="book-preview-description">Aquí aparecerá tu sinopsis. No se ha publicado ningún libro.</p><div class="book-preview-price"><strong id="book-preview-price-value">$199.00</strong><span>Precio propuesto · MXN</span></div><div class="book-preview-royalties"><span>Autor 70 % <strong id="book-preview-author-amount">$139.30</strong></span><span>WAEWEB 30 % <strong id="book-preview-platform-amount">$59.70</strong></span></div><p class="book-fineprint">Este es un borrador ilustrativo. No crea una ficha pública ni habilita la compra.</p></div>
+          </aside>
+        </div>
+      </section>
+      <section class="book-bottom-cta"><span class="book-eyebrow">TUS IDEAS TIENEN VALOR</span><h2>Tu siguiente capítulo comienza aquí.</h2><a class="book-primary" href="#publicar">Preparar mi libro →</a></section>
+    </main>
+    <footer class="footer book-footer"><a href="/">← Volver a WAEWEB</a><span>WAEWEB LIBROS · WAE OS ENTERPRISE</span><span>Publicar gratis · Autor 70 % / Plataforma 30 % · Ventas pendientes de activación</span></footer>
+  </div>
+</body>
+</html>
