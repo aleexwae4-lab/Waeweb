@@ -147,3 +147,34 @@ export const imageUrl = (businessId,listingId) => "/api/marketplace/images/"+
 export const ownerImageUrl = (businessId,listingId) => "/api/businesses/"+
   encodeURIComponent(businessId)+"/listings/"+encodeURIComponent(listingId)+"/image";
 export const MAX_MARKET_MEDIA_BYTES = MAX_MEDIA_BYTES;
+
+// RC17: READ-ONLY object existence/size probe. Does not verify bytes, retention or backups.
+// The result intentionally contains no object key, provider URL or credentials.
+export async function headMarketImage(config, key, transport=fetch, now=Date.now()) {
+  if (!config) fail("media_unavailable",503);
+  const path=objectPath(config,key);
+  const {amz,day}=dates(now), credentialScope=scope(config,day);
+  const payloadHash=hex(Buffer.alloc(0)),endpointHost=host(config);
+  const canonicalHeaders="host:"+endpointHost+"\\nx-amz-content-sha256:"+payloadHash+
+    "\\nx-amz-date:"+amz+"\\n";
+  const signedHeaders="host;x-amz-content-sha256;x-amz-date";
+  const request="HEAD\\n"+path+"\\n\\n"+canonicalHeaders+"\\n"+signedHeaders+"\\n"+payloadHash;
+  const toSign="AWS4-HMAC-SHA256\\n"+amz+"\\n"+credentialScope+"\\n"+hex(request);
+  const signature=createHmac("sha256",signingKey(config,day)).update(toSign).digest("hex");
+  let response;
+  try {
+    response=await transport(config.origin+path,{
+      method:"HEAD",headers:{"x-amz-content-sha256":payloadHash,"x-amz-date":amz,
+        authorization:"AWS4-HMAC-SHA256 Credential="+config.accessKey+"/"+credentialScope+
+        ", SignedHeaders="+signedHeaders+", Signature="+signature},
+      redirect:"manual",signal:AbortSignal.timeout(12000)
+    });
+  } catch { return {state:"unavailable"}; }
+  if(response.status===404)return {state:"missing"};
+  if(response.status===401||response.status===403)return {state:"denied"};
+  if(response.status!==200)return {state:"unavailable"};
+  const length=Number(response.headers.get("content-length"));
+  if(!Number.isSafeInteger(length)||length<8||length>MAX_MEDIA_BYTES)
+    return {state:"invalid_size"};
+  return {state:"present"};
+}
