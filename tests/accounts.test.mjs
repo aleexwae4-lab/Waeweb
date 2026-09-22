@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   accountsEnabled, registerAccount, loginAccount, getAccount,
-  logoutAccount, listBusinesses, addBusiness, deleteBusiness, updateBusinessVisibility, listPublicBusinesses, AccountError
+  logoutAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, AccountError
 } from "../server/accounts.mjs";
 import { handler } from "../server/index.mjs";
 
@@ -84,6 +84,56 @@ test("businesses are owner-only, private and self-declared; validation and delet
     assert.equal((await listBusinesses("Bearer " + a.token, dir)).businesses.length, 0);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+test("business editing preserves consent; public profile never exposes account data", async () => {
+  const dir = await fixtureDir();
+  try {
+    const owner = await registerAccount(alice, dir);
+    const stranger = await registerAccount(bob, dir);
+    const business = await addBusiness("Bearer " + owner.token, {
+      name: "Centro de ingeniería", category: "Tecnología", city: "Zapopan",
+      description: "Asistencia empresarial", website: "https://centro.example.test/"
+    }, dir);
+    const before = business.id;
+    await assert.rejects(() => getPublicBusiness(before, dir), { code: "business_missing" });
+    await assert.rejects(() => updateBusiness("Bearer " + stranger.token, before, {
+      name: "Robo", category: "Tecnología", city: "Zapopan"
+    }, dir), { code: "business_missing" });
+    await assert.rejects(() => updateBusiness("Bearer " + owner.token, before, {
+      name: "Centro", category: "Tecnología", city: "Zapopan", website: "javascript:alert(1)"
+    }, dir), { code: "invalid_website" });
+    const modified = await updateBusiness("Bearer " + owner.token, before, {
+      name: "Centro de ingeniería WAE", category: "Servicios tecnológicos", city: "Guadalajara",
+      description: "Innovación aplicada", website: "https://example.test/servicios", publish: true
+    }, dir);
+    assert.equal(modified.id, before);
+    assert.equal(modified.visibility, "owner_only"); // Edited data may not set visibility.
+    assert.equal(modified.name, "Centro de ingeniería WAE");
+    assert.ok(modified.updatedAt);
+    await assert.rejects(() => getPublicBusiness(before, dir), { code: "business_missing" });
+    await updateBusinessVisibility("Bearer " + owner.token, before, true, dir);
+    const { business: publicBusiness, disclaimer } = await getPublicBusiness(before, dir);
+    assert.equal(publicBusiness.name, "Centro de ingeniería WAE");
+    assert.equal(publicBusiness.city, "Guadalajara");
+    assert.equal(publicBusiness.id, before);
+    assert.equal(publicBusiness.verification, "self_declared");
+    assert.equal(publicBusiness.email, undefined);
+    assert.equal(publicBusiness.ownerId, undefined);
+    assert.equal(publicBusiness.sessions, undefined);
+    assert.equal(publicBusiness.updatedAt, undefined);
+    assert.match(disclaimer, /no verifica/);
+    await updateBusiness("Bearer " + owner.token, before, {
+      name: "Centro actualizado", category: "Servicios tecnológicos", city: "Guadalajara",
+      description: "Fachada pública", website: ""
+    }, dir);
+    assert.equal((await getPublicBusiness(before, dir)).business.name, "Centro actualizado");
+    assert.equal((await getPublicBusiness(before, dir)).business.website, null);
+    await updateBusinessVisibility("Bearer " + owner.token, before, false, dir);
+    await assert.rejects(() => getPublicBusiness(before, dir), { code: "business_missing" });
+    await updateBusinessVisibility("Bearer " + owner.token, before, true, dir);
+    await deleteBusiness("Bearer " + owner.token, before, dir);
+    await assert.rejects(() => getPublicBusiness(before, dir), { code: "business_missing" });
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
 test("simultaneous registrations and business updates avoid lost writes", async () => {
   const dir = await fixtureDir();
   try {
@@ -117,6 +167,9 @@ test("HTTP account and business routes work with bearer auth; public service rem
     const ui = await fetch(base + "/accounts.js");
     assert.equal(ui.status, 200);
     assert.match(await ui.text(), /business-dashboard/);
+    const profileScript = await fetch(base + "/business-profile.js");
+    assert.equal(profileScript.status, 200);
+    assert.match(await profileScript.text(), /business-profile-view/);
     assert.equal((await fetch(base + "/api/account/me")).status, 401);
     const response = await post("/api/account/register", alice);
     assert.equal(response.status, 201);
@@ -134,6 +187,18 @@ test("HTTP account and business routes work with bearer auth; public service rem
     const business = (await created.json()).business;
     assert.equal((await (await fetch(base + "/api/businesses", { headers: auth(token) })).json()).businesses.length, 1);
     assert.equal((await (await fetch(base + "/api/businesses/public?q=WAE")).json()).resultCount, 0);
+    assert.equal((await fetch(base + "/api/businesses/public/" + business.id)).status, 404);
+    const blockedEdit = await fetch(base + "/api/businesses/" + business.id + "/profile", {
+      method: "PATCH", headers: { ...auth("x".repeat(43)), "content-type": "application/json" },
+      body: JSON.stringify({ name: "Intruso", category: "Falso", city: "Zapopan" })
+    });
+    assert.equal(blockedEdit.status, 401);
+    const edited = await fetch(base + "/api/businesses/" + business.id + "/profile", {
+      method: "PATCH", headers: { ...auth(token), "content-type": "application/json" },
+      body: JSON.stringify({ name: "WAE Business actualizado", category: "Inteligencia Artificial", city: "Zapopan" })
+    });
+    assert.equal(edited.status, 200);
+    assert.equal((await edited.json()).business.visibility, "owner_only");
     const published = await fetch(base + "/api/businesses/" + business.id, {
       method: "PATCH", headers: { ...auth(token), "content-type": "application/json" },
       body: JSON.stringify({ published: true })
@@ -141,7 +206,10 @@ test("HTTP account and business routes work with bearer auth; public service rem
     assert.equal(published.status, 200);
     const listing = await (await fetch(base + "/api/businesses/public?q=Artificial%20Zapopan")).json();
     assert.equal(listing.resultCount, 1);
-    assert.equal(listing.businesses[0].name, "WAE Business");
+    assert.equal(listing.businesses[0].name, "WAE Business actualizado");
+    const publicDetail = await (await fetch(base + "/api/businesses/public/" + business.id)).json();
+    assert.equal(publicDetail.business.name, "WAE Business actualizado");
+    assert.equal(publicDetail.business.email, undefined);
     assert.equal(listing.businesses[0].email, undefined);
     assert.equal((await fetch(base + "/api/businesses/" + business.id, {
       method: "DELETE", headers: auth("x".repeat(43))
@@ -150,6 +218,7 @@ test("HTTP account and business routes work with bearer auth; public service rem
       method: "DELETE", headers: auth(token)
     })).status, 200);
     assert.equal((await (await fetch(base + "/api/businesses/public?q=WAE")).json()).resultCount, 0);
+    assert.equal((await fetch(base + "/api/businesses/public/" + business.id)).status, 404);
     assert.equal((await post("/api/account/logout", {}, auth(token))).status, 200);
     assert.equal((await fetch(base + "/api/account/me", { headers: auth(token) })).status, 401);
     delete process.env.WAE_ACCOUNTS_KEY;
