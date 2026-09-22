@@ -23,6 +23,11 @@ try {
     const result=await auditMarketMediaIntegrity({offset});
     console.log(JSON.stringify(result,null,2));
     if(result.status==="attention_required")process.exitCode=2;
+  }else if(action==="verify" && (!confirmation || /^--offset=(0|[1-9]\d{0,5})$/.test(confirmation))){
+    const offset=confirmation?Number(confirmation.slice("--offset=".length)):0;
+    const result=await auditMarketMediaIntegrity({offset});
+    console.log(JSON.stringify(result,null,2));
+    if(result.status==="attention_required")process.exitCode=2;
   }else if(action==="cleanup" && confirmation==="--confirm-deletion"){
     const result=await drainMarketMediaQueue({confirm:true});
     console.log(JSON.stringify({mode:"manual_cleanup",...result},null,2));
