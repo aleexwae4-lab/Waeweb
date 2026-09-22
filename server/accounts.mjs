@@ -233,6 +233,19 @@ export async function addBusiness(header, data, base) {
     return business;
   }, base);
 }
+export async function updateBusiness(header, id, data, base) {
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) fail("invalid_business", "Negocio no válido.");
+  const values = businessValue(data);
+  return mutate(db => {
+    const user = userWithSession(db, header);
+    const business = user.businesses.find(item => item.id === id);
+    if (!business) fail("business_missing", "Negocio no encontrado en tu cuenta.", 404);
+    Object.assign(business, values, { updatedAt: new Date().toISOString() });
+    // Editing text must never implicitly publish or unpublish a business.
+    return business;
+  }, base);
+}
 export async function deleteBusiness(header, id, base) {
   if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) fail("invalid_business", "Negocio no válido.");
@@ -258,6 +271,23 @@ export async function updateBusinessVisibility(header, id, published, base) {
     return business;
   }, base);
 }
+function publicBusiness(item) {
+  return {
+    id: item.id, name: item.name, category: item.category, city: item.city,
+    description: item.description, website: item.website,
+    verification: "self_declared"
+  };
+}
+export async function getPublicBusiness(id, base) {
+  if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) fail("business_missing", "Ficha pública no disponible.", 404);
+  const db = await readDb(base || basePath());
+  const business = db.users.flatMap(user => user.businesses)
+    .find(item => item.id === id && item.visibility === "public");
+  if (!business) fail("business_missing", "Ficha pública no disponible.", 404);
+  return { business: publicBusiness(business),
+    disclaimer: "Negocio publicado voluntariamente. WAE WEB no verifica la identidad, titularidad ni información comercial." };
+}
 export async function listPublicBusinesses(query = "", base) {
   if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
   if (typeof query !== "string" || query.length > 100) fail("invalid_query", "Consulta de negocio demasiado larga.");
@@ -277,11 +307,7 @@ export async function listPublicBusinesses(query = "", base) {
     }).filter(Boolean)
     .sort((a, b) => b.score - a.score || b.item.createdAt.localeCompare(a.item.createdAt));
   return {
-    businesses: matching.slice(0, 25).map(({ item: business }) => ({
-      id: business.id, name: business.name, category: business.category, city: business.city,
-      description: business.description, website: business.website,
-      verification: "self_declared"
-    })),
+    businesses: matching.slice(0, 25).map(({ item }) => publicBusiness(item)),
     resultCount: Math.min(matching.length, 25), limitedTo: 25,
     disclaimer: "Fichas publicadas voluntariamente y no verificadas por WAE WEB."
   };
