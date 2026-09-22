@@ -4,6 +4,7 @@ import { mkdir, lstat, readFile, open, rename, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { sealVault, openVaultEnvelope, EncryptionError } from "./crypto.mjs";
 import { billingConfig, paidPeriod, subscriptionMatchesAttempt } from "./billing.mjs";
+import { postgresAccountsSelected, postgresAccountsConfig, readAccountsPostgres, mutateAccountsPostgres } from "./accounts-postgres.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -23,7 +24,9 @@ export function accountKey(raw = process.env.WAE_ACCOUNTS_KEY) {
   return typeof raw === "string" && /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : null;
 }
 export function accountsEnabled() {
-  return process.env.WAE_ACCOUNTS_ENABLED === "true" && Boolean(accountKey());
+  const store = process.env.WAE_ACCOUNTS_STORE || "file";
+  return process.env.WAE_ACCOUNTS_ENABLED === "true" && Boolean(accountKey()) &&
+    (store === "file" || store === "postgres" && Boolean(postgresAccountsConfig()));
 }
 function basePath(root = process.env.WAE_ACCOUNTS_DIR || ".wae-private-accounts") {
   if (!root || String(root).includes("\0")) fail("storage_config", "Directorio de cuentas inválido.", 503);
@@ -46,9 +49,28 @@ function validateDb(payload) {
   }
   return payload;
 }
-async function readDb(base = basePath()) {
+function decodeDb(raw) {
+  if (raw === null) return { version: 1, users: [] };
+  let envelope;
+  try { envelope = JSON.parse(Buffer.isBuffer(raw) ? raw.toString("utf8") : raw); }
+  catch { fail("database_corrupt", "Formato del registro de cuentas inválido.", 503); }
+  try { return validateDb(openVaultEnvelope("accounts", envelope, accountKey())); }
+  catch (error) {
+    if (error instanceof EncryptionError) fail("decrypt_failed", "No se pudo autenticar el registro de cuentas.", 503);
+    throw error;
+  }
+}
+async function readDb(base) {
   if (!accountKey()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
-  const path = pathFor(base);
+  if (base === undefined && postgresAccountsSelected()) {
+    if (!postgresAccountsConfig()) fail("storage_config", "PostgreSQL de cuentas no configurado.", 503);
+    try { return decodeDb(await readAccountsPostgres()); }
+    catch (error) {
+      if (error instanceof AccountError) throw error;
+      fail("storage_failure", "No se pudo abrir el registro de cuentas.", 503);
+    }
+  }
+  const path = pathFor(base ?? basePath());
   let raw;
   try {
     const info = await lstat(path);
@@ -59,14 +81,7 @@ async function readDb(base = basePath()) {
     if (error instanceof AccountError) throw error;
     fail("storage_failure", "No se pudo abrir el registro de cuentas.", 503);
   }
-  let envelope;
-  try { envelope = JSON.parse(raw.toString("utf8")); }
-  catch { fail("database_corrupt", "Formato del registro de cuentas inválido.", 503); }
-  try { return validateDb(openVaultEnvelope("accounts", envelope, accountKey())); }
-  catch (error) {
-    if (error instanceof EncryptionError) fail("decrypt_failed", "No se pudo autenticar el registro de cuentas.", 503);
-    throw error;
-  }
+  return decodeDb(raw);
 }
 async function writeDb(db, base) {
   const encrypted = sealVault("accounts", db, accountKey());
@@ -88,11 +103,28 @@ async function writeDb(db, base) {
     fail("storage_failure", "No se pudo guardar el registro de cuentas.", 503);
   }
 }
-async function mutate(operation, base = basePath()) {
+async function mutate(operation, base) {
+  if (base === undefined && postgresAccountsSelected()) {
+    if (!postgresAccountsConfig()) fail("storage_config", "PostgreSQL de cuentas no configurado.", 503);
+    try {
+      return await mutateAccountsPostgres(async envelope => {
+        const db = decodeDb(envelope);
+        const result = await operation(db);
+        const encrypted = JSON.stringify(sealVault("accounts", db, accountKey()));
+        if (Buffer.byteLength(encrypted) > MAX_BYTES)
+          fail("database_full", "Capacidad de cuentas alcanzada.", 503);
+        return { envelope: encrypted, result };
+      });
+    } catch (error) {
+      if (error instanceof AccountError) throw error;
+      fail("storage_failure", "No se pudo guardar el registro de cuentas.", 503);
+    }
+  }
+  const directory = base ?? basePath();
   const next = pending.catch(() => {}).then(async () => {
-    const db = await readDb(base);
+    const db = await readDb(directory);
     const result = await operation(db);
-    await writeDb(db, base);
+    await writeDb(db, directory);
     return result;
   });
   pending = next;
@@ -169,7 +201,7 @@ export async function loginAccount(data, base) {
   if (!accountsEnabled()) fail("accounts_disabled", "Registro no habilitado.", 503);
   const email = emailValue(data?.email);
   const password = passwordValue(data?.password);
-  const db = await readDb(base || basePath());
+  const db = await readDb(base);
   const user = db.users.find(entry => entry.email === email);
   const salt = user?.salt || "00".repeat(16);
   const calculated = await passwordDigest(password, salt);
@@ -185,7 +217,7 @@ export async function loginAccount(data, base) {
 }
 export async function getAccount(header, base) {
   if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
-  const db = await readDb(base || basePath());
+  const db = await readDb(base);
   return publicUser(userWithSession(db, header));
 }
 export async function logoutAccount(header, base) {
@@ -217,7 +249,7 @@ function businessValue(data) {
 }
 export async function listBusinesses(header, base) {
   if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
-  const db = await readDb(base || basePath());
+  const db = await readDb(base);
   const user = userWithSession(db, header);
   return { businesses: user.businesses, visibility: "owner_only", verification: "self_declared" };
 }
@@ -377,7 +409,7 @@ export async function updatePaidSubscription(event, subscription, config, base) 
 }
 export async function getPromotionStatus(header, businessId, base) {
   if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
-  const db = await readDb(base || basePath());
+  const db = await readDb(base);
   const user = userWithSession(db, header);
   const business = user.businesses.find(item => item.id === businessId);
   if (!business) fail("business_missing", "Negocio no encontrado.", 404);
@@ -393,7 +425,7 @@ function publicBusiness(item) {
 export async function getPublicBusiness(id, base) {
   if (!accountsEnabled()) fail("accounts_disabled", "Cuentas desactivadas.", 503);
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) fail("business_missing", "Ficha pública no disponible.", 404);
-  const db = await readDb(base || basePath());
+  const db = await readDb(base);
   const business = db.users.flatMap(user => user.businesses)
     .find(item => item.id === id && item.visibility === "public");
   if (!business) fail("business_missing", "Ficha pública no disponible.", 404);
@@ -405,7 +437,7 @@ export async function listPublicBusinesses(query = "", base) {
   if (typeof query !== "string" || query.length > 100) fail("invalid_query", "Consulta de negocio demasiado larga.");
   const fold = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const terms = [...new Set(fold(query).match(/[\p{L}\p{N}]{2,}/gu) || [])].slice(0, 12);
-  const db = await readDb(base || basePath());
+  const db = await readDb(base);
   const matching = db.users.flatMap(user => user.businesses)
     .filter(item => item.visibility === "public")
     .map(item => {
