@@ -6,7 +6,7 @@
 
 RC20 incorporó cápsulas privadas cifradas AES-256-GCM de hasta 5 JPEGs, vinculadas al checksum de un backup PostgreSQL y al manifiesto de referencias SHA-256. RC21 agrega restauración **offline, explícita y sin sobrescritura** desde una cápsula verificable.
 
-La cápsula es un respaldo de los bytes archivados, no una réplica continua. Cada lote tiene `offset/count/total`: una cápsula parcial no se anuncia como recuperación completa. La clave de la cuenta y el backup PostgreSQL correspondiente son imprescindibles; perderlos impide la recuperación.
+La cápsula es un respaldo de los bytes archivados, no una réplica continua. Su escritura local no garantiza supervivencia ante la pérdida del servidor: requiere custodia externa independiente. Cada lote tiene `offset/count/total`: una cápsula parcial no se anuncia como recuperación completa. La clave de la cuenta y el backup PostgreSQL correspondiente son imprescindibles; perderlos impide la recuperación.
 
 ## Procedimiento de operador (NO ejecutar en producción hasta autorizar proveedor y ensayo)
 
@@ -29,7 +29,7 @@ WAE_MARK_MEDIA_RESTORE_ACK=reviewed-offline-missing-objects-only \
 
 - Autenticación AES-GCM de la cápsula y vínculo al checksum/manifiesto del backup PostgreSQL.
 - Confirmación offline + ACK separados para operación que escribe objetos.
-- Coincidencia exacta de cuentas y bóvedas con el backup restaurado; rechazo de referencias cuyo journal indica eliminación.
+- Coincidencia exacta de cuentas y bóvedas con el backup restaurado; rechazo cerrado si queda cualquier entrada pendiente en el journal de eliminación, que debe reconciliarse manualmente primero.
 - Preflight por HEAD para **todos** los objetos del lote: si existe uno solo, no se escribe ninguno.
 - Cada PUT lleva `If-None-Match: *` **incluido en AWS SigV4** para que el proveedor impida carreras de sobrescritura incluso después del HEAD.
 - Verificación de bytes/tamaño/SHA-256 tras cada escritura.
