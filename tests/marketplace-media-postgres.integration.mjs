@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { loginAccount, listBusinesses, addMarketListing, listOwnerListings,
-  setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaPresence } from "../server/accounts.mjs";
+  setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaPresence, auditMarketMediaIntegrity } from "../server/accounts.mjs";
 import { readAccountsPostgres, closeAccountsPostgres } from "../server/accounts-postgres.mjs";
 import { handler } from "../server/index.mjs";
 
@@ -104,6 +104,8 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
       .find(entry=>entry.id===item.id);
     assert.ok(saved.imageKey);
     assert.equal(saved.imageDataUrl,null);
+    assert.equal(saved.imageSha256,createHash("sha256").update(jpeg).digest("hex"));
+    assert.equal(saved.imageBytes,jpeg.length);
     const encrypted=await readAccountsPostgres();
     assert.equal(encrypted.includes(imageDataUrl),false);
     assert.equal(encrypted.includes(saved.imageKey),false);
@@ -112,6 +114,20 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     assert.equal(recovery.present,1);
     assert.equal(recovery.restoreCertified,false);
     assert.equal(JSON.stringify(recovery).includes(saved.imageKey),false);
+    const integrity=await auditMarketMediaIntegrity({limit:5});
+    assert.equal(integrity.verified,1);
+    assert.equal(integrity.status,"batch_verified_only");
+    assert.equal(integrity.restoreCertified,false);
+    assert.equal(JSON.stringify(integrity).includes(saved.imageKey),false);
+    const photoPath="/"+process.env.WAE_MEDIA_BUCKET+"/"+saved.imageKey;
+    const originalPhoto=photos.get(photoPath);
+    const tamperedPhoto=Buffer.from(originalPhoto);
+    tamperedPhoto[5]^=1;
+    photos.set(photoPath,tamperedPhoto);
+    const corrupted=await auditMarketMediaIntegrity({limit:5});
+    assert.equal(corrupted.mismatch,1);
+    assert.equal(corrupted.status,"attention_required");
+    photos.set(photoPath,originalPhoto);
     const privateImage=await api(endpoint,"GET",undefined,owner.token);
     assert.equal(privateImage.status,200);
     assert.equal(privateImage.body.expiresIn,120);
