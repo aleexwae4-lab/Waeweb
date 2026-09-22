@@ -3,7 +3,7 @@
   "version": "1.0.0-rc.18",
   "private": true,
   "type": "module",
-  "description": "WAEWEB — encrypted media digests and private content integrity audit",
+  "description": "WAEWEB — byte-level SHA-256 integrity audit for private marketplace media",
   "engines": {
     "node": ">=20"
   },
@@ -38,7 +38,8 @@
     "marketplace:media:manifest": "node scripts/market-media-ops.mjs manifest",
     "marketplace:media:cleanup": "node scripts/market-media-ops.mjs cleanup",
     "marketplace:media:probe": "node scripts/market-media-ops.mjs probe",
-    "marketplace:media:integrity": "node scripts/market-media-ops.mjs integrity"
+    "marketplace:media:integrity": "node scripts/market-media-ops.mjs integrity",
+    "marketplace:media:verify": "node scripts/market-media-ops.mjs verify"
   },
   "license": "UNLICENSED",
   "devDependencies": {
