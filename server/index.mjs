@@ -11,7 +11,8 @@ import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
 import { billingConfig, createStripeCheckout, retrieveStripeSubscription, verifyStripeEvent, BillingError } from "./billing.mjs";
 import { MarketplaceError } from "./marketplace.mjs";
 import { MarketplaceTrustError } from "./marketplace-trust.mjs";
-import { accountsEnabled, listOwnerListings, addMarketListing, editMarketListing, setMarketListingVisibility, deleteMarketListing, getPublicMarketCatalog, browseMarketplace, getMarketInquiries, sendMarketInquiry, reportMarketListing, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
+import { mediaConfig, MarketMediaError } from "./marketplace-media.mjs";
+import { accountsEnabled, listOwnerListings, addMarketListing, editMarketListing, setMarketListingVisibility, deleteMarketListing, getPublicMarketCatalog, browseMarketplace, uploadMarketPhoto, getMarketPhotoLink, getPublicMarketPhotoLink, removeMarketPhoto, getMarketInquiries, sendMarketInquiry, reportMarketListing, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const VERSION = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -112,6 +113,7 @@ export async function handler(req, res) {
     businessRegistration: accountsEnabled() ? "owner_controlled_self_declared" : "disabled",
     publicBusinessProfiles: accountsEnabled(),
     marketplaceEnabled: accountsEnabled(),
+    marketplaceObjectMedia: Boolean(mediaConfig()) && process.env.WAE_ACCOUNTS_STORE === "postgres" && accountsEnabled(),
     connectApi: Boolean(connectConfig()),
     deploymentConnected: false
   });
@@ -127,16 +129,36 @@ export async function handler(req, res) {
   const catalogPublic = u.pathname.match(/^\/api\/businesses\/public\/([0-9a-f-]{36})\/listings$/i);
   const marketInquiries = u.pathname.match(/^\/api\/businesses\/([0-9a-f-]{36})\/inquiries$/i);
   const marketInteraction = u.pathname.match(/^\/api\/marketplace\/([0-9a-f-]{36})\/([0-9a-f-]{36})\/(inquiries|reports)$/i);
-  if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname) && !businessCheckout && !catalogOwner && !marketInteraction)
+  const imageOwner = u.pathname.match(/^\/api\/businesses\/([0-9a-f-]{36})\/listings\/([0-9a-f-]{36})\/image$/i);
+  const imagePublic = u.pathname.match(/^\/api\/marketplace\/images\/([0-9a-f-]{36})\/([0-9a-f-]{36})$/i);
+  if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname) && !businessCheckout && !catalogOwner && !marketInteraction && !imageOwner)
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (req.method === "PATCH" && !businessDelete && !businessEdit && !catalogItem) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
-  if (req.method === "DELETE" && !businessDelete && !catalogItem)
+  if (req.method === "DELETE" && !businessDelete && !catalogItem && !imageOwner)
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (u.pathname.startsWith("/api/")) {
     if (limited(req)) return write(res, 429, { error: "Demasiadas consultas. Intenta de nuevo en un minuto." }, { "retry-after": "60" });
     try {
-      if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile || businessCheckout || businessPromotion || catalogOwner || catalogItem || catalogPublic || marketInquiries || marketInteraction) {
+      if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile || businessCheckout || businessPromotion || catalogOwner || catalogItem || catalogPublic || marketInquiries || marketInteraction || imageOwner || imagePublic) {
         if (!accountsEnabled()) return write(res, 503, { error: "Cuentas desactivadas. Configura WAE_ACCOUNTS_ENABLED y WAE_ACCOUNTS_KEY en el servidor." });
+        if (imagePublic && req.method === "GET") {
+          const signed=await getPublicMarketPhotoLink(imagePublic[1],imagePublic[2]);
+          res.writeHead(302,{...security, location:signed.url,
+            "cache-control":"private, no-store, max-age=0",
+            "referrer-policy":"no-referrer", "content-length":"0"});
+          return res.end();
+        }
+        if (imageOwner && req.method === "GET")
+          return write(res,200,await getMarketPhotoLink(
+            req.headers.authorization,imageOwner[1],imageOwner[2]));
+        if (imageOwner && req.method === "POST") {
+          const body=await jsonBody(req,380*1024);
+          return write(res,201,await uploadMarketPhoto(
+            req.headers.authorization,imageOwner[1],imageOwner[2],body));
+        }
+        if (imageOwner && req.method === "DELETE")
+          return write(res,200,await removeMarketPhoto(
+            req.headers.authorization,imageOwner[1],imageOwner[2]));
         if (u.pathname === "/api/marketplace" && req.method === "GET") {
           return write(res,200,await browseMarketplace({
             q:u.searchParams.get("q")||"",city:u.searchParams.get("city")||"",
@@ -341,6 +363,7 @@ export async function handler(req, res) {
     } catch (error) {
       if (error instanceof BillingError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof MarketplaceError) return write(res,error.status,{error:error.message,code:error.code});
+      if (error instanceof MarketMediaError) return write(res,error.status,{error:"Fotografía no disponible o inválida.",code:error.code});
       if (error instanceof MarketplaceTrustError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof AccountError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
