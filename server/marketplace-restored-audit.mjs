@@ -55,7 +55,7 @@ export async function assessRestoredMarketplaceMedia(source,current,{
     ...audit, mode:"read_only_restored_media_check",
     status:audit.status==="attention_required"?"attention_required":
       audit.nextOffset!==null?"partial":"matching_target_batch_verified",
-    targetSnapshotMatchesBackup:true,
+    targetSnapshotMatchesBackup:audit.databaseUnchanged,
     objectBackupVerified:false,objectVersionsVerified:false,
     orphanInventoryVerified:false,restoreCertified:false,
     noObjectKeysExposed:true,noDeletionPerformed:true
