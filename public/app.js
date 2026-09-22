@@ -500,6 +500,22 @@ function renderMapPlaces(data) {
   const newSearch = button("⌕ Otra ubicación",()=>{resultsInput.focus();resultsInput.select();},"small-action");
   heading.append(headText,newSearch);
   section.append(heading);
+  // Search lives beside the map, not in a detached browser or a second screen.
+  const mapSearch=element("form","map-search-form");
+  mapSearch.setAttribute("role","search");
+  const mapSearchInput=element("input","map-search-input");
+  mapSearchInput.type="search";mapSearchInput.name="place";mapSearchInput.maxLength=180;
+  mapSearchInput.autocomplete="off";mapSearchInput.placeholder="Buscar otro lugar, negocio o dirección";
+  mapSearchInput.setAttribute("aria-label","Buscar otro lugar o dirección en WAEWEB Mapas");
+  const mapSearchButton=element("button","map-search-submit","⌕ Buscar en mapa");
+  mapSearchButton.type="submit";
+  mapSearch.append(mapSearchInput,mapSearchButton);
+  mapSearch.addEventListener("submit",event=>{
+    event.preventDefault();
+    if(mapSearchInput.value.trim().length<2){mapSearchInput.focus();return;}
+    performSearch(mapSearchInput.value,"maps");
+  });
+  section.append(mapSearch);
 
   const placeTitle = element("h3","map-place-title");
   const placeDetail = element("p","map-place-detail");
@@ -513,7 +529,7 @@ function renderMapPlaces(data) {
   const visit = external("https://www.openstreetmap.org/","↗ Abrir mapa completo","map-action map-original");
   toolbar.append(zoomOut,zoomIn,copy,visit);
 
-  const map=createNativeMap();
+  const map=createNativeMap({onSelectPlace:index=>select(index)});
   const directions=createDirections({getJSON,element,button,external,copyText,
     onDestinationSelect:place=>{
       if(!validMapPlace(place))return;
@@ -542,8 +558,17 @@ function renderMapPlaces(data) {
   function refresh(){
     const place=mapOverride||places[selected];
     if(shownPlace!==place){map.setView(place,zoom);shownPlace=place;}
+    map.setPlaces(places,mapOverride?-1:selected);
     placeTitle.textContent=place.name;
-    placeDetail.textContent=place.detail || "Ubicación geográfica";
+    const accuracy={
+      coordinate:"Coordenadas indicadas por el usuario",
+      address_point:"Dirección puntual del proveedor",
+      place_point:"Lugar señalado por el proveedor",
+      approximate_address:"Dirección aproximada",
+      street_centroid:"Centro aproximado de calle",
+      locality_centroid:"Centro aproximado de localidad"
+    }[place.precision]||"Ubicación geocodificada";
+    placeDetail.textContent=(place.detail||"Ubicación geográfica")+" · "+accuracy;
     coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
     visit.href=osmPlaceUrl(place);
     zoomIn.disabled=zoom>=4; zoomOut.disabled=zoom<=0;
@@ -602,7 +627,17 @@ async function renderMap(query,signal,sequence) {
     ]);
     if(sequence!==state.sequence)return;
     if(addressResponse.status==="fulfilled" && addressResponse.value.results?.length){
-      renderMapPlaces({...addressResponse.value,precision:"address_or_place"});
+      const addresses=addressResponse.value;
+      const locality=localityResponse.status==="fulfilled"?localityResponse.value:null;
+      const seen=new Set();
+      const combined=[...addresses.results,...(locality?.results||[])].filter(place=>{
+        if(!validMapPlace(place))return false;
+        const key=place.latitude.toFixed(5)+","+place.longitude.toFixed(5);
+        if(seen.has(key))return false;
+        seen.add(key);return true;
+      }).slice(0,12);
+      renderMapPlaces({...addresses,results:combined,precision:"address_or_place",
+        source:locality?.results?.length?addresses.source+" + "+locality.source:addresses.source});
     }else if(localityResponse.status==="fulfilled"){
       renderMapPlaces(localityResponse.value);
     }else if(addressResponse.status==="fulfilled"){
