@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { backupPostgres, backupMarketMediaForPostgres, verifyMarketMediaBackup, restoreMarketMediaForPostgres, verifyMarketMediaArchiveSet } from "../server/pg-recovery.mjs";
+import { backupPostgres, backupMarketMediaForPostgres, verifyMarketMediaBackup, restoreMarketMediaForPostgres, verifyMarketMediaArchiveSet, exportPortableMarketRecovery, verifyPortableMarketRecovery } from "../server/pg-recovery.mjs";
 import { loginAccount, listBusinesses, addMarketListing, listOwnerListings,
   setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaPresence, auditMarketMediaIntegrity, auditMarketMediaInventory } from "../server/accounts.mjs";
 import { readAccountsPostgres, closeAccountsPostgres } from "../server/accounts-postgres.mjs";
@@ -25,7 +25,7 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     "WAE_MEDIA_BUCKET","WAE_MEDIA_REGION","WAE_MEDIA_ACCESS_KEY_ID",
     "WAE_MEDIA_SECRET_ACCESS_KEY","WAE_MEDIA_ALLOW_LOCAL_TEST",
     "WAE_MARKET_MEDIA_CLEANUP_ACK","WAE_PG_BACKUP_DIR",
-    "WAE_MEDIA_BACKUP_DIR","WAE_MARK_MEDIA_RESTORE_ACK"].map(x=>[x,process.env[x]]));
+    "WAE_MEDIA_BACKUP_DIR","WAE_OFFLINE_EXPORT_DIR","WAE_MARK_MEDIA_RESTORE_ACK"].map(x=>[x,process.env[x]]));
   const privateTestDir=await mkdtemp(join(tmpdir(),"wae-media-rc20-"));
   const photos=new Map();
   const provider=http.createServer(async(req,res)=>{
@@ -228,6 +228,25 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     assert.equal(cleaned.removed,1);
     assert.equal(cleaned.remaining,0);
     assert.equal(photos.size,0);
+    // RC23: package this authenticated historical snapshot and its FULL
+    // encrypted photo set. Then remove ORIGINAL backup files to prove the
+    // private portable copy verifies independently of those directories.
+    process.env.WAE_OFFLINE_EXPORT_DIR=join(privateTestDir,"portable");
+    const portable=await exportPortableMarketRecovery(pgBackup.filename,
+      [objectBackup.filename]);
+    assert.equal(portable.status,"package_created");
+    const validated=await verifyPortableMarketRecovery(portable.packageName);
+    assert.equal(validated.status,"portable_package_verified");
+    assert.equal(validated.completeArchiveSetVerified,true);
+    assert.equal(validated.copyContentVerified,true);
+    assert.equal(validated.independentFailureDomainVerified,false);
+    assert.equal(validated.restoreCertified,false);
+    assert.equal(JSON.stringify(validated).includes(saved.imageKey),false);
+    await rm(pgDirectory,{recursive:true,force:true});
+    await rm(mediaDirectory,{recursive:true,force:true});
+    const sourceLost=await verifyPortableMarketRecovery(portable.packageName);
+    assert.equal(sourceLost.status,"portable_package_verified");
+    assert.equal(sourceLost.completeArchiveSetVerified,true);
   }finally{
     if(app.listening)await new Promise(resolve=>app.close(resolve));
     if(provider.listening)await new Promise(resolve=>provider.close(resolve));
