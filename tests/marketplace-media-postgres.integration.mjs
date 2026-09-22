@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { loginAccount, listBusinesses, addMarketListing, listOwnerListings,
-  setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue } from "../server/accounts.mjs";
+  setMarketListingVisibility, getPublicMarketCatalog, inspectMarketMediaQueue, drainMarketMediaQueue, auditMarketMediaPresence } from "../server/accounts.mjs";
 import { readAccountsPostgres, closeAccountsPostgres } from "../server/accounts-postgres.mjs";
 import { handler } from "../server/index.mjs";
 
@@ -33,6 +33,15 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
         res.writeHead(403);return res.end();
       }
       photos.set(req.url,body);res.writeHead(200);return res.end();
+    }
+    if(req.method==="HEAD") {
+      if(!req.headers.authorization?.startsWith("AWS4-HMAC-SHA256 ")) {
+        res.writeHead(403);return res.end();
+      }
+      const bytes=photos.get(req.url);
+      if(!bytes){res.writeHead(404);return res.end();}
+      res.writeHead(200,{"content-length":String(bytes.length)});
+      return res.end();
     }
     if(req.method==="GET") {
       const u=new URL(req.url,"http://localhost");
@@ -98,6 +107,11 @@ test("disposable PostgreSQL + local S3 fixture verify encrypted refs, owner and 
     const encrypted=await readAccountsPostgres();
     assert.equal(encrypted.includes(imageDataUrl),false);
     assert.equal(encrypted.includes(saved.imageKey),false);
+    const recovery=await auditMarketMediaPresence({limit:25});
+    assert.equal(recovery.status,"presence_checked_only");
+    assert.equal(recovery.present,1);
+    assert.equal(recovery.restoreCertified,false);
+    assert.equal(JSON.stringify(recovery).includes(saved.imageKey),false);
     const privateImage=await api(endpoint,"GET",undefined,owner.token);
     assert.equal(privateImage.status,200);
     assert.equal(privateImage.body.expiresIn,120);
