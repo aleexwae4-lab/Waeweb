@@ -43,7 +43,7 @@ function setSignedIn(result) {
   $("business-dashboard").hidden = false;
   text($("business-greeting"), "¡Hola, " + profile.name + "!");
   text($("business-email"), profile.email);
-  say("Sesión iniciada. Tus negocios son visibles solo en tu cuenta.", true);
+  say("Sesión iniciada. Tú decides qué negocios permanecen privados y cuáles se muestran públicamente como no verificados.", true);
 }
 function signedOut() {
   session = null; profile = null;
