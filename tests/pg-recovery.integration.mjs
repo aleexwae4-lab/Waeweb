@@ -61,8 +61,8 @@ test("disposable PostgreSQL encrypted snapshot verifies, rejects tampering and r
     // Both stores must roll back atomically. Only the disposable CI database
     // admitted by the explicit guard above may install this test trigger.
     await db.query(`CREATE FUNCTION wae_ci_recovery_reject_vault()
-      RETURNS trigger LANGUAGE plpgsql AS $
-      BEGIN RAISE EXCEPTION 'ci_recovery_forced_failure'; END $`);
+      RETURNS trigger LANGUAGE plpgsql AS $wae_ci$
+      BEGIN RAISE EXCEPTION 'ci_recovery_forced_failure'; END $wae_ci$`);
     await db.query(`CREATE TRIGGER wae_ci_recovery_fail
       BEFORE INSERT ON wae_vault_records
       FOR EACH ROW EXECUTE FUNCTION wae_ci_recovery_reject_vault()`);
