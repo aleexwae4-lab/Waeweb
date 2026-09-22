@@ -16,7 +16,7 @@ test("serverless API adapter retains original paths without starting a listener"
     const capabilities = await (await fetch(base + "/api/capabilities")).json();
     assert.equal(capabilities.deploymentConnected, false);
     const missing = await fetch(base + "/api/unrecognized");
-    assert.equal(missing.status, 405 === missing.status ? 405 : 404);
+    assert.equal(missing.status, 404);
     assert.equal(missing.headers.get("cache-control"), "no-store");
     const page = await fetch(base + "/api/health", { method: "POST" });
     assert.equal(page.status, 405);
