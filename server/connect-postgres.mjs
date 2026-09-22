@@ -28,9 +28,10 @@ export function connectAdmissionReady(env=process.env) {
   const mode=env.WAE_CONNECT_ADMISSION_MODE||"local";
   if (mode==="postgres") return Boolean(connectAdmissionConfig(env));
   // A process-local Map does not enforce global quotas when replicated.
-  const production=env.NODE_ENV==="production" || env.VERCEL==="1" ||
-    env.RENDER==="true" || Boolean(env.RENDER_SERVICE_ID);
-  return mode==="local" && !production;
+  const hosted=env.VERCEL==="1" || env.RENDER==="true" ||
+    Boolean(env.RENDER_SERVICE_ID);
+  return mode==="local" && !hosted &&
+    ["development","test"].includes(env.NODE_ENV);
 }
 async function getPool() {
   const cfg=connectAdmissionConfig();
