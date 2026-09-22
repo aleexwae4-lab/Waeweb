@@ -41,7 +41,7 @@
         <p class="honest-caption">Resultados identificados por fuente. Sin cifras inventadas ni respuestas simuladas.</p>
       </section>
       <section id="account-view" class="account-view" hidden aria-label="Tu cuenta y negocios">
-        <div class="business-head"><div><span class="tag">WAE WEB BUSINESS</span><h1>Tu cuenta. Tus negocios.</h1><p>Registra la información de tus empresas y administra tus fichas en un espacio privado. Los negocios no se publican ni verifican automáticamente.</p></div><button id="account-back" type="button" class="small-action">← Volver al buscador</button></div>
+        <div class="business-head"><div><span class="tag">WAE WEB BUSINESS</span><h1>Tu cuenta. Tus negocios.</h1><p>Registra tus empresas y administra tus fichas desde tu cuenta. Son privadas por defecto; solo se publican con tu autorización y no se verifican automáticamente.</p></div><button id="account-back" type="button" class="small-action">← Volver al buscador</button></div>
         <p id="account-alert" class="account-alert" role="status" aria-live="polite"></p>
         <div id="account-auth">
           <div class="account-tabs"><button id="show-register" class="business-tab active" type="button">Crear cuenta</button><button id="show-login" class="business-tab" type="button">Iniciar sesión</button></div>
@@ -62,12 +62,13 @@
         <div id="business-dashboard" hidden>
           <div class="business-user"><div><span class="tag">Sesión privada</span><h2 id="business-greeting"></h2><p id="business-email"></p></div><button id="business-logout" type="button" class="small-action">Cerrar sesión</button></div>
           <div class="business-layout"><form id="business-form" class="business-form">
-            <h2>Registrar un negocio</h2><p class="business-fineprint">Solo lo verás tú. Es una ficha declarada por su propietario, no una verificación oficial.</p>
+            <h2>Registrar un negocio</h2><p class="business-fineprint">Será privado a menos que marques la publicación voluntaria. Es una ficha declarada por su propietario, no una verificación oficial.</p>
             <label for="business-name">Nombre comercial</label><input id="business-name" name="name" type="text" minlength="2" maxlength="130" required>
             <label for="business-category">Categoría o sector</label><input id="business-category" name="category" type="text" minlength="2" maxlength="80" placeholder="Ej. tecnología, comercio, salud" required>
             <label for="business-city">Ciudad</label><input id="business-city" name="city" type="text" minlength="2" maxlength="100" required>
             <label for="business-website">Sitio web HTTPS (opcional)</label><input id="business-website" name="website" type="url" maxlength="320" placeholder="https://miempresa.com">
             <label for="business-description">Descripción (opcional)</label><textarea id="business-description" name="description" maxlength="800" rows="4"></textarea>
+            <label class="business-publish" for="business-publish"><input type="checkbox" id="business-publish" name="publish"><span>Quiero mostrar públicamente esta ficha en la búsqueda de negocios de WAE WEB. Entiendo que aparecerá como negocio no verificado.</span></label>
             <button class="business-primary" type="submit">+ Guardar mi negocio</button>
           </form><div class="business-list-wrap"><div class="business-list-head"><h2>Mis negocios <span id="business-count">0</span></h2><span class="tag">Privados</span></div><div id="business-list" class="business-list"></div></div></div>
         </div>
@@ -85,6 +86,7 @@
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="research">◇ Investigación</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="index">⌕ Índice WAE</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="books">▤ Libros</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-type="businesses">♙ Negocios</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="images">▧ Imágenes</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="news">▤ Noticias</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="videos">▷ Videos</button>
