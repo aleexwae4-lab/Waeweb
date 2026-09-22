@@ -5,13 +5,13 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "WAEWEB Connect RC7 distingue complete/partial/unavailable con evidencia cross-repo contra Universal Core y cache recuperable; NO hay despliegue ni E2E LIVE. Faltan build/ruteo Vercel, pruebas tres Render y certificar Green privado (GitHub Actions sin runner).",
+      "reason": "Adaptador Node y contrato WAEWEB ↔ Universal Core con QA PASS; RC8 bloquea almacenamiento efímero y preflight de prueba PASS. Faltan build/ruteo Vercel, tres Render LIVE y certificación Green privado (runner 0).",
       "evidence": ""
     },
     {
       "id": "durable-storage",
       "status": "blocked",
-      "reason": "Cuentas, negocios, sesiones, promociones y bóvedas ya admiten PostgreSQL cifrado transaccional opt-in y pruebas reales multi-proceso PASS; faltan migración de datos existentes, backups/restauración operativa y prueba en proveedor duradero de producción.",
+      "reason": "RC8 bloquea disco efímero en Render/Vercel/producción y verifica sobres cifrados y esquema mediante preflight READ ONLY sobre PostgreSQL 16 de CI PASS; faltan backup/restauración real, migración de archivos y verificación en DB del proveedor productivo.",
       "evidence": ""
     },
     {
