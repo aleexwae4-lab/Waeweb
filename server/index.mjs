@@ -6,7 +6,8 @@ import { search, weather } from "./search.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
 import { vaultConfig, authenticateVault, loadVault, storeDocument, VaultError } from "./vault.mjs";
 import { encryptionReady, vaultKeysConfig } from "./crypto.mjs";
-import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness } from "./accounts.mjs";
+import { billingConfig, createStripeCheckout, retrieveStripeSubscription, verifyStripeEvent, BillingError } from "./billing.mjs";
+import { accountsEnabled, AccountError, registerAccount, loginAccount, logoutAccount, getAccount, listBusinesses, addBusiness, deleteBusiness, updateBusiness, updateBusinessVisibility, listPublicBusinesses, getPublicBusiness, reserveCheckout, bindCheckout, clearCheckout, acceptPaidCheckout, updatePaidSubscription, getPromotionStatus } from "./accounts.mjs";
 
 const root = fileURLToPath(new URL("../public/", import.meta.url));
 const files = new Map([
@@ -92,15 +93,18 @@ export async function handler(req, res) {
     indexPersistence: "encrypted_local_disk_per_vault",
     encryption: "AES-256-GCM",
     accountsEnabled: accountsEnabled(),
+    promotionsEnabled: Boolean(billingConfig()) && accountsEnabled(),
     businessRegistration: accountsEnabled() ? "owner_controlled_self_declared" : "disabled",
     publicBusinessProfiles: accountsEnabled(),
     deploymentConnected: false
   });
-  const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses", "/api/businesses/public"]);
+  const accountRoutes = new Set(["/api/account/register", "/api/account/login", "/api/account/logout", "/api/account/me", "/api/businesses", "/api/businesses/public", "/api/promotions/plan", "/api/promotions/webhook"]);
   const businessDelete = /^\/api\/businesses\/[0-9a-f-]{36}$/i.test(u.pathname);
   const businessEdit = /^\/api\/businesses\/[0-9a-f-]{36}\/profile$/i.test(u.pathname);
   const businessPublicProfile = /^\/api\/businesses\/public\/[0-9a-f-]{36}$/i.test(u.pathname);
-  if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname))
+  const businessCheckout = /^\/api\/businesses\/[0-9a-f-]{36}\/promote$/i.test(u.pathname);
+  const businessPromotion = /^\/api\/businesses\/[0-9a-f-]{36}\/promotion$/i.test(u.pathname);
+  if (req.method === "POST" && u.pathname !== "/api/read" && !accountRoutes.has(u.pathname) && !businessCheckout)
     return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (req.method === "PATCH" && !businessDelete && !businessEdit) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   if (req.method === "DELETE" && !businessDelete)
@@ -108,8 +112,73 @@ export async function handler(req, res) {
   if (u.pathname.startsWith("/api/")) {
     if (limited(req)) return write(res, 429, { error: "Demasiadas consultas. Intenta de nuevo en un minuto." }, { "retry-after": "60" });
     try {
-      if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile) {
+      if (accountRoutes.has(u.pathname) || businessDelete || businessEdit || businessPublicProfile || businessCheckout || businessPromotion) {
         if (!accountsEnabled()) return write(res, 503, { error: "Cuentas desactivadas. Configura WAE_ACCOUNTS_ENABLED y WAE_ACCOUNTS_KEY en el servidor." });
+        if (u.pathname === "/api/promotions/plan" && req.method === "GET") {
+          return write(res, 200, { free: { name: "Registro Gratis", price: 0,
+            description: "Ficha y participación orgánica sin costo." },
+            promote: { name: "Plan Promocionar", available: Boolean(billingConfig()),
+              price: null, priceNote: "Importe e intervalo definidos por el operador y mostrados antes de pagar en Stripe Checkout.",
+              placement: "Hasta tres resultados patrocinados señalados por consulta relevante.",
+              disclaimer: "Publicidad pagada, no certificación ni ingresos garantizados." } });
+        }
+        if (u.pathname === "/api/promotions/webhook") {
+          if (req.method !== "POST") return write(res, 405, { error: "Se requiere POST." }, { allow: "POST" });
+          const config = billingConfig();
+          if (!config) return write(res, 503, { error: "El cobro está desactivado." });
+          let size = 0, chunks = [];
+          try {
+            for await (const chunk of req) {
+              size += chunk.length;
+              if (size > 128 * 1024) return write(res, 413, { error: "Evento demasiado grande." });
+              chunks.push(chunk);
+            }
+          } catch { return write(res, 400, { error: "Evento inválido." }); }
+          const event = verifyStripeEvent(Buffer.concat(chunks), req.headers["stripe-signature"], config.webhookSecret);
+          if (Boolean(event.livemode) !== config.live) return write(res, 400, { error: "Modo de pago inconsistente." });
+          if (event.type === "checkout.session.completed") {
+            const session = event.data.object;
+            if (session.mode !== "subscription" || session.payment_status !== "paid" ||
+              typeof session.subscription !== "string") return write(res, 200, { received: true, promoted: false });
+            const subscription = await retrieveStripeSubscription(config, session.subscription);
+            const result = await acceptPaidCheckout(event, subscription, config);
+            return write(res, 200, { received: true, promoted: result.applied });
+          }
+          if (["customer.subscription.updated", "customer.subscription.deleted",
+               "invoice.paid", "invoice.payment_failed"].includes(event.type)) {
+            const reference = event.type.startsWith("invoice.")
+              ? event.data.object.subscription : event.data.object.id;
+            if (typeof reference !== "string") return write(res, 200, { received: true });
+            let subscription;
+            if (event.type === "customer.subscription.deleted") {
+              subscription = event.data.object;
+            } else {
+              subscription = await retrieveStripeSubscription(config, reference);
+            }
+            await updatePaidSubscription(event, subscription, config);
+          }
+          return write(res, 200, { received: true });
+        }
+        if (businessPromotion && req.method === "GET") {
+          return write(res, 200, await getPromotionStatus(req.headers.authorization,
+            u.pathname.slice("/api/businesses/".length, -"/promotion".length)));
+        }
+        if (businessCheckout && req.method === "POST") {
+          const config = billingConfig();
+          if (!config) return write(res, 503, { error: "Los pagos aún no están configurados." });
+          const id = u.pathname.slice("/api/businesses/".length, -"/promote".length);
+          const attempt = await reserveCheckout(req.headers.authorization, id);
+          let checkout;
+          try {
+            checkout = await createStripeCheckout(config, attempt);
+            await bindCheckout(attempt, checkout.id);
+          } catch (error) {
+            await clearCheckout(attempt).catch(() => {});
+            throw error;
+          }
+          return write(res, 201, { checkoutUrl: checkout.url,
+            message: "La publicidad solo se activa cuando Stripe confirma el cobro." });
+        }
         if (req.method === "POST" && (u.pathname === "/api/account/register" || u.pathname === "/api/account/login")) {
           const action = u.pathname.endsWith("register") ? "register" : "login";
           if (accountLimited(req, action)) return write(res, 429, { error: "Demasiados intentos. Prueba más tarde." }, { "retry-after": "900" });
@@ -206,6 +275,7 @@ export async function handler(req, res) {
       }
       return write(res, 404, { error: "Ruta no encontrada." });
     } catch (error) {
+      if (error instanceof BillingError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof AccountError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
       if (error instanceof VaultError) return write(res, 503, { error: error.message, code: error.code });
