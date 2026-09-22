@@ -1,3 +1,4 @@
+import { parseQuery, rankResults, researchBrief } from "./intelligence.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -42,13 +43,24 @@ export async function crossref(query) {
     return result(title, "https://doi.org/" + encodeURIComponent(item.DOI), item.abstract || item["container-title"]?.[0] || "Publicación académica", "Crossref", date);
   }).filter(item => item.title && urlAllowed(item.url));
 }
+export function openAlexAbstract(index) {
+  if (!index || typeof index !== "object") return "";
+  const entries = [];
+  for (const [word, positions] of Object.entries(index)) {
+    if (!Array.isArray(positions)) continue;
+    for (const position of positions) {
+      if (Number.isInteger(position) && position >= 0 && position < 1500) entries.push([position, word]);
+    }
+  }
+  return entries.sort((a, b) => a[0] - b[0]).slice(0, 250).map(([, word]) => word).join(" ").slice(0, 1400);
+}
 export async function openAlex(query) {
   const u = new URL("https://api.openalex.org/works");
   u.search = new URLSearchParams({ search: query, "per-page": "6" }).toString();
   const data = await json(u);
   return (data.results || []).map(item => result(
     item.display_name, item.primary_location?.landing_page_url || item.doi || item.id,
-    item.primary_location?.source?.display_name || "Investigación académica", "OpenAlex", item.publication_date
+    openAlexAbstract(item.abstract_inverted_index) || item.primary_location?.source?.display_name || "Investigación académica", "OpenAlex", item.publication_date
   )).filter(item => item.title && urlAllowed(item.url));
 }
 export async function googleSearch(query, type = "web") {
@@ -93,19 +105,21 @@ export function dedupe(items) {
 }
 const cache = new Map();
 export async function search(query, type = "all") {
-  const q = normalizeQuery(query);
-  if (q.length < 2) return { error: "Escribe al menos dos caracteres." };
+  const spec = parseQuery(normalizeQuery(query));
+  const q = spec.query;
+  if (spec.errors.length) return { error: spec.errors.join(" ") };
+  if (q.length < 2) return { error: "Escribe al menos dos caracteres de búsqueda además de los filtros." };
   const selected = ["all", "images", "news", "videos", "research"].includes(type) ? type : "all";
   const key = selected + ":" + q.toLocaleLowerCase("es");
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return cached.value;
   const sources = selected === "images"
-    ? [["Wikimedia Commons", () => wikimediaImages(q)], ["Google", () => googleSearch(q, "images")]]
+    ? [["Wikimedia Commons", () => wikimediaImages(q)], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]]
     : selected === "news" || selected === "videos"
-    ? [["Google", () => googleSearch(q, selected)]]
+    ? [["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, selected)]]
     : selected === "research"
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)]]
-    : [["Google", () => googleSearch(q)], ["Wikipedia", () => wikipedia(q)], ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)]];
+    : [["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q)], ["Wikipedia", () => wikipedia(q)], ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)]];
   const settled = await Promise.allSettled(sources.map(async ([name, fn]) => ({ name, items: await fn() })));
   const errors = [], available = [], results = [];
   settled.forEach((entry, i) => {
@@ -114,10 +128,12 @@ export async function search(query, type = "all") {
     else { available.push(entry.value.name); results.push(...entry.value.items); }
   });
   const payload = {
-    query: q, type: selected, results: dedupe(results), sources: available,
+    query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
+    type: selected, results: rankResults(dedupe(results), spec, selected), sources: available,
     failedSources: errors, fetchedAt: new Date().toISOString(),
     message: !available.some(s => !s.includes("no configurado")) ? "No hay proveedores disponibles para esta categoría." : null
   };
+  payload.brief = selected === "all" || selected === "research" ? researchBrief(payload.results) : null;
   if (cache.size > 200) cache.clear();
   cache.set(key, { value: payload, expires: Date.now() + (selected === "news" ? 60000 : 300000) });
   return payload;
