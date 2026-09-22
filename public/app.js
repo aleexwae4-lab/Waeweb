@@ -107,8 +107,12 @@ byId("vault-disconnect").addEventListener("click", () => {
   vaultToken = null; byId("vault-token").value = "";
   readerOutput.replaceChildren();
   state.data = null;
+  state.results = [];
+  sourceFilter.replaceChildren(new Option("Todas las fuentes", ""));
   resultsContainer.replaceChildren();
   answer.replaceChildren();
+  panel.replaceChildren();
+  stats.textContent = "Bóveda desconectada. Las consultas privadas necesitan nueva autorización.";
   updateVaultUI();
 });
 byId("vault-close").addEventListener("click", () => vaultDialog.close());
@@ -162,6 +166,7 @@ function renderResult(item, index) {
     const outcome = workspace.add(item);
     if (outcome.ok) {
       save.textContent = "◆ Guardado";
+      save.disabled = true;
       stats.textContent = outcome.persisted === false ? "Fuente guardada temporalmente; almacenamiento local bloqueado." : "Fuente guardada en la biblioteca local.";
       refreshLibraryCount();
     } else stats.textContent = outcome.reason;
