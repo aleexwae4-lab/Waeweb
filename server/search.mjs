@@ -235,9 +235,10 @@ export async function search(query, type = "all", { fresh = false } = {}) {
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Europe PMC", () => europePMC(q)], ["Wikipedia", () => wikipedia(q)]]
     : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q)],
-       ["Wikipedia", () => wikipedia(q)], ["Wikidata", () => wikidata(q)],
-       ["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)],
-       ["Europe PMC", () => europePMC(q)], ["Open Library", () => openLibrary(q)]];
+       ["Wikipedia", () => wikipedia(q)], ["Wikidata", () => wikidata(q)]];
+  // The default SERP is a WEB search, not a mixed academic/book feed.
+  // Crossref, OpenAlex and Europe PMC belong to Investigación; Open Library
+  // belongs to Libros. General web coverage depends on a configured index.
   const settled = await Promise.allSettled(sources.map(async ([name, fn]) => ({ name, items: await fn() })));
   const errors = [], available = [], results = [];
   settled.forEach((entry, i) => {
@@ -248,10 +249,13 @@ export async function search(query, type = "all", { fresh = false } = {}) {
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, results: rankResults(dedupe(results), spec, selected), sources: available,
+    webCoverage: selected === "all"
+      ? (available.some(name => name === "Brave" || name === "Google") ? "general-index" : "limited")
+      : null,
     failedSources: errors, fetchedAt: new Date().toISOString(),
     message: !available.some(s => !s.includes("no configurado")) ? "No hay proveedores disponibles para esta categoría." : null
   };
-  payload.brief = selected === "all" || selected === "research" ? researchBrief(payload.results) : null;
+  payload.brief = selected === "research" ? researchBrief(payload.results) : null;
   // Never freeze a transient outage or an unconfigured search category in
   // the cache. A legitimate zero-hit response from a reachable source may cache.
   if (!errors.length && available.some(name => !name.endsWith(" no configurado"))) {
