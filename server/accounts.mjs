@@ -6,6 +6,7 @@ import { sealVault, openVaultEnvelope, EncryptionError } from "./crypto.mjs";
 import { billingConfig, paidPeriod, subscriptionMatchesAttempt } from "./billing.mjs";
 import { postgresAccountsSelected, postgresAccountsConfig, readAccountsPostgres, mutateAccountsPostgres } from "./accounts-postgres.mjs";
 import { requiresDurableStorage } from "./hosting.mjs";
+import { createListing, validateListing, publicCatalog, searchMarketplace, validMarketId, MAX_LISTINGS, MarketplaceError } from "./marketplace.mjs";
 
 const scrypt = promisify(scryptCb);
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -469,4 +470,83 @@ export async function listPublicBusinesses(query = "", base) {
     resultCount: organic.length, limitedTo: 25,
     disclaimer: "Patrocinados son publicidad de pago, no verificación comercial. El orden orgánico es independiente."
   };
+}
+
+function ownedBusiness(db, header, businessId) {
+  if (!validMarketId(businessId)) fail("business_missing","Negocio no encontrado.",404);
+  const user = userWithSession(db,header);
+  const business = user.businesses.find(item => item.id === businessId);
+  if (!business) fail("business_missing","Negocio no encontrado.",404);
+  return business;
+}
+export async function listOwnerListings(header, businessId, base) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  const db = await readDb(base);
+  return { items: ownedBusiness(db,header,businessId).listings || [], limit:MAX_LISTINGS };
+}
+export async function addMarketListing(header, businessId, input, base) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  const listing = createListing(input);
+  return mutate(db => {
+    const business = ownedBusiness(db,header,businessId);
+    business.listings ||= [];
+    if (business.listings.length >= MAX_LISTINGS)
+      throw new MarketplaceError("listing_limit","Límite de publicaciones por negocio.",409);
+    business.listings.push(listing);
+    return listing;
+  },base);
+}
+export async function editMarketListing(header, businessId, listingId, input, base) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  if (!validMarketId(listingId)) fail("listing_missing","Publicación no encontrada.",404);
+  return mutate(db => {
+    const business = ownedBusiness(db,header,businessId);
+    const listing = business.listings?.find(item=>item.id===listingId);
+    if (!listing) fail("listing_missing","Publicación no encontrada.",404);
+    Object.assign(listing,validateListing(input,listing),{updatedAt:new Date().toISOString()});
+    return listing;
+  },base);
+}
+export async function setMarketListingVisibility(header, businessId, listingId, published, base) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  if (!validMarketId(listingId)) fail("listing_missing","Publicación no encontrada.",404);
+  if (typeof published !== "boolean")
+    fail("invalid_visibility","La publicación debe ser pública o privada.");
+  return mutate(db => {
+    const business=ownedBusiness(db,header,businessId);
+    const listing=business.listings?.find(item=>item.id===listingId);
+    if (!listing) fail("listing_missing","Publicación no encontrada.",404);
+    // Publishing requires a separate, explicit owner decision. Business must be public.
+    if (published && business.visibility !== "public")
+      fail("business_private","Publica primero el perfil de tu empresa.",409);
+    listing.visibility=published?"public":"owner_only";
+    listing.updatedAt=new Date().toISOString();
+    return listing;
+  },base);
+}
+export async function deleteMarketListing(header,businessId,listingId,base) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  if (!validMarketId(listingId)) fail("listing_missing","Publicación no encontrada.",404);
+  return mutate(db=>{
+    const business=ownedBusiness(db,header,businessId);
+    const before=business.listings?.length||0;
+    business.listings=(business.listings||[]).filter(item=>item.id!==listingId);
+    if (business.listings.length===before) fail("listing_missing","Publicación no encontrada.",404);
+    return {ok:true};
+  },base);
+}
+export async function getPublicMarketCatalog(businessId,base) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  if (!validMarketId(businessId)) fail("business_missing","Negocio no encontrado.",404);
+  const db=await readDb(base);
+  const business=db.users.flatMap(user=>user.businesses)
+    .find(item=>item.id===businessId && item.visibility==="public");
+  if (!business) fail("business_missing","Negocio no publicado.",404);
+  return { items: publicCatalog(business),
+    disclaimer:"Catálogo autodeclarado; precios y disponibilidad sujetos a confirmación con la empresa." };
+}
+export async function browseMarketplace(filters={},base) {
+  if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
+  const db=await readDb(base);
+  return searchMarketplace(db.users,filters);
 }
