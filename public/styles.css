@@ -2,3 +2,33 @@
 
 .hero-status{color:#f2b7b7;font-size:12px;margin:10px 0 0;min-height:1em}
 .hero-status:empty{display:none}
+
+
+/* Research Core v0.2 */
+.library-button{border:1px solid rgba(136,158,225,.25);background:rgba(110,124,200,.11);border-radius:30px;color:#dce5fd;font-size:12px;padding:9px 12px;white-space:nowrap}
+.library-button:hover{background:rgba(110,124,200,.24)}
+.library-button span{background:rgba(168,139,250,.23);border-radius:100px;padding:3px 7px;margin-left:5px}
+.results-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.source-filter{background:#121b30;border:1px solid rgba(130,153,222,.25);color:#dfebff;padding:8px 10px;border-radius:30px;font-size:12px;max-width:185px}
+.source-filter option{background:#111827;color:#fff}
+.save-button{border:1px solid rgba(153,171,234,.2);border-radius:30px;color:#c7d8fd;background:rgba(71,101,191,.11);padding:6px 10px;font-size:11px}
+.save-button:not(:disabled):hover{background:rgba(71,101,191,.3)}
+.save-button:disabled{opacity:.7;cursor:default}
+.research-disclaimer{font-size:12px;color:#a7b6ce;border-bottom:1px solid var(--line);padding-bottom:13px}
+.brief-notes{padding:0;margin:0 0 17px;list-style:none;counter-reset:brief}
+.brief-note{padding:14px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.brief-note:last-child{border-bottom:0}
+.brief-title{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.brief-link{font-size:14px;color:#a8c9ff;text-decoration:none;font-weight:700}
+.brief-link:hover{text-decoration:underline}
+.brief-note p{margin:8px 0;font-size:13px;color:#d0d8e8;line-height:1.65}
+.library-dialog{width:min(700px,calc(100% - 24px));max-width:700px;max-height:min(86vh,850px);overflow-y:auto}
+.library-actions{display:flex;gap:10px;margin:15px 0}
+.library-actions button{cursor:pointer}
+.library-items{display:flex;flex-direction:column;gap:10px}
+.library-entry{border:1px solid var(--line);border-radius:14px;padding:15px;background:rgba(255,255,255,.025)}
+.library-entry>.result-title{font-size:15px}
+.library-entry>p{color:#9db1cc;font-size:12px}
+.library-entry>.snippet{font-size:13px}
+#library-status{color:#9ed4bd;font-size:12px}
+@media(max-width:550px){.topbar-right{letter-spacing:0}.library-button{font-size:0;padding:8px}.library-button:before{content:"◇";font-size:16px}.library-button span{font-size:11px;margin:0}.source-filter{max-width:140px}.results-controls{width:100%;justify-content:space-between}.statsbar .small-action{display:inline-block}.brief-link{font-size:12px}}
