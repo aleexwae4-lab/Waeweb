@@ -457,9 +457,9 @@ function showDirectionsWithoutLocality(){
   const map=createNativeMap();
   const stage=map.root;
   const note=element("p","map-description",
-    "Vista general nativa de coordenadas. Busca un lugar para situar un punto en el visor.");
+    "Mapa interactivo con calles reales. Busca un lugar, arrastra el mapa, acerca o aleja y calcula rutas cuando el proveedor esté disponible.");
   const footnote=element("p","map-attribution",
-    "Visor geográfico WAEWEB · activa «Calles» para cartografía real de OpenStreetMap · búsqueda precisa si hay proveedor configurado.");
+    "WAEWEB Mapas · cartografía © OpenStreetMap contributors · búsqueda precisa si hay proveedor configurado.");
   const directions=createDirections({getJSON,element,button,external,copyText,
     onDestinationSelect:place=>{
       if(!validMapPlace(place))return;
@@ -526,8 +526,8 @@ function renderMapPlaces(data) {
   activeDirections=directions;
   const stage = map.root;
   const footnote = element("p","map-attribution",
-    "Visor WAEWEB · coordenadas de "+data.source+
-    " · pulsa «Calles» para cartografía real © OpenStreetMap contributors; rutas solo desde un proveedor habilitado.");
+    "WAEWEB Mapas · coordenadas de "+data.source+
+    " · cartografía real © OpenStreetMap contributors · rutas solo desde un proveedor habilitado.");
   const picks = element("div","map-picks");
   picks.setAttribute("aria-label","Ubicaciones encontradas");
   let selected = 0, zoom = data.precision === "coordinate" ? 3 : 2;
