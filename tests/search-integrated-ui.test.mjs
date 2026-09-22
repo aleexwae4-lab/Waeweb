@@ -28,7 +28,7 @@ test("both search forms and voice use same router; browser header focuses the se
   assert.match(app,/function runOmnibox\(/);
   assert.match(app,/performSearch\(intent\.value,type,push\)/);
   assert.match(app,/runOmnibox\(heroInput\.value\)/);
-  assert.match(app,/runOmnibox\(resultsInput\.value, state\.type\)/);
+  assert.match(app,/runOmnibox\(resultsInput\.value, state\.type==="translate"\?"all":state\.type\)/);
   assert.match(app,/runOmnibox\(event\.results\[0\]\[0\]\.transcript\)/);
   assert.doesNotMatch(browser,/hero-browser|\$\("browser-open"\).*openBrowser\(\)/);
   assert.match(browser,/\$\("results-view"\)\.hidden = false/);
