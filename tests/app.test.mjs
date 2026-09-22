@@ -82,6 +82,10 @@ test("server serves health, secure static HTML and blocks unknown files", async 
     assert.equal(index.status, 200);
     assert.match(index.body, /WAE WEB/);
     assert.match(index.headers["content-security-policy"], /script-src 'self'/);
+    assert.match(index.headers["content-security-policy"], /frame-src https:/);
+    assert.match(index.headers["content-security-policy"], /frame-ancestors/);
+    assert.equal((await get("/browser.js")).status, 200);
+    assert.equal((await get("/browser-core.js")).status, 200);
     assert.equal((await get("/server/search.mjs")).status, 404);
     assert.equal((await get("/api/search?q=a")).status, 400);
   } finally { await new Promise(resolve => server.close(resolve)); }
