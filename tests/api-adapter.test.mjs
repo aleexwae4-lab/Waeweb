@@ -61,3 +61,26 @@ test("Vercel mode never advertises file-backed vaults or account mutations as av
     }
   }
 });
+
+test("Vercel Node adapter includes Connect routes without bypassing the disabled-by-default gate", async () => {
+  const keys=["WAE_CONNECT_ENABLED","WAE_CONNECT_CLIENTS_JSON"];
+  const previous=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
+  delete process.env.WAE_CONNECT_ENABLED;
+  delete process.env.WAE_CONNECT_CLIENTS_JSON;
+  const server=http.createServer(api);
+  try {
+    await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+    const base="http://127.0.0.1:"+server.address().port;
+    const disabled=await fetch(base+"/api/connect/v1/status");
+    assert.equal(disabled.status,503);
+    assert.equal((await disabled.json()).error,"connect_disabled");
+    const oldApi=await fetch(base+"/api/health");
+    assert.equal(oldApi.status,200);
+  } finally {
+    await new Promise(resolve=>server.close(resolve));
+    for(const [key,value] of Object.entries(previous)){
+      if(value===undefined)delete process.env[key];
+      else process.env[key]=value;
+    }
+  }
+});
