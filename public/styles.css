@@ -250,3 +250,7 @@
  .results-main .browser-form input{min-width:0;font-size:12px}
  .results-main .browser-tabs{max-width:100%}
 }
+
+/* Only authentic external search destinations appear when a provider fails. */
+.search-fallback-links{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0 0}
+.search-fallback-links .link-button{font-size:12px;text-decoration:none}
