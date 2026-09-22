@@ -5,7 +5,7 @@ import { randomBytes, createHash, timingSafeEqual, hkdfSync,
 import { presignedMarketImage, MAX_MARKET_MEDIA_BYTES } from "./marketplace-media.mjs";
 import { mediaIntegrityManifest } from "./marketplace-integrity-audit.mjs";
 import { validImageDigest } from "./marketplace-integrity.mjs";
-import { MediaJournalError } from "./marketplace-lifecycle.mjs";
+import { MediaJournalError, validMediaKey } from "./marketplace-lifecycle.mjs";
 
 const TYPE="waeweb-private-media-archive";
 const MAX_ITEMS=5,MAX_CIPHER=2*1024*1024;
@@ -140,7 +140,7 @@ export function openMarketMediaArchive(archive,{
     fail("media_archive_invalid");
   const seen=new Set();
   for(const item of items){
-    if(typeof item?.key!=="string"||seen.has(item.key)||
+    if(!validMediaKey(item?.key)||seen.has(item.key)||
        !validImageDigest(item.checksum)||!Number.isSafeInteger(item.size)||
        item.size<8||item.size>MAX_MARKET_MEDIA_BYTES)
       fail("media_archive_invalid");
