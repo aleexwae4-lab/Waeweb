@@ -2,9 +2,10 @@
 // Media bytes and object keys exist ONLY inside authenticated ciphertext.
 import { randomBytes, createHash, timingSafeEqual, hkdfSync,
   createCipheriv, createDecipheriv } from "node:crypto";
-import { presignedMarketImage, MAX_MARKET_MEDIA_BYTES } from "./marketplace-media.mjs";
+import { presignedMarketImage, headMarketImage, putMarketImageIfAbsent,
+  MAX_MARKET_MEDIA_BYTES } from "./marketplace-media.mjs";
 import { mediaIntegrityManifest } from "./marketplace-integrity-audit.mjs";
-import { validImageDigest } from "./marketplace-integrity.mjs";
+import { validImageDigest, verifyMarketImageIntegrity } from "./marketplace-integrity.mjs";
 import { MediaJournalError, validMediaKey } from "./marketplace-lifecycle.mjs";
 
 const TYPE="waeweb-private-media-archive";
@@ -154,4 +155,62 @@ export function openMarketMediaArchive(archive,{
   return {items,summary:{mode:"encrypted_private_media_archive_verify",
     verified:items.length,offset:archive.offset,total:archive.total,
     noObjectKeysExposed:true,objectBackupVerified:false,restoreCertified:false}};
+}
+
+
+/**
+ * RC20 guarded object-only restoration. The PostgreSQL target must already
+ * match the same source snapshot; caller must stop application writers.
+ * No delete, no overwrite, no automatic rollback of partial object writes.
+ */
+export async function restoreMarketMediaArchive(db,archive,{
+  key,postgresChecksum,media,transport=fetch,confirm=false,
+  readCurrent=async()=>db
+}={}){
+  if(confirm!==true||(process.env.NODE_ENV!=="test"&&
+      process.env.WAE_MARK_MEDIA_RESTORE_ACK!=="reviewed-offline-empty-object-restore"))
+    fail("media_restore_not_authorized");
+  if(!media)fail("media_restore_provider_required");
+  const manifest=mediaIntegrityManifest(db);
+  const opened=openMarketMediaArchive(archive,{key,postgresChecksum,
+    manifestFingerprint:manifest.fingerprint});
+  const expected=manifest.records.slice(archive.offset,archive.offset+archive.count);
+  if(expected.length!==opened.items.length||
+    expected.some((record,i)=>record.key!==opened.items[i].key||
+      record.checksum!==opened.items[i].checksum||
+      record.size!==opened.items[i].size))
+    fail("media_restore_reference_mismatch");
+  const queued=new Set((db.mediaDeleteQueue||[]).map(entry=>entry.key));
+  if(opened.items.some(item=>queued.has(item.key)))
+    fail("media_restore_queued_key");
+  const unchanged=async()=>{
+    const latest=mediaIntegrityManifest(await readCurrent());
+    if(latest.fingerprint!==manifest.fingerprint||
+       latest.records.length!==manifest.records.length)
+      fail("media_restore_database_changed");
+  };
+  await unchanged();
+  // All-or-nothing PREFLIGHT: refuse an occupied/unknown target before any PUT.
+  for(const item of opened.items){
+    const result=await headMarketImage(media,item.key,transport);
+    if(result.state!=="missing")
+      fail(result.state==="present"?"media_restore_target_not_empty":
+        "media_restore_target_unverified");
+  }
+  let restored=0;
+  for(const item of opened.items){
+    await unchanged();
+    // Conditional S3 If-None-Match:* closes the HEAD/PUT race.
+    await putMarketImageIfAbsent(media,item.key,Buffer.from(item.bytes,"base64"),transport);
+    restored++;
+    const verified=await verifyMarketImageIntegrity(media,item.key,{
+      checksum:item.checksum,size:item.size,transport});
+    if(verified.state!=="verified")fail("media_restore_post_write_unverified");
+  }
+  return {mode:"offline_conditional_object_restore",
+    restored,checked:opened.items.length,postgresChecksum,
+    sourceCapsuleAuthenticated:true,providerObjectsCheckedAfterWrite:true,
+    restoreCertified:false,objectBackupVerified:false,
+    noObjectKeysExposed:true,noDeletionPerformed:true,
+    releaseApproval:"not_evaluated"};
 }
