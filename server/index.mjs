@@ -123,7 +123,7 @@ async function jsonBody(req, maxBytes = 3000) {
   } catch { throw new AccountError("invalid_json", "JSON inválido.", 400); }
 }
 const security = {
-  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; font-src 'self'; frame-src https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'",
+  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; media-src https://upload.wikimedia.org; connect-src 'self'; font-src 'self'; frame-src https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'",
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-frame-options": "DENY",
