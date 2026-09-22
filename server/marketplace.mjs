@@ -1,5 +1,6 @@
 // Marketplace catalog rules, isolated from transport and storage.
 import { randomUUID } from "node:crypto";
+import { imageUrl } from "./marketplace-media.mjs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_LISTINGS = 16; // Encrypted account envelope is limited to 4 MiB.
@@ -77,7 +78,8 @@ export function publicListing(business, listing) {
     city: business.city, kind: listing.kind, title: listing.title,
     category: listing.category, description: listing.description,
     priceCents: listing.priceCents, currency: "MXN",
-    availability: listing.availability, imageDataUrl: listing.imageDataUrl,
+    availability: listing.availability, imageDataUrl: listing.imageKey ? null : listing.imageDataUrl,
+    imageUrl: listing.imageKey ? imageUrl(business.id, listing.id) : null,
     verification: "self_declared"
   };
 }
