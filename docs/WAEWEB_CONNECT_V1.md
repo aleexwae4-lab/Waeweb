@@ -72,7 +72,7 @@ reenvía cookies/cabeceras privadas al sitio visitado.
    `WAEWEB_CONNECT_BASE_URL=https://<origen-waeweb>/`,
    `WAEWEB_CONNECT_CLIENT_ID=<id-exacto>`,
    `WAEWEB_CONNECT_TOKEN=<secreto-correspondiente>`.
-4. Verificar `GET /status`, error de credencial ajena, SSE, resultados con fuentes,
+5. Verificar `GET /status`, error de credencial ajena, SSE, resultados con fuentes,
    fallback cuando WAEWEB está inactivo y métricas por cliente antes de conectar la UI
    o el orquestador. No reenviar su token al navegador. Mantener `retrieve` apagado
    hasta probar robots/seguridad de lectura en el entorno final.
