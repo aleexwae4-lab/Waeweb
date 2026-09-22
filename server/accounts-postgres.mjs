@@ -42,15 +42,20 @@ export function postgresAccountsConfig(env = process.env) {
       if (!ca.includes("-----BEGIN CERTIFICATE-----")) return null;
     } catch { return null; }
   }
-  return {
-    host: hostname, port: parsed.port ? Number(parsed.port) : 5432,
-    user: decodeURIComponent(parsed.username),
-    password: decodeURIComponent(parsed.password),
-    database: decodeURIComponent(parsed.pathname.slice(1)),
-    ssl: insecureLocalTest ? false : { ca, rejectUnauthorized: true },
-    max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000,
-    statement_timeout: 10000
-  };
+  try {
+    const user = decodeURIComponent(parsed.username);
+    const password = decodeURIComponent(parsed.password);
+    const database = decodeURIComponent(parsed.pathname.slice(1));
+    if (!user || !password || !database || database.includes("/") ||
+        /[\\\\\\u0000-\\u001f\\u007f]/.test(database)) return null;
+    return {
+      host: hostname, port: parsed.port ? Number(parsed.port) : 5432,
+      user, password, database,
+      ssl: insecureLocalTest ? false : { ca, rejectUnauthorized: true },
+      max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000,
+      statement_timeout: 10000
+    };
+  } catch { return null; }
 }
 export const accountsPgSchema = SCHEMA;
 
