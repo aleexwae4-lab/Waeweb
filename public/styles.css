@@ -99,3 +99,16 @@
 .public-business-card .link-button{display:inline-block;margin-top:14px}
 .public-business-card .eyebrow{font-size:11px;color:#9ebbf2;margin:0 0 10px}
 .business-entry .small-action{display:inline-block!important;margin-right:8px}
+
+/* v0.7: business profile and owner editing */
+.business-profile-content{margin:28px auto 0;max-width:860px;min-height:140px}
+.business-profile-card{background:linear-gradient(135deg,rgba(20,39,75,.96),rgba(24,21,47,.96));border:1px solid rgba(138,170,246,.27);border-radius:26px;padding:clamp(23px,5vw,47px);box-shadow:0 20px 70px rgba(0,0,0,.24);overflow-wrap:anywhere}
+.business-profile-name{font-size:clamp(35px,7vw,64px);letter-spacing:-.06em;line-height:1.13;margin:20px 0 15px}
+.business-profile-meta{font-size:15px;color:#c7d8f8;font-weight:650}
+.business-profile-card .business-desc{font-size:16px;line-height:1.75;margin:24px 0}
+.business-profile-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:24px}
+.business-profile-actions .link-button{font-size:13px;padding:12px 17px}
+.business-profile-actions .business-primary{font-size:13px}
+#business-form{scroll-margin-top:30px}
+#business-cancel-edit{align-self:flex-start;margin-top:3px}
+.business-entry>a.small-action{display:inline-block;text-decoration:none}
