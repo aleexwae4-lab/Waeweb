@@ -6,6 +6,16 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Aplicación Node.js indepe
 
 
 
+## Estado actual — Fase 8 (v0.8): WAEWEB Browser Core
+
+**Navegación interna sin usar Vercel.** La barra «◎ Navegar» y los títulos de resultados abren un área integrada con direcciones HTTPS, hasta ocho pestañas por sesión, atrás/adelante, recarga, salida al buscador y apertura explícita del sitio original. La pestaña conserva su iframe mientras se alterna entre pestañas; el historial de URLs introducidas por WAEWEB tiene un límite de 30 entradas. La interfaz muestra siempre el aviso de que la navegación interna es condicional.
+
+**Seguridad de diseño:** el navegador incrustado utiliza iframe con `sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"` y *sin* `allow-same-origin`, `referrerpolicy="no-referrer"` y política de contenido `frame-src https:`. Solo admite URLs HTTPS sin credenciales en la barra integrada y no es un proxy de sitios, no reescribe HTML externo ni elimina cabeceras X-Frame-Options/CSP. El contenido remoto no obtiene acceso al DOM, tokens o bóvedas de WAEWEB; el usuario debe evitar credenciales de terceros en sitios no confiables. Los sitios con autenticación por cookies y JavaScript dependiente de origen pueden no funcionar en el iframe.
+
+**Funcionamiento real y límites:** no es Chromium, Chrome, Electron ni Tauri; un servidor web no puede imponer que todos los sitios sean incrustables. Las páginas que restringen `frame-ancestors` o `X-Frame-Options`, HTTP no seguro, páginas privadas, PDF y aplicaciones que requieren origen propio pueden no abrirse en el contenedor. El navegador principal bloquea de forma deliberada observar el contenido y URL internos del iframe de otro origen: atrás/adelante y dirección corresponden a navegaciones iniciadas desde la barra de WAEWEB, no a clics dentro del sitio remoto. No se promete detectar bloqueos de incrustación: `load` de iframe no demuestra que el sitio se renderizó. «↗ Abrir fuera» permite visitar la página en una pestaña ordinaria del navegador. «⌕ Leer con WAE» usa el lector protegido existente solamente con lector y bóveda configurados, sin habilitar un proxy ni lectura silenciosa. No se guardan URLs en cuentas ni en bóvedas por la navegación (la lectura es una acción distinta). No se crean credenciales ni se conecta el despliegue.
+
+**QA:** `npm run check && npm test`; pruebas de parsing HTTPS, control de esquemas/credenciales, aislamiento, límites de ocho pestañas y treinta entradas, recursos servidos por allowlist y CSP. Estas pruebas no equivalen a un E2E visual ni demuestran carga real de sitios externos. Para llegar a navegación con compatibilidad de navegador completo se requeriría un runtime nativo/controlado (p. ej., WebView2, WKWebView, Electron/Tauri) y pruebas de seguridad específicas.
+
 ## Estado actual — Fase 7 (v0.7): perfiles empresariales compartibles
 
 La Fase 7 agrega un ciclo completo para la ficha comercial de WAE WEB: **registrar → editar → publicar voluntariamente → compartir perfil → ocultar o eliminar**. No se ha habilitado ningún registro de usuario ni despliegue de producción; el servidor continúa requiriendo las variables privadas de cuentas de la Fase 6.
