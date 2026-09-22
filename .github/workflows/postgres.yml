@@ -8,6 +8,11 @@ on:
       - "server/accounts-postgres.mjs"
       - "server/vault.mjs"
       - "server/vault-postgres.mjs"
+      - "server/hosting.mjs"
+      - "server/storage-preflight.mjs"
+      - "scripts/storage-preflight.mjs"
+      - "tests/storage-preflight.test.mjs"
+      - "tests/hosted-storage.test.mjs"
       - "server/connect.mjs"
       - "server/connect-postgres.mjs"
       - "scripts/connect-pg-init.mjs"
@@ -55,6 +60,8 @@ jobs:
       WAE_CONNECT_ADMISSION_MODE: postgres
       WAE_CONNECT_CLIENTS_JSON: '{"inteligenciauniversal":"ci-only-alpha-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","universal-core-vt3h":"ci-only-beta-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","waeosgreen":"ci-only-gamma-cccccccccccccccccccccccccccccccccccccccc"}'
       WAE_VAULT_STORE: postgres
+      WAE_READER_ENABLED: "true"
+      WAE_VAULTS_JSON: '{"org_alpha":"ci-only-alpha-vault-token-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","org_beta":"ci-only-beta-vault-token-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'
       WAE_VAULT_KEYS_JSON: '{"org_alpha":"abababababababababababababababababababababababababababababababab","org_beta":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}'
       WAE_ACCOUNTS_KEY: "abababababababababababababababababababababababababababababababab"
       WAE_ACCOUNTS_DATABASE_URL: postgresql://wae_test:local-ci-only-password@127.0.0.1:5432/wae_test
@@ -74,3 +81,5 @@ jobs:
         run: npm run test:vault:postgres
       - name: Test shared WAEWEB Connect rate and concurrency quotas
         run: npm run test:connect:postgres
+      - name: Read-only encrypted PostgreSQL storage preflight
+        run: npm run storage:preflight
