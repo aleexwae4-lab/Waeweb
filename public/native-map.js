@@ -18,7 +18,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
   toolbar.append(title,tag);
   const area=document.createElement("div");area.className="wae-native-map-area";
   const svg=el("svg");svg.setAttribute("viewBox","0 0 900 460");
-  svg.setAttribute("role","img");svg.setAttribute("aria-label","Mapa interactivo de calles, ubicaciones geocodificadas y rutas verificadas.");
+  svg.setAttribute("role","group");svg.setAttribute("aria-label","Mapa interactivo de calles, ubicaciones geocodificadas y rutas verificadas.");
   svg.setAttribute("preserveAspectRatio","xMidYMid meet");
   svg.setAttribute("tabindex","0");
   area.append(svg);
@@ -113,7 +113,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
       if(p.x<0||p.x>900||p.y<0||p.y>460)return;
       const pin=el("circle");
       pin.setAttribute("cx",String(p.x));pin.setAttribute("cy",String(p.y));
-      pin.setAttribute("r","11");pin.setAttribute("class","wae-map-candidate");
+      pin.setAttribute("r","17");pin.setAttribute("class","wae-map-candidate");
       pin.setAttribute("data-map-place",String(index));
       pin.setAttribute("tabindex","0");pin.setAttribute("role","button");
       pin.setAttribute("aria-label","Seleccionar "+(place.detail||place.name||"ubicación"));
@@ -126,7 +126,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
         const halo=el("circle");halo.setAttribute("cx",p.x);halo.setAttribute("cy",p.y);
         halo.setAttribute("r","21");halo.setAttribute("class","wae-map-marker-halo");svg.append(halo);
         const marker=el("circle");marker.setAttribute("cx",p.x);marker.setAttribute("cy",p.y);
-        marker.setAttribute("r","9");marker.setAttribute("class","wae-map-marker");
+        marker.setAttribute("r","13");marker.setAttribute("class","wae-map-marker");
         if(selectedIndex>=0){
           marker.setAttribute("data-map-place",String(selectedIndex));
           marker.setAttribute("tabindex","0");marker.setAttribute("role","button");
@@ -150,7 +150,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
   function toggleStreets(){streetsEnabled=!streetsEnabled;draw();}
   function setPlaces(items,activeIndex=0){
     places=(Array.isArray(items)?items:[]).filter(validMapPlace).slice(0,12);
-    selectedIndex=places.length?clamp(Math.trunc(activeIndex)||0,0,places.length-1):-1;
+    selectedIndex=places.length&&activeIndex!==-1?clamp(Math.trunc(activeIndex)||0,0,places.length-1):-1;
     draw();
   }
   function setView(place,zoom=3){
@@ -195,7 +195,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
       pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
       if(pointers.size===2){drag=null;gesture={distance:distance(),level};svg.setPointerCapture?.(e.pointerId);return;}
     }
-    if(e.target?.closest?.("[data-map-place]"))return;
+    if(e.target?.closest?.("[data-map-place]")){dragged=false;return;}
     if(e.button!==0)return;
     drag={x:e.clientX,y:e.clientY,center:{...center}};dragged=false;
     svg.setPointerCapture?.(e.pointerId);
