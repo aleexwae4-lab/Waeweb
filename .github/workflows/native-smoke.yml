@@ -27,6 +27,11 @@ jobs:
           node-version: "22"
       - name: Install optional desktop engine
         run: npm install --no-audit --no-fund
+      - name: Configure Chromium SUID sandbox on Linux runner
+        run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+          test "$(stat -c %a node_modules/electron/dist/chrome-sandbox)" = "4755"
       - name: Verify sources and unit security checks
         run: npm run check && npm test
       - name: Launch actual Chromium in a virtual display
