@@ -1,6 +1,7 @@
 // WAEWEB RC33 · owned SVG geographic viewport. No third-party iframe,
 // tiles, network requests or invented roads. Points and ORS geometry only.
-import {validMapPlace,osmPlaceUrl} from "/maps-core.js";
+import {validMapPlace} from "/maps-core.js";
+import {visibleStreetTiles} from "/map-tiles.js";
 
 const svgNS="http://www.w3.org/2000/svg";
 const el=(tag)=>document.createElementNS(svgNS,tag);
@@ -28,12 +29,15 @@ export function createNativeMap(){
   };
   const plus=make("+",()=>changeZoom(1)),minus=make("−",()=>changeZoom(-1));
   make("⌖ Centrar",()=>{if(point)setView(point);else setWorld();});
+  const streets=make("▧ Calles",()=>toggleStreets());
+  streets.setAttribute("aria-label","Activar o desactivar cartografía de calles");
+  streets.setAttribute("aria-pressed","false");
   area.append(controls);
   const footer=document.createElement("p");footer.className="wae-native-map-note";
-  footer.textContent="Vista de coordenadas propia. No hay calles ni imágenes de satélite; las rutas se trazan solo cuando el proveedor devuelve geometría real.";
+  footer.textContent="Vista geográfica propia. Pulsa «Calles» para cargar únicamente la cartografía visible de OpenStreetMap. Las rutas aparecen solo si el proveedor devuelve geometría real.";
   const details=document.createElement("p");details.className="wae-native-map-detail";details.setAttribute("aria-live","polite");
   root.append(toolbar,area,details,footer);
-  let center={latitude:23.6,longitude:-102.5},level=0,point=null,geometry=null,label="",disposed=false;
+  let center={latitude:23.6,longitude:-102.5},level=0,point=null,geometry=null,label="",disposed=false,streetsEnabled=false;
   const spans=[{lat:40,lon:78},{lat:14,lon:28},{lat:4.5,lon:9},{lat:1.4,lon:2.8},{lat:.4,lon:.8},{lat:.1,lon:.2},{lat:.025,lon:.05}];
   function project(lon,lat){
     const span=spans[level];
@@ -61,6 +65,17 @@ export function createNativeMap(){
     defs.append(gradient);svg.append(defs);
     const bg=el("rect");bg.setAttribute("width","900");bg.setAttribute("height","460");
     bg.setAttribute("fill","url(#wae-map-gradient)");svg.append(bg);
+    if(streetsEnabled){
+      for(const tile of visibleStreetTiles(center,spans[level])){
+        const image=el("image");
+        image.setAttribute("href",tile.url);
+        for(const prop of ["x","y","width","height"])image.setAttribute(prop,String(tile[prop]));
+        image.setAttribute("preserveAspectRatio","none");
+        image.setAttribute("referrerpolicy","strict-origin-when-cross-origin");
+        svg.append(image);
+      }
+      svg.setAttribute("aria-label","Mapa con cartografía de OpenStreetMap, marcador y ruta cuando está disponible.");
+    }else svg.setAttribute("aria-label","Coordenadas geográficas, puntos seleccionados y ruta cuando está disponible. Pulsa Calles para ver calles reales.");
     const s=spans[level],latStep=s.lat/4,lonStep=s.lon/6;
     // Geographic graticule is exact latitude/longitude, not fictional roads.
     const firstLat=Math.ceil((center.latitude-s.lat/2)/latStep)*latStep;
@@ -105,7 +120,13 @@ export function createNativeMap(){
     details.textContent=(point?label+" · "+point.latitude.toFixed(6)+", "+point.longitude.toFixed(6):
       "Vista general · centro aproximado de México")+" · Acercamiento "+(level+1)+"/7";
     plus.disabled=level>=spans.length-1;minus.disabled=level<=0;
+    streets.setAttribute("aria-pressed",String(streetsEnabled));
+    tag.textContent=streetsEnabled?"Calles · OpenStreetMap":"Vista geográfica nativa";
+    footer.textContent=streetsEnabled
+      ?"© OpenStreetMap contributors · Open Database License. Solo se solicitan teselas visibles; sin tráfico ni satélite. Si el proveedor bloquea imágenes, el visor conserva las coordenadas."
+      :"Vista geográfica propia. Pulsa «Calles» para cargar únicamente la cartografía visible de OpenStreetMap. Las rutas aparecen solo si el proveedor devuelve geometría real.";
   }
+  function toggleStreets(){streetsEnabled=!streetsEnabled;draw();}
   function setView(place,zoom=3){
     if(!validMapPlace(place))return;
     point=place;center={latitude:clamp(place.latitude,-90,90),longitude:normLon(place.longitude)};
@@ -155,5 +176,5 @@ export function createNativeMap(){
     }else if(e.key==="+"){changeZoom(1);}else if(e.key==="-"){changeZoom(-1);}
   });
   draw();
-  return {root,setView,setWorld,setRoute,changeZoom,dispose(){disposed=true;drag=null;}};
+  return {root,setView,setWorld,setRoute,changeZoom,toggleStreets,dispose(){disposed=true;drag=null;}};
 }
