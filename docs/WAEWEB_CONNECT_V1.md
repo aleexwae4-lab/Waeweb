@@ -52,7 +52,7 @@ compartidos entre réplicas**, usando tablas transaccionales PostgreSQL y leases
 que expiran tras un fallo de proceso. `WAE_CONNECT_ADMISSION_MODE=postgres` es obligatorio
 si se detecta `NODE_ENV=production`, Render o Vercel: sin conexión validada o tablas
 inicializadas, la API responde 503 y **NO vuelve a la caché de cuotas local**.
-La modalidad `local` es únicamente para desarrollo de un proceso. Los límites
+La modalidad `local` solo se permite con `NODE_ENV=development` o `NODE_ENV=test` explícito y sin indicadores de Render/Vercel; si `NODE_ENV` no existe, el gateway también falla cerrado. Los límites
 de usuarios individuales dentro de cada producto y la recuperación/abuso requieren
 políticas adicionales en cada servicio consumidor. El gateway no acepta URLs arbitrarias de backend ni
 reenvía cookies/cabeceras privadas al sitio visitado.
