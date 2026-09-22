@@ -73,39 +73,7 @@ async function showProfile(id) {
   });
   actions.append(copy);
   card.append(actions);
-  const catalog = textNode("section","business-catalog");
-  catalog.append(textNode("h3","","Productos y servicios"));
-  const grid = textNode("div","business-catalog-grid");
-  catalog.append(grid);
-  card.append(catalog);
   target.replaceChildren(card);
-  try {
-    const response = await fetch("/api/businesses/public/"+encodeURIComponent(id)+"/listings",{
-      headers:{accept:"application/json"},cache:"no-store",credentials:"omit"});
-    const market = await response.json();
-    if(!response.ok) throw Error();
-    if(!market.items.length) {
-      grid.append(textNode("p","business-fineprint","Esta empresa todavía no tiene publicaciones públicas."));
-    } else {
-      for(const item of market.items) {
-        const itemCard=textNode("article","market-card");
-        if(item.imageDataUrl?.startsWith("data:image/")) {
-          const image=document.createElement("img");image.className="market-photo";
-          image.src=item.imageDataUrl;image.alt="Fotografía de "+item.title;image.loading="lazy";itemCard.append(image);
-        }
-        const body=textNode("div","market-card-body");
-        body.append(textNode("span","tag",item.kind==="service"?"SERVICIO":"PRODUCTO"),
-          textNode("h3","",item.title),
-          textNode("p","market-price",item.priceCents==null?"Consultar precio":
-            new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN"}).format(item.priceCents/100)),
-          textNode("p","business-desc",item.description),
-          textNode("p","business-fineprint",item.availability==="available"?"Disponible (declarado)":"No disponible"));
-        itemCard.append(body);grid.append(itemCard);
-      }
-    }
-  } catch {
-    grid.append(textNode("p","business-fineprint","El catálogo no está disponible en este momento."));
-  }
   // Only public listings for an explicitly published business are exposed.
   const catalog = textNode("section","market-profile-catalog");
   catalog.append(textNode("h2","","Productos y servicios de esta empresa"));
