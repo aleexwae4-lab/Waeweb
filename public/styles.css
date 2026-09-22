@@ -416,3 +416,31 @@
 .wae-map-candidate:hover,.wae-map-candidate:focus-visible{fill:#fff;stroke:#306da0;stroke-width:6;outline:none}
 .wae-map-marker{cursor:pointer;filter:drop-shadow(0 2px 6px #000b)}
 @media(max-width:550px){.map-search-form{flex-wrap:wrap}.map-search-input{flex-basis:100%}.map-search-submit{width:100%}.wae-native-map-controls{right:8px;top:8px}.wae-native-map-toolbar{padding:10px 12px}}
+
+/* Mobile-first navigation and maps: one clear search, visible primary tabs. */
+.tabs{scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+.tabs .tab{scroll-snap-align:start;min-height:44px}
+.map-search-form{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:9px;margin:14px 0 12px}
+.map-search-input{width:100%;min-width:0}
+.map-search-submit,.map-locate{min-height:46px}
+.map-locate{font-size:12px;font-weight:700;white-space:nowrap;background:#193655}
+.map-search-status{grid-column:1/-1;margin:0;font-size:12px;color:#c4d6f0}
+.map-search-status:empty{display:none}
+.map-explorer>.wae-native-map{margin-top:10px}
+.map-explorer>.map-place{margin:10px 0 0}
+.map-explorer>.map-attribution{margin-top:7px}
+.wae-native-map-controls button{touch-action:manipulation}
+@media(max-width:600px){
+  .tabs{gap:3px;padding:9px 0 8px}
+  .tabs .tab{padding:10px 13px;font-size:12px}
+  .map-search-form{grid-template-columns:minmax(0,1fr) auto}
+  .map-search-input{grid-column:1/-1;font-size:16px}
+  .map-search-submit,.map-locate{width:auto;font-size:12px;padding:0 12px}
+  .map-search-submit{grid-column:1}
+  .map-locate{grid-column:2}
+  .map-toolbar{display:flex;flex-wrap:wrap}
+  .map-toolbar .map-action{flex:1 1 145px;min-height:44px}
+  .wae-native-map-area svg{height:clamp(330px,48dvh,520px)}
+  .wae-native-map-controls{top:10px;right:10px}
+  .wae-native-map-controls button{min-height:47px;min-width:47px}
+}
