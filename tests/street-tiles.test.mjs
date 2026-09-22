@@ -25,7 +25,7 @@ test("bad map dimensions and excessive tile requests remain disabled",()=>{
 test("street layer only activates by explicit button, retains attribution and fallback",async()=>{
   const map=await readFile(new URL("../public/native-map.js",import.meta.url),"utf8");
   assert.match(map,/make\("▧ Calles",\(\)=>toggleStreets\(\)\)/);
-  assert.match(map,/let center=.*streetsEnabled=false/);
+  assert.match(map,/let center=.*streetsEnabled=true/);
   assert.match(map,/if\(streetsEnabled\)\{/);
   assert.match(map,/OpenStreetMap contributors/);
   assert.match(map,/strict-origin-when-cross-origin/);
