@@ -14,6 +14,7 @@ import { createMarketMediaArchive, openMarketMediaArchive } from "./marketplace-
 import { saveMarketMediaArchive, loadMarketMediaArchive } from "./marketplace-object-archive-io.mjs";
 import { restoreArchivedMarketMedia } from "./marketplace-object-restore.mjs";
 import { auditMarketMediaArchiveSet } from "./marketplace-archive-set.mjs";
+import { exportPortableRecovery, readPortableRecovery } from "./portable-recovery.mjs";
 
 const TYPE = "waeweb-encrypted-postgres-recovery";
 const MAX_BYTES = 160 * 1024 * 1024;
@@ -334,4 +335,65 @@ export async function verifyMarketMediaArchiveSet(postgresFilename,mediaFilename
     key:accountKey(),postgresChecksum:source.checksum});
   return {...report,sourceBackupVerified:true,
     releaseApproval:"not_evaluated",restoreCertified:false};
+}
+
+/**
+ * RC23: operator-approved export of an authenticated, COMPLETE private
+ * PostgreSQL+JPEG archive set to an explicitly chosen offline directory.
+ * No S3 requests, DB mutations, or third-party storage connections.
+ */
+const portableRoot=()=>process.env.WAE_OFFLINE_EXPORT_DIR;
+const portableSourceRoots=()=>[
+  resolve(process.env.WAE_PG_BACKUP_DIR||".wae-private-pg-backups"),
+  resolve(process.env.WAE_MEDIA_BACKUP_DIR||".wae-private-media-backups")
+];
+export async function exportPortableMarketRecovery(postgresFilename,mediaFilenames,{
+  root=portableRoot()
+}={}){
+  if(process.env.NODE_ENV!=="test" &&
+     process.env.WAE_PORTABLE_EXPORT_ACK!=="reviewed-offline-encrypted-copy")
+    reject("portable_export_not_authorized");
+  if(!Array.isArray(mediaFilenames)||mediaFilenames.length<1||
+     mediaFilenames.length>100)
+    reject("portable_archive_set_options");
+  const {snapshot:source}=await readSnapshot(postgresFilename);
+  const db=backupMediaRecords(source,accountKey());
+  const archives=[];
+  for(const filename of mediaFilenames)
+    archives.push(await loadMarketMediaArchive(filename));
+  const coverage=auditMarketMediaArchiveSet(db,archives,{
+    key:accountKey(),postgresChecksum:source.checksum});
+  if(coverage.status!=="complete_set_verified")
+    reject("portable_archive_set_incomplete");
+  return exportPortableRecovery(source,archives,{
+    root,sourceRoots:portableSourceRoots()
+  });
+}
+
+/**
+ * RC23: read independently from the portable package. Original PG and media
+ * backup directories are never opened. Still needs offline account/vault
+ * keys to authenticate ciphertext and verify exact media coverage.
+ */
+export async function verifyPortableMarketRecovery(packageName,{
+  root=portableRoot()
+}={}){
+  const {snapshot,archives,manifest}=await readPortableRecovery(packageName,{
+    root,sourceRoots:portableSourceRoots()
+  });
+  const verified=verifyRecoveryBundle(snapshot);
+  const db=backupMediaRecords(snapshot,accountKey());
+  const coverage=auditMarketMediaArchiveSet(db,archives,{
+    key:accountKey(),postgresChecksum:verified.checksum});
+  if(coverage.status!=="complete_set_verified")
+    reject("portable_archive_set_incomplete");
+  return {mode:"read_only_portable_recovery_verify",
+    status:"portable_package_verified",
+    packageName,sourceBackupVerified:true,
+    ...coverage,copyContentVerified:true,
+    packageArchiveCount:manifest.mediaCount,
+    independentFailureDomainVerified:false,
+    providerRestoreVerified:false,restoreCertified:false,
+    noObjectKeysExposed:true,noDeletionPerformed:true,
+    releaseApproval:"not_evaluated"};
 }
