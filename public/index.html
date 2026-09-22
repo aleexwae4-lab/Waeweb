@@ -117,6 +117,12 @@
               </form>
               <div class="business-list-wrap"><h3>Mis publicaciones <span id="listing-count">0</span></h3><div id="listing-owner-list" class="market-owner-list"></div></div>
             </div>
+            <section class="market-inbox" aria-label="Solicitudes comerciales privadas">
+              <div class="business-list-head"><h3>Consultas recibidas <span id="market-inquiry-count">0</span></h3>
+                <button type="button" id="market-inquiry-refresh" class="small-action">Actualizar consultas</button></div>
+              <p class="business-fineprint">Solo el titular de la empresa puede leer los mensajes y datos que los compradores consintieron compartir. No hay pagos ni mensajería externa automática.</p>
+              <div id="market-inquiry-list" class="market-owner-list"></div>
+            </section>
           </section>
         </div>
       </section>
@@ -182,6 +188,37 @@
     </main>
     <footer class="footer"><span>WAE WEB · WAE OS ENTERPRISE</span><span>Información con atribución · Desarrollo independiente</span></footer>
   </div>
+  <dialog id="market-inquiry-dialog" class="modal" aria-labelledby="market-inquiry-title">
+    <form id="market-inquiry-form" class="business-form">
+      <h2 id="market-inquiry-title">Consultar al negocio</h2>
+      <p id="market-inquiry-item" class="business-fineprint"></p>
+      <label for="market-inquiry-message">Tu pregunta</label>
+      <textarea id="market-inquiry-message" name="message" minlength="10" maxlength="500" rows="4" placeholder="¿Está disponible? ¿Qué incluye?" required></textarea>
+      <label class="business-publish"><input type="checkbox" name="consent" required> Autorizo compartir mi nombre, correo y mensaje con esta empresa para atender mi consulta.</label>
+      <button type="submit" class="business-primary">Enviar consulta</button>
+      <button type="button" id="market-inquiry-cancel" class="small-action">Cancelar</button>
+      <p id="market-inquiry-status" role="status" aria-live="polite"></p>
+    </form>
+  </dialog>
+  <dialog id="market-report-dialog" class="modal" aria-labelledby="market-report-title">
+    <form id="market-report-form" class="business-form">
+      <h2 id="market-report-title">Reportar publicación</h2>
+      <p id="market-report-item" class="business-fineprint"></p>
+      <label for="market-report-reason">Motivo</label>
+      <select id="market-report-reason" name="reason" required>
+        <option value="">Selecciona un motivo</option>
+        <option value="fraud">Posible fraude</option>
+        <option value="misleading">Información engañosa</option>
+        <option value="prohibited">Producto o servicio prohibido</option>
+        <option value="spam">Spam</option>
+        <option value="other">Otro motivo</option>
+      </select>
+      <p class="business-fineprint">El reporte se guarda para revisión; no elimina automáticamente el anuncio.</p>
+      <button type="submit" class="business-primary">Enviar reporte</button>
+      <button type="button" id="market-report-cancel" class="small-action">Cancelar</button>
+      <p id="market-report-status" role="status" aria-live="polite"></p>
+    </form>
+  </dialog>
   <dialog id="vault-dialog" class="modal"><div class="dialog-head"><h2>Conectar bóveda</h2><button type="button" id="vault-close" class="icon-button" aria-label="Cerrar">✕</button></div><p>Introduce el token de tu bóveda configurado por el operador del servidor. El token permanecerá únicamente en la memoria de esta pestaña; nunca en la URL ni en la biblioteca local.</p><form id="vault-form" class="vault-form"><label for="vault-token">Token de acceso</label><input id="vault-token" type="password" autocomplete="off" minlength="32" maxlength="256" required><button class="link-button" type="submit">Conectar</button></form><p id="vault-status" role="status" aria-live="polite"></p></dialog>
   <dialog id="library-dialog" class="modal library-dialog">
     <div class="dialog-head"><h2>◇ Biblioteca WAE</h2><button type="button" id="close-library" class="icon-button" aria-label="Cerrar biblioteca">✕</button></div>
