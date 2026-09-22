@@ -369,3 +369,8 @@ Persistencia y aislamiento: cada bóveda se almacena en un archivo JSON cuyo nom
 ## RC17 — presencia de fotografías / continuidad de recuperación
 
 La auditoría del operador `npm run marketplace:media:probe` comprueba por HEAD firmado las fotografías S3 referenciadas por las cuentas cifradas, sin imprimir claves ni modificar objetos. Resultados paginados, manifiesto SHA-256 y detección de cambios concurrentes; una presencia confirmada NO verifica bytes, backups ni restore conjunto. [Alcance y límites](docs/RC17_MEDIA_PRESENCE.md). **Vercel HOLD / PR borrador**.
+
+
+## RC18 — integridad criptográfica de fotografías
+
+Además de comprobar presencia, `npm run marketplace:media:integrity` recupera cada JPEG privado en lotes acotados y compara sus bytes reales con `imageSha256` + `imageBytes` almacenados dentro del registro cifrado. Detecta alteración del contenido, formato/MIME inválido, ausencia, permisos, metadatos legados y cambios concurrentes sin exponer imagen, object key, hash o URL firmada en el reporte. Requiere autorización operativa fuera de CI. [Alcance y límites](docs/RC18_MEDIA_INTEGRITY.md). **No certifica backup/restore; Vercel continúa HOLD.**
