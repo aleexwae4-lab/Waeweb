@@ -67,7 +67,7 @@
         <div class="business-head"><div><span class="tag">WAE WEB BUSINESS</span><h1>Tu cuenta. Tus negocios.</h1><p>Registra tus empresas y administra tus fichas desde tu cuenta. Son privadas por defecto; solo se publican con tu autorización y no se verifican automáticamente.</p></div><button id="account-back" type="button" class="small-action">← Volver al buscador</button></div>
         <p id="account-alert" class="account-alert" role="status" aria-live="polite"></p>
         <div id="account-unavailable" class="state-card" hidden><h2>Acceso empresarial en preparación</h2><p>Estás en una vista de navegación y búsqueda. El registro, los pagos y las publicaciones reales todavía están desactivados para proteger tus datos.</p><button type="button" id="account-unavailable-back" class="small-action">← Volver a buscar</button></div>
-        <div id="account-auth">
+        <div id="account-auth" hidden>
           <div class="account-tabs"><button id="show-register" class="business-tab active" type="button">Crear cuenta</button><button id="show-login" class="business-tab" type="button">Iniciar sesión</button></div>
           <form id="register-form" class="business-form" autocomplete="on">
             <h2>Comienza con WAE WEB</h2>
@@ -166,7 +166,7 @@
                     <input id="browser-address" type="text" inputmode="url" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Escribe ejemplo.com o pega una URL HTTPS" maxlength="2048">
                     <button type="submit" class="browser-go" aria-label="Ir a la dirección">Ir →</button>
                   </form>
-                  <a id="browser-external" class="browser-tool browser-external" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>↗ Abrir fuera</a>
+                  <a id="browser-external" class="browser-tool browser-external" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>↗ Abrir sitio original</a>
                 </div>
                 <div class="browser-context"><span id="browser-status" role="status" aria-live="polite">Introduce una dirección para navegar.</span><button id="browser-reader" type="button" class="browser-tool">⌕ Leer con WAE</button></div>
               </div>
