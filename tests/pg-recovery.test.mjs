@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { mkdtemp, writeFile, chmod, symlink, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { sealVault } from "../server/crypto.mjs";
-import { verifyRecoveryBundle, restorePostgresBackup } from "../server/pg-recovery.mjs";
+import { verifyRecoveryBundle, restorePostgresBackup, verifyPostgresBackup } from "../server/pg-recovery.mjs";
 
 const sha = input => createHash("sha256").update(input).digest("hex");
 const original = Object.fromEntries([
@@ -66,6 +69,33 @@ test("offline confirmation is mandatory before any database connection", async (
   configure();
   await assert.rejects(() => restorePostgresBackup("waeweb-pg-0000000000000-00000000-0000-0000-0000-000000000000.backup.json"),
     { code: "recovery_requires_offline_confirmation" });
+});
+test("backup directory and files reject insecure permissions and symlink redirection", async () => {
+  configure();
+  const root = await mkdtemp(join(tmpdir(), "wae-pg-private-"));
+  const link = root + "-link";
+  const previous = process.env.WAE_PG_BACKUP_DIR;
+  const filename = "waeweb-pg-0000000000000-00000000-0000-0000-0000-000000000000.backup.json";
+  try {
+    const path = join(root, filename);
+    await writeFile(path, JSON.stringify(fixture()), { mode: 0o600 });
+    process.env.WAE_PG_BACKUP_DIR = root;
+    assert.equal((await verifyPostgresBackup(filename)).encrypted, true);
+    await chmod(path, 0o644);
+    await assert.rejects(() => verifyPostgresBackup(filename), { code: "recovery_file" });
+    await chmod(path, 0o600);
+    await chmod(root, 0o755);
+    await assert.rejects(() => verifyPostgresBackup(filename), { code: "recovery_directory" });
+    await chmod(root, 0o700);
+    await symlink(root, link, "dir");
+    process.env.WAE_PG_BACKUP_DIR = link;
+    await assert.rejects(() => verifyPostgresBackup(filename), { code: "recovery_directory" });
+  } finally {
+    if (previous === undefined) delete process.env.WAE_PG_BACKUP_DIR;
+    else process.env.WAE_PG_BACKUP_DIR = previous;
+    await rm(link, { force: true });
+    await rm(root, { recursive: true, force: true });
+  }
 });
 test.after(() => {
   for (const [key, value] of Object.entries(original)) {
