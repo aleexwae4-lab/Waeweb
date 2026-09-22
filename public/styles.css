@@ -49,3 +49,11 @@
 .reader-document h3{font-size:16px;margin:0 0 8px}
 .reader-note{font-size:11px;color:#a5b9d8;overflow-wrap:anywhere}
 .reader-content{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;color:#d3dced;max-height:340px;overflow-y:auto;line-height:1.7;padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.18)}
+
+/* v0.4: access to private vault */
+.vault-form{display:flex;flex-direction:column;gap:11px;margin:16px 0}
+.vault-form label{font-size:13px;color:#d4e2f9}
+.vault-form input{border:1px solid rgba(160,180,235,.28);border-radius:11px;padding:13px 14px;background:#081326;color:#f4f7ff;width:100%;font-size:15px}
+.vault-form button{cursor:pointer}
+#vault-status{color:#f4c3c3;font-size:13px}
+#vault-connect,#vault-disconnect{cursor:pointer}
