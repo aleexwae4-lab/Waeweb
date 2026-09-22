@@ -104,3 +104,24 @@ test("native map opens with street cartography and wheel zoom like a standard we
   assert.match(native,/aria-pressed","true"/);
   assert.match(native,/wheel",e=>\{e\.preventDefault\(\);changeZoom/);
 });
+
+test("RC36 map pins, touch gestures, and search stay inside the existing maps panel",async()=>{
+  const {readFile}=await import("node:fs/promises");
+  const map=await readFile(new URL("../public/native-map.js",import.meta.url),"utf8");
+  const app=await readFile(new URL("../public/app.js",import.meta.url),"utf8");
+  const css=await readFile(new URL("../public/styles.css",import.meta.url),"utf8");
+  assert.match(map,/onSelectPlace/);
+  assert.match(map,/data-map-place/);
+  assert.match(map,/setPlaces\(items,activeIndex=0\)/);
+  assert.match(map,/pointers=new Map\(\)/);
+  assert.match(map,/gesture\.level/);
+  assert.match(map,/setRoute\(coords\)/);
+  assert.match(map,/role","group"/);
+  assert.match(app,/map-search-form/);
+  assert.match(app,/performSearch\(mapSearchInput\.value,"maps"\)/);
+  assert.match(app,/createNativeMap\(\{onSelectPlace:index=>select\(index\)\}\)/);
+  assert.match(app,/map\.setPlaces\(places,mapOverride\?-1:selected\)/);
+  assert.match(app,/\[\.\.\.addresses\.results,\.\.\.\(locality\?\.results\|\|\[\]\)\]/);
+  assert.match(css,/\.wae-map-candidate/);
+  assert.match(css,/\.map-search-form/);
+});
