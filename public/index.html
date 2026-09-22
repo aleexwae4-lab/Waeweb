@@ -135,23 +135,23 @@
           </form>
           <div id="tabs" class="tabs" role="tablist" aria-label="Tipo de resultados">
             <button type="button" class="tab active" role="tab" aria-selected="true" data-type="all">✧ Todo</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-type="maps">⌖ Mapas</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-type="images">▧ Imágenes</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-type="videos">▷ Videos</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-type="news">▤ Noticias</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="research">◇ Investigación</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-type="index" hidden>⌕ Índice WAE</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="translate">🌐 Traductor</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="books">▤ Libros</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" data-type="index" hidden>⌕ Índice WAE</button>
             <button type="button" class="tab" role="tab" aria-selected="false" data-type="businesses" hidden>♙ Negocios</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-type="images">▧ Imágenes</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-type="news">▤ Noticias</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-type="videos">▷ Videos</button>
-            <button type="button" class="tab" role="tab" aria-selected="false" data-type="maps">⌖ Mapas</button>
           </div>
         </div>
         <div class="results-layout">
           <div class="results-main">
             <div class="statsbar"><p id="result-stats" role="status" aria-live="polite"></p><div class="results-controls"><label class="sr-only" for="source-filter">Filtrar por fuente</label><select id="source-filter" class="source-filter" aria-label="Filtrar por fuente"><option value="">Todas las fuentes</option></select><button type="button" id="copy-search" class="small-action" title="Copiar enlace de búsqueda">⧉ Compartir búsqueda</button></div></div>
             <section id="browser-view" class="browser-view" hidden aria-label="Navegador integrado WAE WEB">
-              <div class="browser-heading"><div><span class="tag">VISTA WEB · EN TUS RESULTADOS</span><h2>Explorar página</h2></div><button id="browser-close" type="button" class="small-action">✕ Cerrar vista</button></div>
-              <p class="browser-disclaimer">Consulta sitios HTTPS sin salir de tus resultados. Algunos sitios impiden esta vista; si eso ocurre, utiliza «Abrir sitio original». WAEWEB no puede inspeccionar la navegación de otros dominios.</p>
+              <div class="browser-heading"><div><span class="tag">WAEWEB · NAVEGACIÓN</span><h2>Explorar sitio</h2></div><button id="browser-close" type="button" class="small-action">✕ Cerrar vista</button></div>
+              <p class="browser-disclaimer">Abre sitios junto a tus resultados. Si una página bloquea la vista integrada, utiliza «Abrir sitio original».</p>
               <div class="browser-chrome" role="region" aria-label="Controles de navegación">
                 <div class="browser-tabbar"><div id="browser-tabs" class="browser-tabs" aria-label="Pestañas abiertas"></div><button id="browser-new" type="button" class="browser-tool" aria-label="Nueva pestaña" title="Nueva pestaña">＋</button></div>
                 <div class="browser-toolbar">
@@ -169,7 +169,6 @@
                 <div class="browser-context"><span id="browser-status" role="status" aria-live="polite">Introduce una dirección para navegar.</span><button id="browser-reader" type="button" class="browser-tool">⌕ Leer con WAE</button></div>
               </div>
               <div id="browser-stage" class="browser-stage is-empty"><div id="browser-empty" class="browser-empty"><span aria-hidden="true">↗</span><h2>Escribe un dominio para explorar</h2><p>Usa el buscador principal o la dirección HTTPS de esta vista. Los resultados se conservan en la misma página.</p></div></div>
-              <p class="browser-privacy">La vista integrada no implica acceso a la página para indexarla; «Leer con WAE» requiere una bóveda autorizada.</p>
             </section>
             <section id="reader-panel" class="reader-panel" hidden aria-label="Lector de páginas web">
               <div class="reader-heading"><h2>⌕ WAE Web Reader</h2><span class="tag">Bóveda privada · disco local</span><button id="vault-connect" type="button" class="link-button">Conectar bóveda</button><button id="vault-disconnect" type="button" class="link-button" hidden>Desconectar</button></div>
@@ -187,7 +186,7 @@
       </section>
 
     </main>
-    <footer class="footer"><span>WAE WEB · WAE OS ENTERPRISE</span><span>Información con atribución · Desarrollo independiente</span><a class="footer-books-link" href="/libros.html" aria-label="Libros: librería digital y estudio de autores de WAEWEB">▤ Libros →</a><a class="footer-books-link" href="/enterprise.html" aria-label="Abrir Wae os enterprise' a pantalla completa dentro de WAEWEB">Wae os enterprise'</a><a class="footer-books-link" href="/diagnostico.html">⌕ Diagnóstico</a></footer>
+    <footer class="footer"><span>WAE WEB · WAE OS ENTERPRISE</span><span>Información con atribución · Desarrollo independiente</span><a class="footer-books-link" href="/libros.html" aria-label="Libros: librería digital y estudio de autores de WAEWEB">▤ Libros →</a><a class="footer-books-link" href="/enterprise.html" aria-label="Abrir Wae os enterprise' a pantalla completa dentro de WAEWEB">Wae os enterprise'</a></footer>
   </div>
   <dialog id="market-inquiry-dialog" class="modal" aria-labelledby="market-inquiry-title">
     <form id="market-inquiry-form" class="business-form">
