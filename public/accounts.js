@@ -145,7 +145,7 @@ function businessCard(business) {
   edit.type = "button";
   edit.addEventListener("click", () => {
     editingBusiness = business.id;
-    for (const field of ["name", "category", "city", "description", "website"]) {
+    for (const field of ["name", "category", "city", "description", "website", "whatsapp"]) {
       const input = $("business-" + field);
       input.value = business[field] || "";
     }
