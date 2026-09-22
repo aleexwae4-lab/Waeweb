@@ -6,7 +6,7 @@ import { sealVault, openVaultEnvelope, EncryptionError } from "./crypto.mjs";
 import { billingConfig, paidPeriod, subscriptionMatchesAttempt } from "./billing.mjs";
 import { postgresAccountsSelected, postgresAccountsConfig, readAccountsPostgres, mutateAccountsPostgres } from "./accounts-postgres.mjs";
 import { requiresDurableStorage } from "./hosting.mjs";
-import { createListing, validateListing, publicCatalog, searchMarketplace, validMarketId, MAX_LISTINGS, MarketplaceError } from "./marketplace.mjs";
+import { createListing, validateListing, publicCatalog, searchMarketplace, validMarketId, MAX_LISTINGS, MAX_OBJECT_LISTINGS, MarketplaceError } from "./marketplace.mjs";
 import { mediaConfig, mediaSelected, decodeMarketPhoto, makeMediaKey, putMarketImage, deleteMarketImage, presignedMarketImage, ownerImageUrl, MarketMediaError } from "./marketplace-media.mjs";
 import { validId, validateInquiry, validateReport, newInquiry, newReport, publicInquiryReceipt, MarketplaceTrustError } from "./marketplace-trust.mjs";
 
@@ -487,10 +487,14 @@ function ownedBusiness(db, header, businessId) {
   if (!business) fail("business_missing","Negocio no encontrado.",404);
   return business;
 }
+function listingLimit(base) {
+  return base === undefined && postgresAccountsSelected() && Boolean(mediaConfig())
+    ? MAX_OBJECT_LISTINGS : MAX_LISTINGS;
+}
 export async function listOwnerListings(header, businessId, base) {
   if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
   const db = await readDb(base);
-  return { items: ownedBusiness(db,header,businessId).listings || [], limit:MAX_LISTINGS };
+  return { items: ownedBusiness(db,header,businessId).listings || [], limit:listingLimit(base) };
 }
 export async function addMarketListing(header, businessId, input, base) {
   if (!accountsEnabled()) fail("accounts_disabled","Cuentas desactivadas.",503);
@@ -499,7 +503,7 @@ export async function addMarketListing(header, businessId, input, base) {
   return mutate(db => {
     const business = ownedBusiness(db,header,businessId);
     business.listings ||= [];
-    if (business.listings.length >= MAX_LISTINGS)
+    if (business.listings.length >= listingLimit(base))
       throw new MarketplaceError("listing_limit","Límite de publicaciones por negocio.",409);
     business.listings.push(listing);
     return listing;
