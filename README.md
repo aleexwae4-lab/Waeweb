@@ -6,6 +6,21 @@ WAE WEB es el buscador federado de WAE OS Enterprise. Aplicación Node.js indepe
 
 
 
+## Estado actual — Fase 7 (v0.7): perfiles empresariales compartibles
+
+La Fase 7 agrega un ciclo completo para la ficha comercial de WAE WEB: **registrar → editar → publicar voluntariamente → compartir perfil → ocultar o eliminar**. No se ha habilitado ningún registro de usuario ni despliegue de producción; el servidor continúa requiriendo las variables privadas de cuentas de la Fase 6.
+
+**Panel del propietario:** «Mi cuenta / Negocios» permite modificar nombre comercial, sector, ciudad, descripción y sitio HTTPS. Los cambios se guardan en el registro cifrado de cuentas y **no alteran la visibilidad** de la ficha. Publicar y ocultar siguen siendo acciones independientes. El panel ofrece «Ver perfil público» y «Copiar enlace» solo para fichas publicadas; las privadas no reciben enlaces públicos funcionales.
+
+**Perfiles compartibles:** las fichas publicadas pueden abrirse en `/?business=UUID` y desde la pestaña «Negocios». La página se recupera a través de la API exacta GET `/api/businesses/public/:id`, muestra categoría, ciudad, descripción y sitio web declarado y avisa de forma visible que **WAE WEB no verifica la empresa ni la titularidad**. No incluye correo, identificador de propietario, contraseña, tokens, sesiones ni documentos de investigación. Si el titular oculta o elimina el negocio, el enlace pasa a devolver HTTP 404; una visita posterior al perfil no muestra sus datos.
+
+**Nuevas rutas:**
+- PATCH `/api/businesses/:id/profile` con Authorization: Bearer TOKEN y JSON `{ "name": "...", "category": "...", "city": "...", "description": "...", "website": "https://..." }`. Solo el titular puede editar. No admite publicación implícita.
+- GET `/api/businesses/public/:id`, anónimo para una ficha voluntariamente publicada. No expone datos privados; responde 404 cuando está oculta, eliminada o no existe.
+- PATCH `/api/businesses/:id` con `{ "published": true|false }` continúa siendo el único control de visibilidad del propietario.
+
+**Límites:** sigue siendo un directorio **autodeclarado**, no una verificación mercantil, fiscal o de propiedad del sitio. El perfil no es una página indexada en Google por definición, ni está conectado a Maps, SEO de producción, dominio propio, pagos o publicidad. Las pruebas automatizadas comprueban API, confidencialidad, autorización y entrega del archivo estático; no sustituyen una prueba visual E2E en navegador. No desplegar públicamente antes de añadir verificaciones, privacidad y mecanismos de reclamación de negocios.
+
 ## Estado actual — Fase 6 (v0.6): WAE WEB Business + Vault Maintenance
 
 **Experiencia de cuenta y negocios:** la página de inicio muestra un acceso a «Mi cuenta / Negocios», además del acceso en la navegación. Los usuarios pueden crear una cuenta con nombre, correo y contraseña, iniciar/cerrar sesión y gestionar **hasta 20 fichas de negocio privadas por cuenta** (nombre comercial, sector, ciudad, descripción y sitio web HTTPS opcional). Las fichas son **autodeclaradas**; registrar una empresa NO supone verificar su identidad, documentación, dirección o situación legal. Por defecto son privadas. Cada titular puede publicar u ocultar su ficha expresamente: solo esas fichas aparecen en la pestaña «Negocios» de búsqueda pública, siempre identificadas como **no verificadas**. No hay edición colaborativa.
