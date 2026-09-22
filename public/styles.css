@@ -265,3 +265,8 @@
 .modal summary{cursor:pointer;font-size:13px;font-weight:700;color:#dbeafe}
 .modal details p{margin:10px 0 0}
 @media(max-width:550px){.modal{padding:17px;max-height:77dvh;width:calc(100% - 24px)}.modal .dialog-head{top:-17px}}
+
+/* RC25: readable fallback actions on 360px-430px mobile screens. */
+.search-fallback-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:10px;width:100%;align-items:stretch}
+.search-fallback-links .link-button{display:flex;min-height:44px;align-items:center;justify-content:center;min-width:0;white-space:normal;line-height:1.35;padding:10px 12px;overflow-wrap:anywhere}
+@media(max-width:550px){.search-fallback-links{grid-template-columns:minmax(0,1fr)}.state-card:has(.search-fallback-links){padding:22px 16px}.state-card:has(.search-fallback-links) h2{font-size:19px}.state-card:has(.search-fallback-links) p{font-size:13px}}
