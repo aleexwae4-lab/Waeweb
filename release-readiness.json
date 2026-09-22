@@ -37,6 +37,11 @@
       "status": "blocked",
       "reason": "Faltan privacidad/terminos, monitoreo de produccion, rollback y respuesta a incidentes.",
       "evidence": ""
+    },
+    {
+      "id": "marketplace",
+      "status": "hold",
+      "reason": "RC13: catálogo de productos/servicios privado por defecto, publicación explícita, búsqueda y perfil empresarial implementados. Pendientes object storage, moderación/denuncias, política de contenido y E2E móvil. HOLD."
     }
   ]
 }
