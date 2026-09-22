@@ -29,8 +29,9 @@ export async function restoreArchivedMarketMedia(source,current,archive,{
   const db=backupMediaRecords(source,key);
   const manifest=mediaIntegrityManifest(db);
   const journal=db.mediaDeleteQueue??[];
-  if(!Array.isArray(journal)||journal.some(entry=>
-    manifest.records.some(record=>record.key===entry?.key)))
+  // Any outstanding deletion journal makes an offline restore ambiguous.
+  // Require operator reconciliation before writing recovered objects.
+  if(!Array.isArray(journal)||journal.length>0)
     fail("media_restore_queued_reference");
   const opened=openMarketMediaArchive(archive,{key,
     postgresChecksum:source.checksum,
