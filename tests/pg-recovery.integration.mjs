@@ -57,6 +57,25 @@ test("disposable PostgreSQL encrypted snapshot verifies, rejects tampering and r
     await db.query("DELETE FROM wae_vault_records");
     await db.query("UPDATE wae_accounts_record SET envelope=NULL WHERE id=1");
     await db.query("COMMIT");
+    // Inject a write failure after the accounts UPDATE but before the vault INSERT.
+    // Both stores must roll back atomically. Only the disposable CI database
+    // admitted by the explicit guard above may install this test trigger.
+    await db.query(`CREATE FUNCTION wae_ci_recovery_reject_vault()
+      RETURNS trigger LANGUAGE plpgsql AS $
+      BEGIN RAISE EXCEPTION 'ci_recovery_forced_failure'; END $`);
+    await db.query(`CREATE TRIGGER wae_ci_recovery_fail
+      BEFORE INSERT ON wae_vault_records
+      FOR EACH ROW EXECUTE FUNCTION wae_ci_recovery_reject_vault()`);
+    await assert.rejects(() => restorePostgresBackup(snapshot.filename,
+      { offlineConfirmed: true }), { code: "recovery_database" });
+    assert.equal((await db.query(
+      "SELECT envelope FROM wae_accounts_record WHERE id=1")).rows[0].envelope, null,
+      "failure must roll back the account write");
+    assert.equal((await db.query(
+      "SELECT COUNT(*)::int AS n FROM wae_vault_records")).rows[0].n, 0,
+      "failure must roll back every vault write");
+    await db.query("DROP TRIGGER wae_ci_recovery_fail ON wae_vault_records");
+    await db.query("DROP FUNCTION wae_ci_recovery_reject_vault()");
     const result = await restorePostgresBackup(snapshot.filename,
       { offlineConfirmed: true });
     assert.equal(result.restored, true);
