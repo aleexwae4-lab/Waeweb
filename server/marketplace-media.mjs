@@ -178,3 +178,39 @@ export async function headMarketImage(config, key, transport=fetch, now=Date.now
     return {state:"invalid_size"};
   return {state:"present"};
 }
+
+// RC18: bounded read-only GET integrity verification. Bytes never leave the backend report.
+export async function verifyMarketImageBytes(config,key,{expectedSha256,expectedBytes,transport=fetch,now=Date.now()}={}) {
+  if(!config)fail("media_unavailable",503);
+  if(!/^[a-f0-9]{64}$/.test(expectedSha256||"") ||
+     !Number.isSafeInteger(expectedBytes)||expectedBytes<8||expectedBytes>MAX_MEDIA_BYTES)
+    fail("media_integrity_reference_invalid",422);
+  const url=presignedMarketImage(config,key,now);
+  let response;
+  try {
+    response=await transport(url,{method:"GET",redirect:"manual",signal:AbortSignal.timeout(12000),
+      headers:{accept:"image/jpeg"}});
+  } catch { return {state:"unavailable"}; }
+  if(response.status===404)return {state:"missing"};
+  if(response.status===401||response.status===403)return {state:"denied"};
+  if(response.status!==200)return {state:"unavailable"};
+  const advertised=response.headers?.get?.("content-length");
+  if(advertised!==null && advertised!==undefined && advertised!==""){
+    const length=Number(advertised);
+    if(!Number.isSafeInteger(length)||length<8||length>MAX_MEDIA_BYTES)
+      return {state:"invalid_size"};
+  }
+  let bytes;
+  try { bytes=Buffer.from(await response.arrayBuffer()); }
+  catch { return {state:"unavailable"}; }
+  if(bytes.length<8||bytes.length>MAX_MEDIA_BYTES)return {state:"invalid_size"};
+  if(bytes.length!==expectedBytes)return {state:"size_mismatch"};
+  const digest=hex(bytes);
+  if(!timingSafeDigest(digest,expectedSha256))return {state:"checksum_mismatch"};
+  return {state:"verified"};
+}
+function timingSafeDigest(actual,expected) {
+  if(!/^[a-f0-9]{64}$/.test(actual)||!/^[a-f0-9]{64}$/.test(expected))return false;
+  // Both are fixed-length SHA-256 hex strings; equality is sufficient for integrity comparison.
+  return actual===expected;
+}
