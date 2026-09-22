@@ -28,6 +28,8 @@ test("credentials reject malformed configs, duplicated secrets and wrong bearer"
   assert.equal(vaultConfig('{"../../escape":"' + tokenA + '"}'), null);
   assert.equal(vaultConfig(JSON.stringify({ first: tokenA, second: tokenA })), null);
   assert.equal(vaultConfig('{"first":"short"}'), null);
+  assert.equal(vaultConfig(JSON.stringify({ first: "a".repeat(32) + " " })), null);
+  assert.equal(vaultConfig(JSON.stringify({ first: "é".repeat(40) })), null);
   const config = vaultConfig(vaults);
   assert.equal(authenticateVault("Bearer " + tokenA, config), "org_alpha");
   assert.equal(authenticateVault("Bearer " + tokenB, config), "org_beta");
