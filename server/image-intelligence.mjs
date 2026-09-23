@@ -3,7 +3,7 @@
 const fold=value=>String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
 const tokens=value=>[...new Set(fold(value).match(/[\p{L}\p{N}]{3,}/gu)||[])].slice(0,16);
 const intents=[
-  ["productos",/\b(bolsa|bolso|monedero|producto|comprar|catalogo|tenis|zapato|reloj|celular|laptop|handbag|bag|product|fashion)\b/],
+  ["productos",/\b(bolsas?|bolsos?|monederos?|productos?|comprar|catalogos?|tenis|zapatos?|relojes|celular(es)?|laptop|handbags?|bags?|products?|fashion)\b/],
   ["lugares",/\b(museo|ciudad|paisaje|edificio|arquitectura|monumento|parque|catedral|playa|mapa|city|museum|landscape|building)\b/],
   ["personas",/\b(persona|rostro|retrato|modelo|actor|actriz|cantante|presidente|portrait|person|face)\b/],
   ["logotipos",/\b(logo|logotipo|isotipo|marca|emblema|icono|logotype|brand)\b/],
