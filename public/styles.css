@@ -776,3 +776,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .web-coverage-actions .link-button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:9px 15px;border:1px solid rgba(158,199,254,.46);border-radius:11px;background:#264b7a;color:#eef6ff;text-decoration:none;font-weight:750}
 .web-coverage-actions .link-button:hover,.web-coverage-actions .link-button:focus-visible{border-color:#c5e0ff;background:#315f98}
 @media(max-width:600px){.web-coverage-actions .link-button{flex:1 1 100px;min-width:0}}
+
+/* RC43 · Provider integrity: open archive is an explicit collection, not a
+   counterfeit web/image/YouTube result set. */
+.media-collection-choice{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border:1px solid rgba(137,183,241,.35);border-radius:14px;background:#10233d;padding:11px 13px;margin:0 0 13px}
+.media-collection-choice .tag{margin:0;color:#dceaff;font-size:12px}
+.media-collection-choice .link-button{display:inline-flex;min-height:44px;align-items:center;justify-content:center;border:1px solid #6386b9;border-radius:10px;padding:9px 15px;background:#25466f;color:#f0f7ff;text-decoration:none;font-weight:760;font-size:12px}
+.media-collection-choice .link-button:hover,.media-collection-choice .link-button:focus-visible{background:#366396;border-color:#aed3ff}
+.video-coverage-notice .link-button{display:inline-flex;align-items:center;min-height:44px;margin-top:10px;padding:9px 14px;border:1px solid #648cc0;border-radius:10px;background:#284b77;color:#f4f8ff;text-decoration:none}
+@media(max-width:600px){.media-collection-choice .link-button{width:100%}}
