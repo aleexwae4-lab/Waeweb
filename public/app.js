@@ -740,7 +740,9 @@ function updateVoiceDock(snapshot){
     (snapshot.phase==="paused"?"Pausado · ":"Leyendo · ")+
     (snapshot.index+1)+" de "+snapshot.total+" fragmentos";
   const toggle=byId("wae-voice-toggle");
-  toggle.textContent=snapshot.phase==="paused"?"▶ Continuar":"Ⅱ Pausar";
+  toggle.textContent=snapshot.phase==="paused"?"▶ Seguir":"Ⅱ Pausa";
+  toggle.setAttribute("aria-label",snapshot.phase==="paused"?
+    "Continuar lectura":"Pausar lectura");
   toggle.setAttribute("aria-pressed",String(snapshot.phase==="paused"));
   const voice=byId("wae-voice-select");
   const signature=snapshot.voices.map(v=>v.uri).join("|");
@@ -770,6 +772,7 @@ function installVoiceDock(){
     else voiceReader.pause();
   },"wae-voice-toggle");pause.id="wae-voice-toggle";
   const stop=button("■ Detener",()=>voiceReader.stop(),"wae-voice-stop");
+  stop.setAttribute("aria-label","Detener lectura de voz");
   const rate=element("select","wae-voice-rate");
   rate.id="wae-voice-rate";rate.setAttribute("aria-label","Velocidad de lectura");
   for(const speed of [.75,1,1.15,1.3,1.5])
@@ -779,7 +782,18 @@ function installVoiceDock(){
   voice.id="wae-voice-select";voice.setAttribute("aria-label","Voz del navegador");
   voice.add(new Option("Voz del navegador",""));
   voice.addEventListener("change",()=>voiceReader.setVoice(voice.value));
-  actions.append(pause,stop,rate,voice);
+  // Keep the everyday controls in a single slim row. Voice and speed remain
+  // available behind one optional disclosure instead of occupying two rows.
+  const settings=element("details","wae-voice-settings");
+  settings.append(element("summary","","⚙ Ajustes"));
+  const settingsContent=element("div","wae-voice-settings-content");
+  const rateLabel=element("label","","Velocidad");
+  rateLabel.append(rate);
+  const voiceLabel=element("label","","Voz");
+  voiceLabel.append(voice);
+  settingsContent.append(rateLabel,voiceLabel);
+  settings.append(settingsContent);
+  actions.append(pause,stop,settings);
   voiceDock.append(heading,actions);
   document.body.append(voiceDock);
   window.speechSynthesis?.addEventListener?.("voiceschanged",()=>voiceReader.refresh());

@@ -1028,3 +1028,52 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .wae-result-voice{border-color:rgba(126,193,250,.55)!important}
 @media(max-width:600px){.wae-reading-grid{grid-template-columns:minmax(0,1fr);gap:11px}.wae-reading-grid .wae-information-card{padding:13px;border-radius:15px}.wae-information-title{font-size:16px;-webkit-line-clamp:3}.wae-information-actions>button{flex:1 1 110px}.wae-voice-dock{padding:10px;bottom:calc(8px + env(safe-area-inset-bottom,0px))}.wae-voice-heading{align-items:flex-start;flex-direction:column;gap:3px}.wae-voice-actions select{flex:1 1 125px;max-width:none}.news-live-header{padding:16px}.news-live-header h2{font-size:23px}.knowledge-reading-actions .link-button{flex:1 1 135px}}
 @media(prefers-reduced-motion:reduce){.wae-information-card{animation:none!important}}
+
+/* RC · Compact reading controls: preserve the content, not oversized chrome. */
+.wae-voice-dock{width:min(550px,calc(100vw - 18px));padding:8px 10px;gap:5px;border-radius:12px;box-shadow:0 7px 28px #0009}
+.wae-voice-heading{min-width:0;gap:8px}
+.wae-voice-heading strong{font-size:11px;font-weight:710;min-width:0;flex:1 1 auto}
+.wae-voice-heading span{font-size:10px;flex:0 0 auto}
+.wae-voice-actions{gap:6px;flex-wrap:nowrap;align-items:center;min-width:0}
+.wae-voice-actions button,.wae-voice-actions select,.wae-voice-settings summary{height:36px;min-height:36px;padding:6px 10px;border-radius:8px;font-size:11px;white-space:nowrap}
+.wae-voice-toggle,.wae-voice-stop{flex:0 0 auto}
+.wae-voice-settings{min-width:0;flex:1 1 auto}
+.wae-voice-settings summary{display:flex;align-items:center;justify-content:center;cursor:pointer;list-style:none;border:1px solid #688fbd;background:#173657;color:#eff7ff;max-width:112px;margin-left:auto}
+.wae-voice-settings summary::-webkit-details-marker{display:none}
+.wae-voice-settings[open]{flex:1 1 100%}
+.wae-voice-actions:has(.wae-voice-settings[open]){flex-wrap:wrap}
+.wae-voice-settings[open] summary{margin:0 0 5px auto}
+.wae-voice-settings-content{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:7px 2px 2px;border-top:1px solid rgba(142,190,249,.18)}
+.wae-voice-settings-content label{display:flex;gap:5px;align-items:center;min-width:0;flex:1 1 135px;color:#b7ceea;font-size:10px}
+.wae-voice-settings-content select{flex:1 1 auto;max-width:100%;min-width:0;width:65px}
+.wae-voice-settings-content .wae-voice-rate{flex:0 0 75px}
+.wae-information-actions{gap:5px;margin-top:9px;padding-top:8px}
+.wae-information-actions>button,.wae-information-more summary{height:36px;min-height:36px;padding:6px 10px;border-radius:8px;font-size:11px}
+.wae-information-actions>button{flex:0 1 auto}
+.wae-information-more-content{gap:5px;padding:7px}
+.wae-information-link{min-height:36px;padding:6px 8px;font-size:11px}
+.news-live-header{padding:clamp(14px,2vw,19px);border-radius:16px}
+.news-live-header h2{font-size:clamp(20px,3.5vw,28px);margin:5px 0}
+.news-live-header .news-intro p{font-size:12px;margin:0 0 10px}
+.news-live-controls{gap:6px}
+.news-window,.news-refresh,.news-bulletin{min-height:36px;padding:6px 10px;font-size:11px;box-shadow:none}
+.news-live-status{margin:10px 0 0;padding-top:8px}
+.news-reading-note{margin-top:5px;font-size:10px}
+.knowledge-reading-actions{gap:6px}
+.knowledge-reading-actions .link-button{min-height:36px;padding:7px 10px;font-size:11px}
+@media(max-width:600px){
+ .wae-voice-dock{bottom:calc(6px + env(safe-area-inset-bottom,0px));padding:7px 9px}
+ .wae-voice-heading{flex-direction:row;align-items:center;gap:6px}
+ .wae-voice-heading strong{max-width:63%;font-size:11px}
+ .wae-voice-heading span{font-size:10px}
+ .wae-voice-actions{flex-wrap:nowrap}
+ .wae-voice-actions button,.wae-voice-settings summary{min-height:36px;height:36px;padding:6px 9px}
+ .wae-voice-settings summary{max-width:99px}
+ .wae-voice-actions:has(.wae-voice-settings[open]){flex-wrap:wrap}
+ .wae-voice-settings-content label{flex:1 1 110px}
+ .wae-information-actions>button{flex:0 1 auto}
+ .wae-information-more{margin-left:auto}
+ .news-live-header{padding:13px}
+ .news-live-header h2{font-size:21px}
+ .knowledge-reading-actions .link-button{flex:0 1 auto}
+}
