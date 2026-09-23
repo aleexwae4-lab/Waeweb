@@ -29,7 +29,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", mediaCollection: "web" };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", mediaCollection: "web", newsWindow: "24h" };
 let activeDirections=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
@@ -217,6 +217,8 @@ function renderResult(item, index) {
   const nativeBook = state.type === "books" && Boolean(bookExperience?.isBookWork(item));
   if(nativeBook) card.classList.add("wae-native-book");
   if(state.type==="all")card.classList.add("web-result");
+  if(state.type==="news")card.classList.add("news-result");
+  if(state.type==="news"&&index===0)card.classList.add("news-lead");
   card.style.animationDelay = Math.min(index * .035, .5) + "s";
   const row = element("div", "source-row");
   const avatar = element("span", "source-avatar",
@@ -240,14 +242,16 @@ function renderResult(item, index) {
   title.title = nativeBook ? "Ver ficha bibliográfica en Biblioteca WAE WEB" : state.type === "all" || directVideo
     ? "Abrir sitio original: "+shortHost(url)
     : "Navegar en WAEWEB: "+shortHost(url);
-  if ((state.type === "books" || state.type === "videos" || item.source === "Open Library") && safeUrl(item.image)) {
+  if ((state.type === "books" || state.type === "videos" ||
+    state.type === "news" || item.source === "Open Library") && safeUrl(item.image)) {
     const cover = element("img", "book-cover");
     cover.src = safeUrl(item.image);
     cover.alt = (state.type === "videos" ? "Vista previa de " : "Portada de ") + item.title;
     cover.loading = "lazy";
     cover.referrerPolicy = "no-referrer";
     cover.decoding = "async";
-    card.classList.add(state.type === "videos" ? "video-result" : "book-result");
+    card.classList.add(state.type === "videos" ? "video-result" :
+      state.type === "news" ? "news-with-image" : "book-result");
     card.append(cover);
   }
   append(card, row, title);
@@ -308,7 +312,12 @@ function renderResult(item, index) {
     card.append(play,player,message);
   }
   const meta = element("div", "meta-line");
-  if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
+  if (item.date) meta.append(element("span", "tag",
+    (state.type==="news"?"Publicado · ":"")+formatDate(item.date)));
+  if(state.type==="news"&&item.seenAt&&!item.date)
+    meta.append(element("span","tag","Detectado · "+formatDate(item.seenAt)));
+  if(state.type==="news"&&item.publisher)
+    meta.append(element("span","tag","Medio · "+item.publisher));
   if (state.type==="all" && item.source)
     meta.append(element("span","source-engine","Índice: "+item.source));
   if(nativeBook) {
@@ -587,6 +596,34 @@ function renderData(data) {
     :sourceResults;
   document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
+  if(state.type==="news"){
+    const header=element("section","news-live-header");
+    header.setAttribute("aria-label","Centro de noticias WAE WEB");
+    const intro=element("div","news-intro");
+    intro.append(element("span","news-eyebrow","WAE WEB · ACTUALIDAD"),
+      element("h2","","Noticias al momento"),
+      element("p","","Titulares recuperados de fuentes públicas. La fecha de consulta no es la hora de publicación."));
+    const controls=element("nav","news-live-controls");
+    controls.setAttribute("aria-label","Ventana temporal de noticias");
+    for(const [window,label] of [["24h","24 horas"],["7d","7 días"],["30d","30 días"]]){
+      const chip=button(label,()=>{
+        state.newsWindow=window;
+        void performSearch(state.query,"news");
+      },"news-window"+(state.newsWindow===window?" active":""));
+      chip.setAttribute("aria-pressed",String(state.newsWindow===window));
+      controls.append(chip);
+    }
+    const reload=button("↻ Actualizar noticias",()=>{void refreshNews();},"news-refresh");
+    controls.append(reload);
+    header.append(intro,controls);
+    const coverage=data.newsCoverage;
+    const status=element("p","news-live-status",
+      "Consultado: "+(data.fetchedAt?new Date(data.fetchedAt).toLocaleString("es-MX"):"sin hora")+
+      " · "+(coverage?.respondingSources?.length||0)+" fuentes respondieron"+
+      (data.failedSources?.length?" · "+data.failedSources.length+" sin respuesta":""));
+    header.append(status);
+    resultsContainer.append(header);
+  }
   if(state.type==="books"){
     const coverage=data.bookCoverage;
     const header=element("section","wae-book-coverage wae-library-editorial");
@@ -755,6 +792,16 @@ function renderData(data) {
         chips.append(button(topic,()=>performSearch(topic,"books"),"wae-library-topic"));
       }
       empty.append(chips);resultsContainer.append(empty);
+    }else if(state.type==="news"){
+      const empty=stateCard("Sin titulares recientes",detail);
+      const actions=element("div","news-live-controls");
+      for(const [window,label] of [["7d","Ampliar a 7 días"],["30d","Ampliar a 30 días"]]){
+        if(window===state.newsWindow)continue;
+        actions.append(button(label,()=>{
+          state.newsWindow=window;void performSearch(state.query,"news");
+        },"news-window"));
+      }
+      empty.append(actions);resultsContainer.append(empty);
     }else resultsContainer.append(renderSearchFallback(state.query,detail));
   }
   if(state.type==="videos" && state.mediaCollection!=="commons" &&
@@ -1116,6 +1163,29 @@ async function renderMap(query,signal,sequence) {
     showDirectionsWithoutLocality();
   }
 }
+let newsRefreshPending=false;
+async function refreshNews(){
+  if(state.type!=="news"||!state.query||newsRefreshPending)return;
+  const sequence=state.sequence,query=state.query,window=state.newsWindow;
+  newsRefreshPending=true;
+  stats.textContent="Actualizando noticias desde las fuentes…";
+  try{
+    const data=await getJSON("/api/search?q="+encodeURIComponent(query)+
+      "&type=news&window="+encodeURIComponent(window)+"&fresh=1");
+    if(sequence!==state.sequence||state.type!=="news"||state.newsWindow!==window)return;
+    renderData(data);
+  }catch(error){
+    if(sequence!==state.sequence)return;
+    stats.textContent="No se actualizaron las noticias; conservamos los resultados previos.";
+  }finally{newsRefreshPending=false;}
+}
+// Refresh only while the news panel is open and visible. Do not poll in a
+// background browser tab; the UI never claims a continuous breaking-news feed.
+setInterval(()=>{
+  if(document.visibilityState!=="visible"||state.type!=="news"||
+    !state.query||!state.data?.fetchedAt||newsRefreshPending)return;
+  if(Date.now()-Date.parse(state.data.fetchedAt)>=180000)void refreshNews();
+},180000);
 // The SAME search bars accept either a query or an explicit HTTPS address.
 function runOmnibox(value,type="all",push=true){
   const intent=classifyOmnibox(value);
@@ -1164,7 +1234,7 @@ function showEmptyCategory(type,push=true){
     knowledge:["Conocimiento verificable","Consulta enciclopedias, entidades, ciencia, libros y catálogos documentales. No es un índice general de Internet.",["Inteligencia artificial","Medicina","Historia de México"]],
     research:["Investigación","Publicaciones científicas, Wikidata y fuentes bibliográficas.",["Inteligencia artificial","Investigación médica"]],
     images:["Imágenes web","Explora imágenes de buscadores conectados, Openverse y Wikimedia Commons en una sola galería.",["Jalisco","Arquitectura mexicana"]],
-    news:["Noticias","Artículos recientes de medios disponibles, con enlaces originales.",["Inteligencia artificial","México"]],
+    news:["Noticias en tiempo real","Busca titulares de GDELT, Google News y medios con RSS. Fechas reales, actualización y fuentes identificadas.",["Inteligencia artificial","México","Jalisco"]],
     videos:["Vídeos de plataformas","Descubre clips reales de YouTube, TikTok, PeerTube y Wikimedia Commons con su origen identificado.",["Tecnología","Naturaleza"]],
     books:["Biblioteca WAE WEB","Explora Open Library, Google Books, Library of Congress, Project Gutenberg e Internet Archive desde fichas propias. El acceso a cada obra depende de sus derechos.",["Ciencia","Historia de México"]],
     index:["Índice privado","Conecta una bóveda autorizada para consultar documentos.",[]],
@@ -1202,7 +1272,7 @@ function showEmptyCategory(type,push=true){
   resultsContainer.replaceChildren(card);
   if(push)history.pushState({type},"",location.pathname+"?type="+encodeURIComponent(type));
 }
-async function performSearch(query, type = "all", push = true, collection = "web") {
+async function performSearch(query, type = "all", push = true, collection = "web", fresh = false) {
   stopInlineVideo();
   stopDirections();
   translator.hide();sourceFilter.hidden=false;
@@ -1270,7 +1340,9 @@ async function performSearch(query, type = "all", push = true, collection = "web
       : type === "businesses"
         ? "/api/businesses/public?q=" + encodeURIComponent(q)
         : "/api/search?q=" + encodeURIComponent(q) + "&type=" + encodeURIComponent(type) +
-          (["videos","images"].includes(type) && state.mediaCollection==="commons"?"&collection=commons":"");
+          (["videos","images"].includes(type) && state.mediaCollection==="commons"?"&collection=commons":"")+
+          (type==="news"?"&window="+encodeURIComponent(state.newsWindow):"")+
+          (fresh?"&fresh=1":"");
     if (type === "index" && !vaultToken) {
       resultsContainer.replaceChildren(stateCard("Índice privado", "Conecta tu bóveda para buscar documentos autorizados."));
       openVaultDialog();
