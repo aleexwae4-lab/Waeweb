@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
+import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
 import { findPlaces, MapsError } from "./maps.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
 import {searchAddress,addressCapabilities,GeocodeError} from "./geocode.mjs";
@@ -81,6 +82,18 @@ function directionsLimited(req){
     directionsRate.set(ip,{count:1,expires:now+60000});return false;
   }
   record.count++;return record.count>6;
+}
+const publicCrawlRate = new Map();
+function crawlLimited(req){
+  const ip=process.env.TRUST_PROXY==="true"
+    ?(req.headers["x-forwarded-for"]||"").split(",")[0].trim()||req.socket.remoteAddress
+    :req.socket.remoteAddress||"unknown";
+  const now=Date.now(),old=publicCrawlRate.get(ip);
+  if(!old||now>old.expires){
+    if(publicCrawlRate.size>5000)publicCrawlRate.clear();
+    publicCrawlRate.set(ip,{count:1,expires:now+60000});return false;
+  }
+  old.count++;return old.count>4;
 }
 const translationRate = new Map();
 function translationLimited(req){
@@ -163,6 +176,7 @@ export async function handler(req, res) {
         !([ "/api/translate","/api/directions" ].includes(u.pathname) ||
           ["/api/health","/api/capabilities","/api/search",
            "/api/weather","/api/maps","/api/places","/api/marketplace",
+           "/api/web-index/read",
            "/api/translate/capabilities","/api/directions/capabilities"].includes(u.pathname))))
     return write(res,503,{error:"Vista previa: cuentas, pagos y APIs privadas desactivados.",
       previewMode:true});
@@ -191,7 +205,9 @@ export async function handler(req, res) {
       sources:["Wikipedia","Wikidata","Crossref","OpenAlex","Europe PMC",
         "Open Library","Library of Congress","DataCite"],generative:false},
     webDiscovery:{mode:"HN_linked_page_metadata",provider:"Hacker News / Algolia",
-      generalWebIndex:false,persistence:"memory_only",thirdPartyArticleContentVerified:false},
+      generalWebIndex:false,persistence:"memory_only",
+      userInitiatedRobotsCompliantReading:true,
+      index:webIndexStats(),thirdPartyArticleContentVerified:false},
     streetMapLayer: "openstreetmap_user_initiated_visible_tiles",
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
@@ -467,6 +483,18 @@ export async function handler(req, res) {
         const data=await jsonBody(req,12000);
         const translated=await translateText(data);
         return write(res,200,translated);
+      }
+      if(u.pathname==="/api/web-index/read"){
+        if(req.method!=="GET")return write(res,405,{error:"Solo lectura GET."},{allow:"GET"});
+        const url=u.searchParams.get("url")||"";
+        if(!url||url.length>1800)
+          return write(res,400,{error:"Se requiere una URL pública previamente descubierta."});
+        if(crawlLimited(req))
+          return write(res,429,{error:"Límite de lectura pública: cuatro páginas por minuto.",
+            code:"crawl_rate_limit"},{"retry-after":"60"});
+        const page=await enrichIndexedPage(url);
+        return write(res,200,{...page,
+          disclaimer:"Texto recuperado del sitio original con robots.txt; su contenido no se ha verificado como verdadero."});
       }
       if (u.pathname === "/api/search") {
         const q = u.searchParams.get("q") || "";
