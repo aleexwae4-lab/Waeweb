@@ -182,3 +182,9 @@
 }
 @media(max-width:355px){.wae-library-grid{grid-template-columns:1fr}.wae-library-cover-action{height:235px}.wae-library-book-actions{flex-direction:row}}
 @media(prefers-reduced-motion:reduce){.wae-library-book,.wae-library-topic{transition:none;animation:none}}
+
+/* Contextual disclosure instead of alarm copy on every book preview. */
+.wae-book-rights{margin:8px 0 13px;padding:10px 12px;border-radius:11px;
+ border:1px solid rgba(153,179,232,.16);color:#b3c8e3}
+.wae-book-rights summary{font-size:11px;cursor:pointer}
+.wae-book-rights .wae-book-detail-warning{margin:10px 0 0;font-size:11px}
