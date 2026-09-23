@@ -255,7 +255,7 @@ function renderResult(item, index) {
     "WAE WEB · "+(item.bookAccess || "Ficha bibliográfica · No implica acceso al texto completo")));
   if (state.type === "videos"){
     const platform=item.platform||"Web";
-    card.append(element("span","tag media-context","Vídeo · Ver en la fuente original"));
+    card.append(element("span","tag media-context",item.mediaUrl||item.platform==="YouTube"?"Vídeo · Reproducir aquí":"Vídeo · Fuente identificada"));
     card.append(element("span","tag media-context video-platform",
       platform==="YouTube"?"▶ YouTube":platform==="TikTok"?"♪ TikTok":"▷ "+platform));
   }
