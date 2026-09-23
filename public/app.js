@@ -562,6 +562,7 @@ function renderData(data) {
   options.forEach(name => sourceFilter.add(new Option(name, name)));
   if (!options.includes(state.selectedSource)) state.selectedSource = "";
   sourceFilter.value = state.selectedSource;
+  sourceFilter.hidden = state.type==="books";
   const sourceResults = state.selectedSource
     ? allResults.filter(item => item.source === state.selectedSource):allResults;
   if(state.type==="videos" && state.videoPlatform!=="all" &&
