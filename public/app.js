@@ -6,8 +6,7 @@ import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
 import { createYoutubeFrame } from "/youtube-player.js";
-import { isBookWork, openBookDetail } from "/book-experience.js";
-import {renderBookCard} from "/book-gallery.js";
+// Book UI is lazy-loaded: a library-module outage cannot disable Web, Videos or Images.
 "use strict";
 const byId = id => document.getElementById(id);
 const hero = byId("hero");
@@ -34,6 +33,18 @@ let state = { query: "", type: "all", results: [], data: null, selectedSource: "
 let activeDirections=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
+let bookExperience=null, bookGallery=null, bookLoadPromise=null;
+async function loadBookModules(){
+  if(bookExperience && bookGallery)return true;
+  if(!bookLoadPromise)bookLoadPromise=Promise.all([
+    import("/book-experience.js"),import("/book-gallery.js")
+  ]).then(([experience,gallery])=>{
+    bookExperience=experience;bookGallery=gallery;return true;
+  }).catch(()=>{
+    bookExperience=null;bookGallery=null;return false;
+  }).finally(()=>{bookLoadPromise=null;});
+  return bookLoadPromise;
+}
 function stopInlineVideo(){
   if(activeInlineVideo){activeInlineVideo.pause();activeInlineVideo.removeAttribute("src");activeInlineVideo.load();activeInlineVideo=null;}
   if(activeVideoFrame){activeVideoFrame.remove();activeVideoFrame=null;}
@@ -198,9 +209,12 @@ function formatDate(value) {
 function renderResult(item, index) {
   const url = safeUrl(item.url);
   if (!url) return null;
-  if(state.type==="books")return renderBookCard(item,{workspace,onSaved:refreshLibraryCount,index});
+  if(state.type==="books" && bookGallery?.renderBookCard){
+    const book=bookGallery.renderBookCard(item,{workspace,onSaved:refreshLibraryCount,index});
+    if(book)return book;
+  }
   const card = element("article", "result-card");
-  const nativeBook = state.type === "books" && isBookWork(item);
+  const nativeBook = state.type === "books" && Boolean(bookExperience?.isBookWork(item));
   if(nativeBook) card.classList.add("wae-native-book");
   if(state.type==="all")card.classList.add("web-result");
   card.style.animationDelay = Math.min(index * .035, .5) + "s";
@@ -217,7 +231,7 @@ function renderResult(item, index) {
   const directVideo=state.type==="videos" &&
     (item.platform==="YouTube"||item.platform==="TikTok");
   const title = nativeBook
-    ? button(item.title, () => openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "result-title browser-result-title")
+    ? button(item.title, () => bookExperience.openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "result-title browser-result-title")
     : state.type === "all"
     ? external(url,item.title,"result-title web-result-title")
     : directVideo
@@ -298,7 +312,7 @@ function renderResult(item, index) {
   if (state.type==="all" && item.source)
     meta.append(element("span","source-engine","Índice: "+item.source));
   if(nativeBook) {
-    meta.append(button("▤ Ficha WAE", () => openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "save-button"));
+    meta.append(button("▤ Ficha WAE", () => bookExperience.openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "save-button"));
     meta.append(external(url, "↗ Catálogo original", "save-button"));
   } else if(!directVideo) {
     meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Explorar dentro", () => openBrowser(url), "save-button"));
@@ -1281,7 +1295,9 @@ async function performSearch(query, type = "all", push = true, collection = "web
       openVaultDialog();
       return;
     }
+    const bookReady=type==="books"?loadBookModules():null;
     let data = await getJSON(url, signal);
+    if(bookReady)await bookReady;
     if (type === "businesses") {
       data = {
         type: "businesses", query: q, originalQuery: q,
@@ -1396,30 +1412,23 @@ byId("voice-button").addEventListener("click", () => {
   recognition.onerror = () => { heroStatus.textContent = "No se pudo reconocer la voz; usa el campo de búsqueda."; stats.textContent = heroStatus.textContent; };
   recognition.start();
 });
-window.addEventListener("popstate", () => {
+const ROUTABLE_SECTIONS=new Set(["all","books","knowledge","research","news","images","videos","index"]);
+function restoreRoute(){
   hideBrowser();
-  const params = new URLSearchParams(location.search);
-  const q = params.get("q");
-  if (q) {
-    const type=params.get("type")||"all";
-    const collection=params.get("collection")==="commons"?"commons":"web";
-    if(["images","videos"].includes(type))void performSearch(q,type,false,collection);
-    else runOmnibox(q,type,false);
-  }
-  else if(params.get("type")==="translate")renderTranslator(false);
-else if(["books","knowledge","research","news","images","videos","index"].includes(params.get("type")))
-  showEmptyCategory(params.get("type"),false);
-else if(params.get("type")==="maps")void performSearch("","maps",false);
-  else if(["books","knowledge","research","news","images","videos","index"].includes(params.get("type")))
-    showEmptyCategory(params.get("type"),false);
-  else if(params.get("type")==="maps")void performSearch("","maps",false);
-  else { stopDirections();translator.hide();state.controller?.abort(); state.sequence++; hero.hidden = false; resultsView.hidden = true; }
-});
-const params = new URLSearchParams(location.search);
-if (params.get("q")) {
+  const params=new URLSearchParams(location.search);
   const type=params.get("type")||"all";
-  if(["images","videos"].includes(type))
-    void performSearch(params.get("q"),type,false,params.get("collection")==="commons"?"commons":"web");
-  else runOmnibox(params.get("q"),type,false);
+  const query=params.get("q");
+  const collection=params.get("collection")==="commons"?"commons":"web";
+  if(query){
+    if(["images","videos"].includes(type))void performSearch(query,type,false,collection);
+    else runOmnibox(query,type,false);
+  }else if(type==="translate")renderTranslator(false);
+  else if(type==="maps")void performSearch("","maps",false);
+  else if(ROUTABLE_SECTIONS.has(type)&&params.has("type"))showEmptyCategory(type,false);
+  else {
+    stopDirections();translator.hide();state.controller?.abort();state.sequence++;
+    hero.hidden=false;resultsView.hidden=true;
+  }
 }
-else if(params.get("type")==="translate")renderTranslator(false);
+window.addEventListener("popstate",restoreRoute);
+restoreRoute();
