@@ -261,6 +261,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     ? archive
       ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)]]
       : [
+      // WEB video mode must never silently fall back to Wikimedia Commons.
+      // It returns real web/video-platform providers only, or an honest empty
+      // result with direct platform continuation actions in the client.
       ...(platformAllowed("youtube.com")?[["YouTube",()=>youtubeDataVideos(q)]]:[]),
       ["Brave · Vídeos",()=>braveSearch(videoQuery,"videos")],
       ...(platformAllowed("youtube.com")?[
@@ -339,7 +342,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       : null,
     failedSources: errors, fetchedAt: new Date().toISOString(),
     message: !available.some(s => !s.includes("no configurado"))
-      ? (selected==="all"?"No hay un índice web general conectado. Wikipedia no sustituye una búsqueda en Internet.":"No hay proveedores disponibles para esta categoría.")
+      ? (selected==="all"?"No hay un índice web general conectado. WAEWEB no sustituirá Internet con Wikipedia ni Wikimedia."
+        :selected==="videos"?"No hay un índice de vídeo web conectado. WAEWEB no sustituirá YouTube o TikTok con Wikimedia."
+        :"No hay proveedores disponibles para esta categoría.")
       : null
   };
   // Retain the API's extractive brief for clients that need it, but the
