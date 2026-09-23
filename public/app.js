@@ -6,6 +6,7 @@ import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
 import { createYoutubeFrame, createPlatformVideoFrame } from "/youtube-player.js";
+import { createVoiceReader } from "/voice-reader.js";
 // Book UI is lazy-loaded: a library-module outage cannot disable Web, Videos or Images.
 "use strict";
 const byId = id => document.getElementById(id);
@@ -666,16 +667,82 @@ function renderImages(items) {
   });
   return grid;
 }
-function speechSynthesisSafeCancel() {
-  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+// One accessible, shared reader for Noticias, Conocimiento, Investigación
+// and the Web. It voices ONLY text supplied by a real result or preview.
+let voiceDock=null;
+const voiceReader=createVoiceReader({win:window,onChange:updateVoiceDock});
+function updateVoiceDock(snapshot){
+  if(!voiceDock)return;
+  voiceDock.hidden=snapshot.phase==="idle";
+  if(snapshot.phase==="idle")return;
+  byId("wae-voice-title").textContent=snapshot.label||"Lectura de fuentes";
+  byId("wae-voice-status").textContent=
+    (snapshot.phase==="paused"?"Pausado · ":"Leyendo · ")+
+    (snapshot.index+1)+" de "+snapshot.total+" fragmentos";
+  const toggle=byId("wae-voice-toggle");
+  toggle.textContent=snapshot.phase==="paused"?"▶ Continuar":"Ⅱ Pausar";
+  toggle.setAttribute("aria-pressed",String(snapshot.phase==="paused"));
+  const voice=byId("wae-voice-select");
+  const signature=snapshot.voices.map(v=>v.uri).join("|");
+  if(voice.dataset.signature!==signature){
+    const last=voice.value;
+    voice.replaceChildren(new Option("Voz del navegador",""));
+    snapshot.voices.forEach(item=>voice.add(new Option(item.name+" · "+item.lang,item.uri)));
+    voice.dataset.signature=signature;
+    voice.value=snapshot.voiceURI||last;
+  }
+  byId("wae-voice-rate").value=String(snapshot.rate);
 }
-function readAloud(text) {
-  if (!("speechSynthesis" in window)) { stats.textContent = "La lectura por voz no está disponible en este navegador."; return; }
-  if (window.speechSynthesis.speaking) { window.speechSynthesis.cancel(); return; }
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "es-MX"; utterance.rate = 1;
-  window.speechSynthesis.speak(utterance);
+function installVoiceDock(){
+  voiceDock=element("aside","wae-voice-dock");
+  voiceDock.id="wae-voice-dock";
+  voiceDock.hidden=true;
+  voiceDock.setAttribute("aria-label","Lector de voz de WAE WEB");
+  const heading=element("div","wae-voice-heading");
+  const title=element("strong","","Lectura de fuentes");title.id="wae-voice-title";
+  const status=element("span","","");status.id="wae-voice-status";
+  status.setAttribute("role","status");
+  heading.append(title,status);
+  const actions=element("div","wae-voice-actions");
+  const pause=button("Ⅱ Pausar",()=>{
+    const phase=voiceReader.snapshot().phase;
+    if(phase==="paused")voiceReader.resume();
+    else voiceReader.pause();
+  },"wae-voice-toggle");pause.id="wae-voice-toggle";
+  const stop=button("■ Detener",()=>voiceReader.stop(),"wae-voice-stop");
+  const rate=element("select","wae-voice-rate");
+  rate.id="wae-voice-rate";rate.setAttribute("aria-label","Velocidad de lectura");
+  for(const speed of [.75,1,1.15,1.3,1.5])
+    rate.add(new Option(speed+"×",String(speed)));
+  rate.value="1";rate.addEventListener("change",()=>voiceReader.setRate(rate.value));
+  const voice=element("select","wae-voice-select");
+  voice.id="wae-voice-select";voice.setAttribute("aria-label","Voz del navegador");
+  voice.add(new Option("Voz del navegador",""));
+  voice.addEventListener("change",()=>voiceReader.setVoice(voice.value));
+  actions.append(pause,stop,rate,voice);
+  voiceDock.append(heading,actions);
+  document.body.append(voiceDock);
+  window.speechSynthesis?.addEventListener?.("voiceschanged",()=>voiceReader.refresh());
 }
+installVoiceDock();
+function speechSynthesisSafeCancel(){voiceReader.stop();}
+function readAloud(text,title="Panorama de fuentes"){
+  if(!voiceReader.snapshot().available){
+    stats.textContent="Este navegador no ofrece lectura por voz. Prueba uno con síntesis de voz.";
+    return;
+  }
+  voiceReader.play({title,text,lang:"es-MX"});
+}
+function listenToResult(item,label="Escuchar extracto"){
+  const current=voiceReader.snapshot();
+  if(current.phase!=="idle"&&current.label===String(item.title||"Lectura de fuentes").slice(0,100)){
+    if(current.phase==="paused")voiceReader.resume();
+    else voiceReader.pause();
+    return;
+  }
+  readAloud([item.snippet].filter(Boolean).join(" "),item.title||label);
+}
+
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); stats.textContent = "Copiado al portapapeles."; }
   catch { stats.textContent = "No se pudo copiar. Comprueba los permisos del navegador."; }
