@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { search, weather } from "./search.mjs";
+import { search, weather, wikipediaSummary } from "./search.mjs";
 import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
 import { findPlaces, MapsError } from "./maps.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
@@ -177,7 +177,7 @@ export async function handler(req, res) {
       (!(["GET","HEAD"].includes(req.method) ||
            (req.method==="POST" && ["/api/translate","/api/directions"].includes(u.pathname))) ||
         !([ "/api/translate","/api/directions" ].includes(u.pathname) ||
-          ["/api/health","/api/capabilities","/api/search",
+          ["/api/health","/api/capabilities","/api/search","/api/wiki/summary",
            "/api/weather","/api/maps","/api/places","/api/marketplace",
            "/api/web-index/read",
            "/api/translate/capabilities","/api/directions/capabilities"].includes(u.pathname))))
@@ -498,6 +498,18 @@ export async function handler(req, res) {
         const page=await enrichIndexedPage(url);
         return write(res,200,{...page,
           disclaimer:"Texto recuperado del sitio original con robots.txt; su contenido no se ha verificado como verdadero."});
+      }
+      if (u.pathname === "/api/wiki/summary") {
+        if(req.method!=="GET"&&req.method!=="HEAD")
+          return write(res,405,{error:"Solo lectura GET."},{allow:"GET, HEAD"});
+        if(limited(req))
+          return write(res,429,{error:"Demasiadas consultas. Intenta de nuevo en un minuto."},
+            {"retry-after":"60"});
+        const id=u.searchParams.get("pageid")||"";
+        if(!/^[1-9][0-9]{0,11}$/.test(id))
+          return write(res,400,{error:"Artículo no válido."});
+        const article=await wikipediaSummary(id);
+        return write(res,article.error?404:200,article);
       }
       if (u.pathname === "/api/search") {
         const q = u.searchParams.get("q") || "";
