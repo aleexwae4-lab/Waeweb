@@ -151,7 +151,7 @@
             <div class="statsbar"><p id="result-stats" role="status" aria-live="polite"></p><div class="results-controls"><label class="sr-only" for="source-filter">Filtrar por fuente</label><select id="source-filter" class="source-filter" aria-label="Filtrar por fuente"><option value="">Todas las fuentes</option></select><button type="button" id="copy-search" class="small-action" title="Copiar enlace de búsqueda">⧉ Compartir búsqueda</button></div></div>
             <section id="browser-view" class="browser-view" hidden aria-label="Navegador integrado WAE WEB">
               <div class="browser-heading"><div><span class="tag">WAEWEB · NAVEGACIÓN</span><h2>Explorar sitio</h2></div><button id="browser-close" type="button" class="small-action">✕ Cerrar vista</button></div>
-              <p class="browser-disclaimer">Abre sitios junto a tus resultados. Si una página bloquea la vista integrada, utiliza «Abrir sitio original».</p>
+              <p class="browser-disclaimer">WAEWEB puede mostrar algunas páginas dentro de la búsqueda. Los sitios que impiden incrustación se abren en el navegador del dispositivo; ninguna vista en blanco significa que el sitio no exista.</p>
               <div class="browser-chrome" role="region" aria-label="Controles de navegación">
                 <div class="browser-tabbar"><div id="browser-tabs" class="browser-tabs" aria-label="Pestañas abiertas"></div><button id="browser-new" type="button" class="browser-tool" aria-label="Nueva pestaña" title="Nueva pestaña">＋</button></div>
                 <div class="browser-toolbar">
@@ -168,7 +168,8 @@
                 </div>
                 <div class="browser-context"><span id="browser-status" role="status" aria-live="polite">Introduce una dirección para navegar.</span><button id="browser-reader" type="button" class="browser-tool">⌕ Leer con WAE</button></div>
               </div>
-              <div id="browser-stage" class="browser-stage is-empty"><div id="browser-empty" class="browser-empty"><span aria-hidden="true">↗</span><h2>Escribe un dominio para explorar</h2><p>Usa el buscador principal o la dirección HTTPS de esta vista. Los resultados se conservan en la misma página.</p></div></div>
+              <div id="browser-access" class="browser-access" hidden role="region" aria-label="Abrir página web real"><span id="browser-access-label">Si no se muestra aquí, abre el sitio real.</span><a id="browser-access-link" class="browser-access-link" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">↗ Abrir página en el navegador</a><button id="browser-attempt" class="browser-tool" type="button" hidden>Intentar vista integrada</button></div>
+              <div id="browser-stage" class="browser-stage is-empty"><div id="browser-empty" class="browser-empty"><span aria-hidden="true">↗</span><h2>Escribe un dominio para explorar</h2><p>Usa el buscador principal o la dirección HTTPS de esta vista. Los resultados se conservan en la misma página.</p></div><div id="browser-frame-gate" class="browser-frame-gate" hidden><span aria-hidden="true">↗</span><h3>Continúa en el sitio original</h3><p>Esta plataforma suele bloquear la vista integrada en otras páginas. Abre el enlace real o intenta la vista opcional. Tu búsqueda en WAEWEB seguirá aquí.</p></div></div>
             </section>
             <section id="reader-panel" class="reader-panel" hidden aria-label="Lector de páginas web">
               <div class="reader-heading"><h2>⌕ WAE Web Reader</h2><span class="tag">Bóveda privada · disco local</span><button id="vault-connect" type="button" class="link-button">Conectar bóveda</button><button id="vault-disconnect" type="button" class="link-button" hidden>Desconectar</button></div>
