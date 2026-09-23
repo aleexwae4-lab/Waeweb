@@ -773,7 +773,7 @@ function renderData(data) {
     !data.videoCoverage.webIndex){
     const notice=element("aside","video-coverage-notice");
     notice.setAttribute("role","status");
-    notice.append(element("strong","","Cobertura de YouTube y TikTok limitada"),
+    notice.append(element("strong","","Cobertura de plataformas limitada"),
       element("p","",data.videoCoverage.peertubeAvailable
         ?"Mostramos vídeos reales de PeerTube con su origen identificado. La búsqueda integrada de clips de YouTube y TikTok requiere sus proveedores; puedes continuar en esas plataformas mediante los enlaces."
         :"Los índices de YouTube, Brave y Google no están disponibles. No sustituimos sus vídeos con Wikimedia; usa los botones de búsqueda directa."));
