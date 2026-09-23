@@ -631,13 +631,19 @@ function renderData(data) {
     header.append(details);
     resultsContainer.append(header);
   }
-  // An archival catalog is an opt-in research tool, not a primary media result.
-  // Never promote Wikimedia as the next step in a regular video/image query.
-  if(["images","videos"].includes(state.type) && state.mediaCollection==="commons"){
+  // Wikimedia Commons is a first-class federated source. Keep it inside
+  // WAE WEB so users can consume open media without leaving the search flow.
+  if(["images","videos"].includes(state.type) && state.query){
     const pick=element("nav","media-collection-choice");
-    pick.append(button("← Volver a resultados web",()=>{
-      void performSearch(state.query,state.type,true,"web");
-    },"link-button"));
+    const archive=state.mediaCollection==="commons";
+    pick.append(
+      button(archive?"✓ Wikimedia Commons":"Wikimedia Commons",()=>{
+        if(!archive)void performSearch(state.query,state.type,true,"commons");
+      },"link-button"),
+      button(archive?"← Todos los resultados":"Todos los resultados",()=>{
+        if(archive)void performSearch(state.query,state.type,true,"web");
+      },"link-button")
+    );
     resultsContainer.append(pick);
   }
   // Weather races with federated search. A late result must not erase an early card.
