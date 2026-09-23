@@ -642,7 +642,6 @@ function renderData(data) {
   }
   // Weather races with federated search. A late result must not erase an early card.
   const count = state.results.length;
-  const visible = state.type==="all" ? Math.min(count,state.visibleCount) : count;
   stats.textContent=state.type==="books"
     ? count+" libro"+(count===1?"":"s")+" · Biblioteca WAE WEB"
     : count+" resultado"+(count===1?"":"s")+" · WAE WEB";
@@ -729,8 +728,8 @@ function renderData(data) {
   }
   // A provider can return a URL without a usable image thumbnail. In that
   // case the gallery is empty and must still show the honest fallback.
-  // Navigation/filter controls are not clips: an empty video query must
-  // still show its real zero-result state and direct-platform alternatives.
+  // Navigation/filter controls are not clips: empty results receive one concise
+  // native WAE WEB recovery state, never a list of competitor search links.
   const hasResults=state.type==="images"
     ?state.results.some(item=>safeUrl(item.url)&&safeUrl(item.image))
     :state.type==="businesses"?state.results.length>0
