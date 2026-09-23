@@ -936,6 +936,16 @@ function renderData(data) {
     }
   } else {
     if(state.type==="videos" && state.query && state.mediaCollection!=="commons"){
+      const ready=sourceResults.filter(item=>["native","embed"].includes(item.playback)).length;
+      const hero=element("section","video-results-studio");
+      hero.setAttribute("aria-label","WAE WEB · Estudio de vídeo");
+      hero.append(element("span","tag","WAE WEB / ESTUDIO DE VÍDEO"),
+        element("h2","","Descubre. Reproduce. Continúa aquí."),
+        element("p","",ready+" clips con reproducción integrada entre "+
+          sourceResults.length+" resultados reales. "+
+          "Activa cada reproductor al pulsar Reproducir. "+
+          "Algunos propietarios restringen la inserción."));
+      resultsContainer.append(hero);
       const platforms=[...new Set(sourceResults.map(item=>item.platform||"Web"))];
       if(platforms.length){
         const controls=element("nav","video-platform-filters");
