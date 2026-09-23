@@ -11,7 +11,7 @@ test("regular web and media SERPs prioritize retrieved results, not competitor e
   const results=app.slice(start,end);
   assert.doesNotMatch(results,/Cobertura de plataformas limitada/);
   assert.doesNotMatch(results,/Buscar en YouTube|Buscar en TikTok|↗ Google|↗ Bing/);
-  assert.doesNotMatch(results,/Explorar archivo Wikimedia/);
+  assert.match(results,/Wikimedia Commons/);
   assert.match(results,/state\.mediaCollection==="commons"/);
   assert.match(results,/displayed\.forEach/);
 });
