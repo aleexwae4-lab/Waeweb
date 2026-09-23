@@ -198,6 +198,25 @@ export async function wikimediaVideos(query){
     return item;
   }).filter(item=>item&&urlAllowed(item.url));
 }
+export async function libraryOfCongress(query) {
+  // Official open search endpoint. Each returned URL belongs to the actual
+  // LOC record; never manufacture a document from a missing identifier.
+  const u=new URL("https://www.loc.gov/search/");
+  u.search=new URLSearchParams({q:query,fo:"json",c:"12",at:"results"}).toString();
+  const data=await json(u);
+  return (Array.isArray(data.results)?data.results:[]).flatMap(item=>{
+    if(typeof item.id!=="string"||!/^https:\/\/(?:www\.)?loc\.gov\//i.test(item.id))return [];
+    const title=Array.isArray(item.title)?item.title[0]:item.title;
+    if(typeof title!=="string"||!title.trim())return [];
+    const description=Array.isArray(item.description)?item.description[0]:item.description;
+    const subjects=Array.isArray(item.subject)?item.subject.slice(0,3).join(", "):"";
+    const snippet=[description,subjects].filter(x=>typeof x==="string"&&x.trim()).join(" · ").slice(0,950);
+    const cover=Array.isArray(item.image_url)?item.image_url[0]:null;
+    return [result(title,item.id,snippet||"Ficha documental del catálogo público",
+      "Library of Congress",typeof item.date==="string"?item.date:null,
+      urlAllowed(cover)?cover:null)];
+  });
+}
 export async function gdeltNews(query){
   const u=new URL("https://api.gdeltproject.org/api/v2/doc/doc");
   u.search=new URLSearchParams({query,mode:"artlist",format:"json",
@@ -231,7 +250,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   const q = spec.query;
   if (spec.errors.length) return { error: spec.errors.join(" ") };
   if (q.length < 2) return { error: "Escribe al menos dos caracteres de búsqueda además de los filtros." };
-  const selected = ["all", "images", "news", "videos", "research", "books"].includes(type) ? type : "all";
+  const selected = ["all", "images", "news", "videos", "research", "knowledge", "books"].includes(type) ? type : "all";
   if(!Number.isInteger(page)||page<1||page>5)
     return {error:"La página de búsqueda debe estar entre 1 y 5."};
   if(page>1 && selected!=="all")
@@ -281,6 +300,11 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     ]
     : selected === "research"
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Europe PMC", () => europePMC(q)], ["Wikipedia", () => wikipedia(q)]]
+    : selected === "knowledge"
+    ? [["Wikipedia",()=>wikipedia(q)],["Wikidata",()=>wikidata(q)],
+       ["Crossref",()=>crossref(q)],["OpenAlex",()=>openAlex(q)],
+       ["Europe PMC",()=>europePMC(q)],["Open Library",()=>openLibrary(q)],
+       ["Library of Congress",()=>libraryOfCongress(q)]]
     : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        // User-specified source operators still allow an explicit encyclopedia
@@ -319,7 +343,12 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   }
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
-    type: selected, page, mediaCollection: ["images","videos"].includes(selected)
+    type: selected, page, knowledgeCoverage:selected==="knowledge"?{
+      kind:"federated_public_sources", index:"not_general_web",
+      configuredSources:sources.map(([name])=>name),
+      retrievedSources:available.filter(name=>!name.endsWith(" no configurado")),
+      failedSources:errors
+    }:null, mediaCollection: ["images","videos"].includes(selected)
       ? (archive?"commons":"web"):null,
     hasMore: selected==="all" && moreFromProviders,
     results: rankResults(selected==="videos"
@@ -349,7 +378,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   };
   // Retain the API's extractive brief for clients that need it, but the
   // consumer search UI displays organic links first and hides this panel.
-  payload.brief = selected === "all" || selected === "research" ? researchBrief(payload.results) : null;
+  payload.brief = ["all","research","knowledge"].includes(selected)
+    ? researchBrief(payload.results, selected==="knowledge"?7:4) : null;
   // Never freeze a transient outage or an unconfigured search category in
   // the cache. A legitimate zero-hit response from a reachable source may cache.
   if (!errors.length && available.some(name => !name.endsWith(" no configurado"))) {
