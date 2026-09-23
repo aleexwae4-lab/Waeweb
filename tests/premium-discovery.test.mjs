@@ -21,13 +21,14 @@ test("videos and books display truthful media-specific copy",()=>{
   assert.match(app,/▷ Explorar vídeo/);
   assert.doesNotMatch(app,/Comprar ahora/);
 });
-test("search keeps asynchronous weather and links to category-specific fallbacks",()=>{
+test("search preserves asynchronous weather and uses native empty-state actions",()=>{
   const start=app.indexOf("function renderData(data)");
   const end=app.indexOf("function renderSearchFallback",start);
   assert.ok(start>=0&&end>start);
   assert.doesNotMatch(app.slice(start,end),/weatherSlot\.replaceChildren\(\)/);
-  assert.match(app,/youtube\.com\/results\?search_query=/);
-  assert.match(app,/books\.google\.com/);
+  assert.match(app,/↻ Reintentar/);
+  assert.doesNotMatch(app,/youtube\.com\/results\?search_query=/);
+  assert.doesNotMatch(app,/books\.google\.com/);
 });
 test("deduplication ignores tracking but preserves case-sensitive paths",()=>{
   const items=[
