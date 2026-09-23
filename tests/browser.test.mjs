@@ -93,5 +93,6 @@ test("browser keeps the real-site escape visible and requires click before restr
   assert.match(browser,/accessLink\.href=current\.url/);
   assert.match(browser,/if \(lastView === "hero"\)/);
   assert.match(css,/\.browser-access-link/);
-  assert.match(app,/https:\/\/www\.bing\.com\/search\?q=/);
+  assert.doesNotMatch(app,/https:\/\/www\.bing\.com\/search\?q=/);
+  assert.match(app,/resultsContainer\.prepend\(notice\)/);
 });
