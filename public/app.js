@@ -625,11 +625,20 @@ function renderData(data) {
   if(state.type==="all" && data.webCoverage==="limited"){
     const notice=element("aside","web-coverage-notice");
     notice.setAttribute("role","status");
+    const destinations=element("div","web-coverage-actions");
+    const query=encodeURIComponent(state.query);
+    destinations.append(
+      external("https://www.google.com/search?q="+query,
+        "↗ Google","link-button"),
+      external("https://www.bing.com/search?q="+query,
+        "↗ Bing","link-button"),
+      external("https://www.google.com/search?tbm=vid&q="+query,
+        "↗ Vídeos web","link-button")
+    );
     notice.append(
       element("strong","","Cobertura web limitada"),
-      element("p","","No se recuperaron resultados de un índice web general. Se muestran únicamente fuentes públicas disponibles; no equivale a buscar todo Internet."),
-      external("https://www.google.com/search?q="+encodeURIComponent(state.query),
-        "↗ Continuar búsqueda en Google","link-button")
+      element("p","","No se recuperaron resultados de un índice web general. Las fuentes públicas disponibles no sustituyen la búsqueda de todo Internet. Abre un buscador real para continuar."),
+      destinations
     );
     resultsContainer.prepend(notice);
   }
