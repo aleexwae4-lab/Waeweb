@@ -130,7 +130,7 @@ test("Pinterest images already returned in ordinary queries join the normal imag
 test("Pinterest image UI has a real pin facet and original destination, not a fake content feed",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(app,/state\.imagePlatform==="all"\|\|item\.imagePlatform===state\.imagePlatform/);
-  assert.match(app,/https:\/\/www\.pinterest\.com\/search\/pins\/\?q=/);
-  assert.match(app,/↗ Buscar también en Pinterest/);
-  assert.match(app,/Los pines aparecen aquí cuando un índice web conectado devuelve imágenes reales/);
+  assert.doesNotMatch(app,/↗ Buscar también en Pinterest/);
+  assert.match(app,/const pinterestCount=sourceResults\.filter\(item=>item\.imagePlatform==="Pinterest"\)\.length/);
+  assert.match(app,/Pins are ordinary gallery tiles/);
 });
