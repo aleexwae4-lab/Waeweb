@@ -96,7 +96,7 @@ test("when all image indexes are unavailable, the normal gallery never invents P
 test("images gallery displays recovered pins as normal tiles, never requires source filter or outbound search",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   const searchCode=readFileSync(new URL("../server/search.mjs",import.meta.url),"utf8");
-  assert.match(searchCode,/Every ordinary image query attempts real pin discovery/);
+  assert.match(searchCode,/A regular image query always includes Pinterest discovery/);
   assert.match(searchCode,/Pinterest · SearXNG/);
   assert.match(app,/const grid = renderImages\(shown\)/);
   assert.match(app,/sourceResults\.filter\(item=>item\.imagePlatform==="Pinterest"\)/);
