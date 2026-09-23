@@ -79,6 +79,22 @@ if(!ready){
       if(!honest)process.exitCode=1;
     }
   }
+  // Verify the deployed knowledge mode, not only fixture-based unit tests.
+  // External catalogs may independently fail; the API must still expose
+  // honest per-source failures and must never relabel them as general web.
+  const knowledge=await request("/api/search?q=inteligencia%20artificial&type=knowledge");
+  const knowledgeGood=knowledge.ok&&knowledge.marker&&
+    knowledge.body?.type==="knowledge"&&
+    knowledge.body?.knowledgeCoverage?.index==="not_general_web"&&
+    Array.isArray(knowledge.body?.results)&&
+    Array.isArray(knowledge.body?.failedSources)&&
+    knowledge.body.results.every(item=>
+      typeof item.source==="string"&&/^https?:\\/\\//.test(item.url||"")&&
+      !/wikimedia commons/i.test(item.source));
+  console.log(knowledgeGood?"LIVE PASS":"LIVE FAIL","knowledge federation",
+    "HTTP",knowledge.status,"count",knowledge.body?.results?.length??null,
+    "sources",knowledge.body?.knowledgeCoverage?.retrievedSources?.length??null);
+  if(!knowledgeGood)process.exitCode=1;
   // Exercise the real public translator end to end; capabilities alone do
   // not prove that the provider returns translated text from Render.
   try{
