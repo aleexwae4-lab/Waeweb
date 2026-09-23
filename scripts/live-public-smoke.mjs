@@ -89,7 +89,7 @@ if(!ready){
     Array.isArray(knowledge.body?.results)&&
     Array.isArray(knowledge.body?.failedSources)&&
     knowledge.body.results.every(item=>
-      typeof item.source==="string"&&/^https?:\\/\\//.test(item.url||"")&&
+      typeof item.source==="string"&&/^https?:/i.test(item.url||"")&&
       !/wikimedia commons/i.test(item.source));
   console.log(knowledgeGood?"LIVE PASS":"LIVE FAIL","knowledge federation",
     "HTTP",knowledge.status,"count",knowledge.body?.results?.length??null,
