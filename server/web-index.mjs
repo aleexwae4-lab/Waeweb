@@ -1,3 +1,4 @@
+import {readPage, ReaderError} from "./reader.mjs";
 // WAEWEB Discovery Index v1. Public linked-page metadata, never a fabricated
 // copy of the full web. No article text is scraped or third-party credentials used.
 // This bounded per-instance index is volatile on Render free restarts.
@@ -33,6 +34,14 @@ export function indexLinkedPage(hit,now=Date.now()){
     indexedAt:new Date(now).toISOString(),
     provenance:"Hacker News / Algolia (metadatos de enlace)"
   };
+  // Re-discovery does not discard a previously retrieved, robots-permitted
+  // page body for the same canonical URL during this server instance.
+  const previous=local.get(url);
+  if(previous?.contentRecovered && now-Date.parse(previous.fetchedAt)<TTL){
+    for(const key of ["contentRecovered","indexedText","fingerprint","fetchedAt"])
+      entry[key]=previous[key];
+    entry.snippet=previous.snippet;
+  }
   local.delete(url);
   while(local.size>=LIMIT)local.delete(local.keys().next().value);
   local.set(url,entry);
@@ -45,7 +54,8 @@ export function localWebSearch(query,now=Date.now()){
   for(const [url,item] of local){
     if(now-Date.parse(item.indexedAt)>TTL){local.delete(url);continue;}
     const title=fold(item.title),snippet=fold(item.snippet);
-    const found=terms.filter(t=>title.includes(t)||snippet.includes(t));
+    const body=item.contentRecovered?fold(item.indexedText):"";
+    const found=terms.filter(t=>title.includes(t)||snippet.includes(t)||body.includes(t));
     if(found.length===terms.length)matched.push({
       ...item,source:"WAE Index local · HN",indexPersistence:"memory_only",
       indexScope:"previously_discovered_HN_links"
@@ -54,7 +64,30 @@ export function localWebSearch(query,now=Date.now()){
   return matched.slice(0,25);
 }
 export function webIndexStats(){return {documents:local.size,maxDocuments:LIMIT,
+  enrichedDocuments:[...local.values()].filter(item=>item.contentRecovered).length,
   persistence:"memory_only",coverage:"HN linked-page metadata; not the entire web"};}
+export async function enrichIndexedPage(value,options={}){
+  const url=indexedUrl(value),entry=url?local.get(url):null;
+  if(!entry)throw new ReaderError("not_discovered",
+    "Solo pueden indexarse páginas descubiertas previamente como enlaces públicos; busca primero la página.");
+  // Reuse one bounded document for an hour to avoid repeatedly fetching a
+  // remote website; this local copy vanishes when the Render instance restarts.
+  if(entry.contentRecovered&&Date.now()-Date.parse(entry.fetchedAt)<3600000)
+    return {url:entry.url,title:entry.title,snippet:entry.snippet,
+      fetchedAt:entry.fetchedAt,fingerprint:entry.fingerprint,
+      contentRecovered:true,persistence:"memory_only",cached:true};
+  const page=await readPage(url,options); // DNS-pinned HTTPS + robots + no redirects
+  if(indexedUrl(page.url)!==url)throw new ReaderError("redirected",
+    "El sitio cambió de dirección; no se indexó sin revisar el destino.");
+  const updated={...entry,title:page.title||entry.title,
+    snippet:page.text.slice(0,450),indexedText:page.text.slice(0,6000),
+    contentRecovered:true,fingerprint:page.fingerprint,fetchedAt:page.fetchedAt};
+  local.delete(url);
+  local.set(url,updated);
+  return {url:updated.url,title:updated.title,snippet:updated.snippet,
+    fetchedAt:updated.fetchedAt,fingerprint:updated.fingerprint,
+    contentRecovered:true,persistence:"memory_only",cached:false};
+}
 export async function discoverOpenWeb(query){
   const u=new URL("https://hn.algolia.com/api/v1/search");
   u.search=new URLSearchParams({query,tags:"story",hitsPerPage:"20",page:"0"}).toString();
