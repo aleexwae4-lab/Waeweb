@@ -29,7 +29,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24 };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24, imagePlatform: "all" };
 let activeDirections=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
@@ -663,6 +663,7 @@ function renderData(data) {
     state.videoPlatform="all";
   state.results=state.type==="images"
     ?sourceResults.filter(item=>
+      (state.imagePlatform==="all"||item.imagePlatform===state.imagePlatform)&&
       (state.imageKind==="all"||item.kind===state.imageKind)&&
       (state.imageOrientation==="all"||item.orientation===state.imageOrientation)&&
       (!state.imageHighRes||Number(item.width)>=1200&&Number(item.height)>=800))
@@ -712,6 +713,26 @@ function renderData(data) {
       (discovery.duplicatesRemoved?" · "+discovery.duplicatesRemoved+" duplicados omitidos":"")+
       " · "+(discovery.dimensionsKnown||0)+" con tamaño conocido");
     header.append(context);
+    const pinterestCount=sourceResults.filter(item=>item.imagePlatform==="Pinterest").length;
+    const pinterestBar=element("nav","wae-image-filters wae-pinterest-controls");
+    pinterestBar.setAttribute("aria-label","Explorar imágenes de Pinterest");
+    if(pinterestCount){
+      const pins=button("Pinterest · "+pinterestCount,()=>{
+        state.imagePlatform=state.imagePlatform==="Pinterest"?"all":"Pinterest";
+        state.imageVisibleCount=24;renderData(data);
+      },"wae-image-filter wae-pinterest-chip");
+      pins.setAttribute("aria-pressed",String(state.imagePlatform==="Pinterest"));
+      pinterestBar.append(pins);
+    }
+    const pinterestSearch=external(
+      "https://www.pinterest.com/search/pins/?q="+encodeURIComponent(state.query),
+      "↗ Buscar también en Pinterest","wae-pinterest-original");
+    pinterestBar.append(pinterestSearch);
+    if(!pinterestCount){
+      pinterestBar.append(element("span","wae-pinterest-note",
+        "Los pines aparecen aquí cuando un índice web conectado devuelve imágenes reales."));
+    }
+    header.append(pinterestBar);
     const facets=element("nav","wae-image-filters");
     facets.setAttribute("aria-label","Filtrar imágenes por tipo y orientación");
     const kinds=[["all","Todas"],["foto","Fotos"],["ilustracion","Ilustraciones"],
@@ -1462,7 +1483,7 @@ async function performSearch(query, type = "all", push = true, collection = "web
   state.visibleCount = 10;
   state.page = 1; state.loadingMore = false; state.videoPlatform = "all";
   state.imageKind="all";state.imageOrientation="all";
-  state.imageHighRes=false;state.imageVisibleCount=24;
+  state.imageHighRes=false;state.imageVisibleCount=24;state.imagePlatform="all";
   state.mediaCollection = collection==="commons"?"commons":"web";
   hero.hidden = true; resultsView.hidden = false;
   heroInput.value = q; resultsInput.value = q; setTab(type);

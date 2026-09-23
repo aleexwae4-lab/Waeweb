@@ -903,3 +903,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .image-lightbox-actions>*{font-size:12px}
 @media(max-width:550px){.wae-image-search-head{padding:19px}.wae-image-filter{font-size:11px;padding:8px 11px}.image-gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.image-gallery-tile img{height:clamp(126px,37vw,194px)}.image-lightbox-picture{max-height:calc(100dvh - 290px)}}
 @media(prefers-reduced-motion:reduce){.image-gallery-tile.image-loading img{animation:none}.image-gallery-tile img{transition:none}}
+
+/* Pinterest is an attributed subset of indexed images, not a fake provider API. */
+.wae-pinterest-controls{align-items:center;padding:12px 0;margin-top:17px;border-top:1px solid rgba(163,187,242,.16)}
+.wae-pinterest-chip[aria-pressed="true"]{background:linear-gradient(115deg,#d63c50,#f08a91);color:#fff;border-color:#ffb6b9}
+.wae-pinterest-original{display:inline-flex;align-items:center;justify-content:center;min-height:39px;border:1px solid rgba(234,119,137,.44);border-radius:28px;padding:9px 15px;background:rgba(172,47,70,.14);color:#ffdfe5;text-decoration:none;font-size:12px;font-weight:700}
+.wae-pinterest-original:hover,.wae-pinterest-original:focus-visible{background:rgba(179,48,71,.3);border-color:#f19aab}
+.wae-pinterest-note{font-size:11px;color:#91a6c8;line-height:1.5}

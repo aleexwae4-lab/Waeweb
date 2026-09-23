@@ -81,7 +81,10 @@ export function rankImageResults(items,query){
   for(const {item} of sorted){
     const asset=imageCanonical(item.fullImage||item.image),url=imageCanonical(item.url);
     // Preserve separate images on the same source page when assets differ.
-    const key=asset||url;
+    // One pin may be surfaced by two indexes with different CDN preview sizes.
+    // An authenticated pin URL is stronger identity than a thumbnail URL.
+    const key=item.imagePlatform==="Pinterest"&&item.pinId
+      ?"pinterest:pin:"+item.pinId:asset||url;
     if(keys.has(key))continue;
     keys.add(key);
     const host=new URL(item.url).hostname.toLowerCase();
