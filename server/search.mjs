@@ -198,6 +198,26 @@ export async function wikimediaVideos(query){
     return item;
   }).filter(item=>item&&urlAllowed(item.url));
 }
+export async function dataCite(query){
+  // DataCite's public DOI metadata API; results are records, not a web index.
+  const u=new URL("https://api.datacite.org/dois");
+  u.search=new URLSearchParams({query,"page[size]":"12",sort:"relevance"}).toString();
+  const data=await json(u);
+  return (Array.isArray(data.data)?data.data:[]).flatMap(item=>{
+    const a=item.attributes||{};
+    const doi=typeof a.doi==="string"?a.doi:item.id;
+    if(!/^10\.\d{4,9}\/[^\s]{1,180}$/i.test(doi||""))return [];
+    const title=Array.isArray(a.titles)?a.titles.find(t=>typeof t.title==="string"&&t.title.trim())?.title:null;
+    if(!title)return [];
+    const description=Array.isArray(a.descriptions)?a.descriptions.find(d=>typeof d.description==="string")?.description:null;
+    const publisher=typeof a.publisher==="string"?a.publisher:"";
+    const kind=typeof a.types?.resourceTypeGeneral==="string"?a.types.resourceTypeGeneral:"";
+    const snippet=[publisher,kind,description].filter(Boolean).join(" · ").slice(0,950);
+    return [result(title,"https://doi.org/"+encodeURIComponent(doi),
+      snippet||"Registro DOI de DataCite","DataCite",
+      /^\d{4}$/.test(String(a.publicationYear||""))?String(a.publicationYear):null)];
+  });
+}
 export async function libraryOfCongress(query) {
   // Official open search endpoint. Each returned URL belongs to the actual
   // LOC record; never manufacture a document from a missing identifier.
@@ -304,7 +324,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     ? [["Wikipedia",()=>wikipedia(q)],["Wikidata",()=>wikidata(q)],
        ["Crossref",()=>crossref(q)],["OpenAlex",()=>openAlex(q)],
        ["Europe PMC",()=>europePMC(q)],["Open Library",()=>openLibrary(q)],
-       ["Library of Congress",()=>libraryOfCongress(q)]]
+       ["Library of Congress",()=>libraryOfCongress(q)],["DataCite",()=>dataCite(q)]]
     : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        // User-specified source operators still allow an explicit encyclopedia
