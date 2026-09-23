@@ -802,7 +802,7 @@ function renderSearchFallback(query,message){
     state.type==="news"?"noticias":"resultados";
   const title=noProvider?"No podemos recuperar "+noun+" ahora":"No encontramos "+noun;
   const detail=noProvider
-    ?"La búsqueda de esta categoría no está disponible en este momento. No mostraremos contenido ajeno como si fuera un resultado."
+    ?"La búsqueda no está disponible por ahora. Puedes reintentar en unos momentos."
     :"Prueba con términos más concretos o cambia la búsqueda.";
   const card=stateCard(title,detail);
   const actions=element("div","search-fallback-links");
