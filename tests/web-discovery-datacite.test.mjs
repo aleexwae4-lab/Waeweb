@@ -5,7 +5,7 @@ import {dataCite,search} from "../server/search.mjs";
 
 test("WAE metadata index keeps legitimate HTTPS links only; does not scrape or invent article bodies",()=>{
   for(const input of ["http://unsafe.test/a","javascript:alert(1)",
-    "https://localhost/a","https://127.0.0.1/a",
+    "https://localhost/a","https://127.0.0.1/a","https://[::ffff:127.0.0.1]/",
     "https://www.wikipedia.org/wiki/A","https://example.org.evil.test:999/a"])
     assert.equal(indexedUrl(input),null,input);
   assert.equal(indexedUrl("https://example.org/article?utm_source=track&key=1#ref"),
