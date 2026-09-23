@@ -61,7 +61,7 @@ test("provider search maintains multiple independent Commons clips and exact You
     }}}),{status:200});
   };
   try{
-    const result=await search("wae-video-premium-fixture-2026","videos",{fresh:true});
+    const result=await search("wae-video-premium-fixture-2026","videos",{fresh:true,collection:"commons"});
     assert.equal(result.results.length,2);
     assert.equal(result.videoCoverage.youtubeApi,false);
     assert.equal(result.videoCoverage.webIndex,false);
