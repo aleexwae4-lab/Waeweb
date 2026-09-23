@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
 import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
+import {previewWebHit} from "./web-preview.mjs";
+import {searxngConfig} from "./web-providers.mjs";
 import { findPlaces, MapsError } from "./maps.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
 import {searchAddress,addressCapabilities,GeocodeError} from "./geocode.mjs";
@@ -179,7 +181,7 @@ export async function handler(req, res) {
         !([ "/api/translate","/api/directions" ].includes(u.pathname) ||
           ["/api/health","/api/capabilities","/api/search",
            "/api/weather","/api/maps","/api/places","/api/marketplace",
-           "/api/web-index/read",
+           "/api/web-index/read","/api/web/preview",
            "/api/translate/capabilities","/api/directions/capabilities"].includes(u.pathname))))
     return write(res,503,{error:"Vista previa: cuentas, pagos y APIs privadas desactivados.",
       previewMode:true});
@@ -202,7 +204,8 @@ export async function handler(req, res) {
     youtubeDataConfigured: Boolean(process.env.YOUTUBE_DATA_API_KEY?.trim()),
     generalWebSearchConfigured: Boolean(
       process.env.BRAVE_SEARCH_API_KEY?.trim() ||
-      process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID
+      process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID ||
+      searxngConfig()
     ),
     newsSearch:{mode:"on_demand_federation",windows:["24h","7d","30d"],cacheSeconds:45,
       refresh:"manual_or_visible_tab",sources:["GDELT","Google News México",
@@ -212,6 +215,11 @@ export async function handler(req, res) {
     knowledgeSearch:{mode:"public_federation",generalWebIndex:false,
       sources:["Wikipedia","Wikidata","Crossref","OpenAlex","Europe PMC",
         "Open Library","Library of Congress","DataCite"],generative:false},
+    webSearch:{generalIndexes:["Brave Search","Google Programmable Search","SearXNG"],
+      optionalSearxngConfigured:Boolean(searxngConfig()),
+      publicSpecialists:["Hacker News","Stack Overflow","Super User","MDN Web Docs",
+        "Wikipedia","Wikidata"],
+      inlinePreview:"recent_results_only_robots_compliant",generalIndexRequiredForBroadCoverage:true},
     webDiscovery:{mode:"HN_linked_page_metadata",provider:"Hacker News / Algolia",
       generalWebIndex:false,persistence:"memory_only",
       userInitiatedRobotsCompliantReading:true,
@@ -503,6 +511,15 @@ export async function handler(req, res) {
         const page=await enrichIndexedPage(url);
         return write(res,200,{...page,
           disclaimer:"Texto recuperado del sitio original con robots.txt; su contenido no se ha verificado como verdadero."});
+      }
+      if (u.pathname === "/api/web/preview") {
+        if (req.method !== "GET")return write(res,405,{error:"Solo lectura GET."},{allow:"GET"});
+        const url=u.searchParams.get("url")||"";
+        if(!url||url.length>1800)return write(res,400,{error:"Selecciona un resultado web reciente."});
+        if(crawlLimited(req))return write(res,429,{
+          error:"Límite de lectura web: cuatro páginas por minuto.",
+          code:"crawl_rate_limit"},{"retry-after":"60"});
+        return write(res,200,await previewWebHit(url));
       }
       if (u.pathname === "/api/search") {
         const q = u.searchParams.get("q") || "";
