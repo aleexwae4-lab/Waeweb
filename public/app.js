@@ -406,7 +406,8 @@ function renderResult(item, index) {
 // Image galleries use only original provider records. Facets are metadata
 // filters, not computer vision claims. Never manufacture a stock thumbnail.
 function renderImages(items) {
-  const available=items.filter(item=>safeUrl(item.url)&&safeUrl(item.image));
+  const available=items.filter(item=>safeUrl(item.url)&&
+    (safeUrl(item.image)||safeUrl(item.fullImage)));
   const grid=element("div","image-grid image-gallery");
   if(!available.length)return grid;
   const dialog=element("dialog","image-lightbox");
@@ -483,17 +484,25 @@ function renderImages(items) {
     },"image-tile image-gallery-tile image-loading");
     tile.setAttribute("aria-label","Ampliar imagen: "+(item.title||item.source));
     const img=element("img");
-    img.src=safeUrl(item.image);img.alt=item.title||"Imagen de "+item.source;
+    img.alt=item.title||"Imagen de "+item.source;
     img.loading=i<6?"eager":"lazy";img.decoding="async";img.referrerPolicy="no-referrer";
     const placeholder=element("span","image-tile-placeholder","Imagen no disponible");
     placeholder.hidden=true;
-    img.addEventListener("load",()=>tile.classList.remove("image-loading"),{once:true});
+    const primary=safeUrl(item.image),original=safeUrl(item.fullImage);
+    let triedOriginal=false;
+    img.addEventListener("load",()=>tile.classList.remove("image-loading"));
     img.addEventListener("error",()=>{
+      if(!triedOriginal&&original&&original!==img.src){
+        triedOriginal=true;img.src=original;return;
+      }
       tile.classList.remove("image-loading");img.hidden=true;placeholder.hidden=false;
-    },{once:true});
+    });
+    img.src=primary||original;
     const badges=element("span","image-tile-badges");
     if(item.width&&item.height)badges.append(element("small","image-tile-dimension",
       item.width+" × "+item.height));
+    if(item.imagePlatform==="Pinterest")badges.append(element("small",
+      "image-tile-platform","Pinterest"));
     tile.append(img,placeholder,badges,
       element("span","image-gallery-caption",item.title||item.source),
       element("small","image-gallery-source",item.source||"Fuente"));
@@ -724,15 +733,9 @@ function renderData(data) {
       pins.setAttribute("aria-pressed",String(state.imagePlatform==="Pinterest"));
       pinterestBar.append(pins);
     }
-    const pinterestSearch=external(
-      "https://www.pinterest.com/search/pins/?q="+encodeURIComponent(state.query),
-      "↗ Buscar también en Pinterest","wae-pinterest-original");
-    pinterestBar.append(pinterestSearch);
-    if(!pinterestCount){
-      pinterestBar.append(element("span","wae-pinterest-note",
-        "Los pines aparecen aquí cuando un índice web conectado devuelve imágenes reales."));
-    }
-    header.append(pinterestBar);
+    // Pinterest thumbnails stay in the SAME image grid. Source actions
+    // remain within each image's lightbox; no redirect replaces results.
+    if(pinterestCount)header.append(pinterestBar);
     const facets=element("nav","wae-image-filters");
     facets.setAttribute("aria-label","Filtrar imágenes por tipo y orientación");
     const kinds=[["all","Todas"],["foto","Fotos"],["ilustracion","Ilustraciones"],
