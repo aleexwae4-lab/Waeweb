@@ -17,7 +17,7 @@ test("gallery uses real previews with accessible modal and original source",()=>
 });
 test("videos and books display truthful media-specific copy",()=>{
   assert.match(app,/Ficha bibliográfica/);
-  assert.match(app,/Vídeo · Ver en la fuente original/);
+  assert.match(app,/Vídeo · Reproducir aquí/);
   assert.match(app,/▷ Explorar vídeo/);
   assert.doesNotMatch(app,/Comprar ahora/);
 });
