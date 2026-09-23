@@ -64,10 +64,17 @@ if(!ready){
     console.log("LIVE SEARCH PROVIDERS",JSON.stringify(config));
     if(!config.web){
       const general=await request("/api/search?q=WAEWEB-provider-integrity&type=all");
-      const honest=general.ok&&general.marker&&general.body?.webCoverage==="limited"&&
-        Array.isArray(general.body?.results)&&general.body.results.length===0;
-      console.log(honest?"LIVE PASS":"LIVE FAIL","general web without provider",
-        "HTTP",general.status,"count",general.body?.results?.length??null);
+      const items=general.body?.results;
+      const noHits=Array.isArray(items)&&items.length===0&&
+        ["limited","specialized"].includes(general.body?.webCoverage);
+      const specialist=Array.isArray(items)&&items.length>0&&
+        general.body?.webCoverage==="specialized"&&
+        items.every(item=>["Hacker News · web abierta","WAE Index local · HN"].includes(item.source)&&
+          /^https?:/i.test(item.url||"")&&!/wikimedia|wikipedia|wikidata/i.test(item.source));
+      const honest=general.ok&&general.marker&&(noHits||specialist);
+      console.log(honest?"LIVE PASS":"LIVE FAIL","general web without general index",
+        "HTTP",general.status,"count",items?.length??null,
+        "coverage",general.body?.webCoverage);
       if(!honest)process.exitCode=1;
     }
     if(!config.web&&!config.youtube){
