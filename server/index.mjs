@@ -464,8 +464,9 @@ export async function handler(req, res) {
         const rawPage=u.searchParams.get("page")||"1";
         if(!/^[1-5]$/.test(rawPage))
           return write(res,400,{error:"La página de búsqueda debe estar entre 1 y 5."});
+        const collection=u.searchParams.get("collection")||"web";
         const data = await search(q, u.searchParams.get("type") || "all",
-          {page:Number(rawPage)});
+          {page:Number(rawPage),collection});
         return write(res, data.error ? 400 : 200, data);
       }
       if (u.pathname === "/api/maps") {
