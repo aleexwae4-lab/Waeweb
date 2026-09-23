@@ -51,6 +51,34 @@ if(!ready){
       r.marker?"WAEWEB API":"no API marker",r.mime);
     if(!good)process.exitCode=1;
   }
+  // Provider readiness must be checked on the deployed runtime, never
+  // inferred from local tests or fabricated sample search results.
+  const capability=await request("/api/capabilities");
+  if(capability.ok&&capability.marker){
+    const config={
+      web:capability.body?.generalWebSearchConfigured===true,
+      brave:capability.body?.braveSearchConfigured===true,
+      google:capability.body?.googleSearchConfigured===true,
+      youtube:capability.body?.youtubeDataConfigured===true
+    };
+    console.log("LIVE SEARCH PROVIDERS",JSON.stringify(config));
+    if(!config.web){
+      const general=await request("/api/search?q=WAEWEB-provider-integrity&type=all");
+      const honest=general.ok&&general.marker&&general.body?.webCoverage==="limited"&&
+        Array.isArray(general.body?.results)&&general.body.results.length===0;
+      console.log(honest?"LIVE PASS":"LIVE FAIL","general web without provider",
+        "HTTP",general.status,"count",general.body?.results?.length??null);
+      if(!honest)process.exitCode=1;
+    }
+    if(!config.web&&!config.youtube){
+      const videos=await request("/api/search?q=YouTube&type=videos");
+      const honest=videos.ok&&videos.marker&&videos.body?.mediaCollection==="web"&&
+        Array.isArray(videos.body?.results)&&videos.body.results.length===0;
+      console.log(honest?"LIVE PASS":"LIVE FAIL","YouTube video without provider",
+        "HTTP",videos.status,"count",videos.body?.results?.length??null);
+      if(!honest)process.exitCode=1;
+    }
+  }
   // Exercise the real public translator end to end; capabilities alone do
   // not prove that the provider returns translated text from Render.
   try{
