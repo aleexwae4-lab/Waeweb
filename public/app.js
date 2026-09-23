@@ -228,18 +228,18 @@ function renderResult(item, index) {
     element("div","source-label",nativeBook?"Biblioteca WAE WEB":state.type==="all"?shortHost(url):item.source||"Fuente"),
     element("div","source-url",nativeBook?"Catálogo bibliográfico · Origen: "+item.source:displayResultUrl(url)));
   row.append(avatar, labels);
-  // General web results open the actual destination, like a conventional
-  // SERP. The separate WAEWEB action keeps integrated browsing available.
+  // Primary result stays inside WAE WEB. A distinct origin link preserves
+  // access to the original page when it disallows embedded browsing.
   const directVideo=state.type==="videos" &&
     (item.platform==="YouTube"||item.platform==="TikTok");
   const title = nativeBook
     ? button(item.title, () => bookExperience.openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "result-title browser-result-title")
     : state.type === "all"
-    ? external(url,item.title,"result-title web-result-title")
+    ? button(item.title,()=>openBrowser(url),"result-title web-result-title")
     : directVideo
       ? external(url,item.title,"result-title browser-result-title")
       : button(item.title, () => openBrowser(url), "result-title browser-result-title");
-  title.title = nativeBook ? "Ver ficha bibliográfica en Biblioteca WAE WEB" : state.type === "all" || directVideo
+  title.title = nativeBook ? "Ver ficha bibliográfica en Biblioteca WAE WEB" : directVideo
     ? "Abrir sitio original: "+shortHost(url)
     : "Navegar en WAEWEB: "+shortHost(url);
   if ((state.type === "books" || state.type === "videos" ||
@@ -365,6 +365,32 @@ function renderResult(item, index) {
       excerpt.textContent="Texto previamente recuperado del sitio original, sin verificación independiente: "+
         (item.snippet||"");
       card.append(excerpt);
+    }
+  }
+  if(state.type==="all"){
+    meta.append(external(url,"↗ Fuente original","save-button"));
+    if(url.startsWith("https://")){
+      const extract=element("div","web-inline-extract");
+      extract.setAttribute("role","status");
+      const preview=button("▤ Leer extracto aquí",async()=>{
+        preview.disabled=true;
+        preview.textContent="Consultando página…";
+        try{
+          const data=await getJSON("/api/web/preview?url="+encodeURIComponent(url));
+          extract.replaceChildren(
+            element("strong","","Extracto de "+(data.title||shortHost(url))),
+            element("p","",data.excerpt),
+            element("small","",data.disclaimer));
+          preview.textContent="✓ Extracto disponible";
+        }catch(error){
+          extract.replaceChildren(element("p","","No se pudo leer esta página aquí: "+
+            error.message+" Puedes explorarla dentro de WAE WEB o abrir la fuente original."));
+          preview.textContent="↻ Reintentar extracto";
+          preview.disabled=false;
+        }
+      },"save-button web-excerpt-action");
+      meta.append(preview);
+      card.append(extract);
     }
   }
   if(state.type !== "all")meta.append(external(url,
@@ -596,6 +622,33 @@ function renderData(data) {
     :sourceResults;
   document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
+  if(state.type==="all"){
+    const toolbar=element("section","web-search-toolbar");
+    const top=element("div","web-search-toolbar-heading");
+    top.append(element("span","web-search-eyebrow","WAE WEB · BÚSQUEDA INTEGRADA"),
+      element("h2","","Encuentra. Explora. Comprende."));
+    const coverage=data.searchCoverage;
+    const indexes=coverage?.generalIndexes||[];
+    const specialists=coverage?.specialistSources||[];
+    const metrics=element("p","web-search-metrics",
+      indexes.length+" índices web generales · "+
+      specialists.length+" fuentes especializadas · "+
+      (data.results?.length||0)+" páginas recuperadas");
+    const commands=element("div","web-search-commands");
+    commands.append(button("↻ Actualizar resultados",()=>void performSearch(state.query,"all",false,"web",true),
+      "web-search-refresh"));
+    toolbar.append(top,metrics,commands);
+    const details=element("details","web-search-sources");
+    details.append(element("summary","","Fuentes y cobertura · "+(
+      indexes.length?"Índices conectados":"Descubrimiento especializado")));
+    details.append(element("p","",
+      "Índices web: "+(indexes.join(", ")||"sin proveedor general configurado")+
+      ". Fuentes adicionales: "+(specialists.join(", ")||"ninguna")+
+      ". "+(data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
+      "Los resultados son enlaces reales atribuidos; no representan un índice de toda Internet."));
+    toolbar.append(details);
+    resultsContainer.append(toolbar);
+  }
   if(state.type==="news"){
     const header=element("section","news-live-header");
     header.setAttribute("aria-label","Centro de noticias WAE WEB");
@@ -826,21 +879,8 @@ function renderData(data) {
       element("p","","No se encontraron imágenes en las fuentes disponibles para esta consulta."));
     resultsContainer.prepend(notice);
   }
-  if(state.type==="all" && ["limited","specialized"].includes(data.webCoverage)){
-    const specialized=data.webCoverage==="specialized";
-    const notice=element("aside","web-coverage-notice");
-    notice.setAttribute("role","status");
-    const encyclopedic=data.sources?.some(name=>name==="Wikipedia"||name==="Wikidata");
-    notice.append(
-      element("strong","",specialized?"Fuentes web especializadas":"Fuentes disponibles"),
-      element("p","",encyclopedic
-        ?"Resultados enciclopédicos integrados y atribuidos; la cobertura de sitios web generales es limitada."
-        :specialized
-          ?"Estos resultados proceden de páginas web descubiertas e indexadas; no representan toda Internet."
-          :"La cobertura web general es limitada para esta consulta.")
-    );
-    resultsContainer.prepend(notice);
-  }
+  // Search coverage is available in the compact, expandable toolbar above;
+  // never obscure actual results with a dominant limitations banner.
 }
 // Pull an actual subsequent page only on explicit user action. Deduplicate
 // between page boundaries; do not re-fetch Wikipedia as a fake second page.
@@ -1230,7 +1270,7 @@ function showEmptyCategory(type,push=true){
   sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
   panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
   const categories={
-    all:["Búsqueda web WAEWEB","Busca en índices web y consulta resultados de Wikipedia y Wikidata en la misma página.",["Inteligencia artificial","Tecnología en México"]],
+    all:["Búsqueda web WAEWEB","Encuentra fuentes reales, consulta extractos y navega sin salir de WAE WEB. También integra Wikipedia y Wikidata.",["Inteligencia artificial","Tecnología en México"]],
     knowledge:["Conocimiento verificable","Consulta enciclopedias, entidades, ciencia, libros y catálogos documentales. No es un índice general de Internet.",["Inteligencia artificial","Medicina","Historia de México"]],
     research:["Investigación","Publicaciones científicas, Wikidata y fuentes bibliográficas.",["Inteligencia artificial","Investigación médica"]],
     images:["Imágenes web","Explora imágenes de buscadores conectados, Openverse y Wikimedia Commons en una sola galería.",["Jalisco","Arquitectura mexicana"]],
