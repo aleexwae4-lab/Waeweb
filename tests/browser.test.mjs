@@ -54,7 +54,7 @@ test("Browser UI and HTML keep third party content isolated and provide escape h
   assert.match(browser, /allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox/);
   assert.doesNotMatch(browser, /allow-same-origin/);
   assert.match(browser, /referrerPolicy = "no-referrer"/);
-  assert.match(html, /una página bloquea la vista integrada/i);
+  assert.match(html, /los sitios que impiden incrustación/i);
 });
 
 test("Browser omnibox searches natural language and navigates explicit domains", () => {
