@@ -32,7 +32,7 @@ test("source ranking keeps genuine pages and diversifies repeated hosts",()=>{
   assert.equal(constrained[2].url,"https://same.example.org/2");
   assert.equal(diversifyWebResults(items).length,5);
 });
-test("default general search does not query paper or book providers without user selecting categories",async()=>{
+test("default general search includes bounded Wikipedia and Wikidata alongside web providers",async()=>{
   const oldFetch=globalThis.fetch;
   const savedBrave=process.env.BRAVE_SEARCH_API_KEY;
   const savedGoogle=process.env.GOOGLE_SEARCH_API_KEY;
@@ -49,16 +49,20 @@ test("default general search does not query paper or book providers without user
         {title:"Taller motos Zapopan",pageid:123,snippet:"Ficha informativa de ejemplo"}
       ]}}),{status:200});
     if(u.hostname==="www.wikidata.org")
-      return new Response(JSON.stringify({search:[]}),{status:200});
+      return new Response(JSON.stringify({search:[
+        {id:"Q42",label:"Moto",description:"Vehículo de dos ruedas"}
+      ]}),{status:200});
     throw new Error("Unexpected academic or book provider "+u.hostname);
   };
   try{
     const found=await search("waeweb-motos-prueba-web-first","all",{fresh:true});
-    assert.equal(found.results.length,0);
-    assert.equal(found.webCoverage,"limited");
-    assert.match(found.message,/No hay un índice web general conectado/);
-    assert.ok(!seen.includes("es.wikipedia.org"));
-    assert.ok(seen.every(host=>!/(wikipedia|wikidata|crossref|openalex|europepmc|openlibrary)/i.test(host)));
+    assert.equal(found.results.length,2);
+    assert.deepEqual(new Set(found.results.map(item=>item.source)),new Set(["Wikipedia","Wikidata"]));
+    assert.equal(found.webCoverage,"limited","encyclopedia records never masquerade as a general web index");
+    assert.equal(found.message,null);
+    assert.ok(seen.includes("es.wikipedia.org"));
+    assert.ok(seen.includes("www.wikidata.org"));
+    assert.ok(seen.every(host=>!/(crossref|openalex|europepmc|openlibrary)/i.test(host)));
     assert.equal(found.brief.kind,"extractive");
   }finally{
     globalThis.fetch=oldFetch;

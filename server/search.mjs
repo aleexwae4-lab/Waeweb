@@ -136,7 +136,7 @@ export async function openLibrary(query) {
   }).filter(item => item.title && urlAllowed(item.url));
 }
 
-// Keyless independent image catalog. Commons remains a separate opt-in archive.
+// Keyless independent image catalog. Wikimedia Commons also participates in image search.
 export async function openverseImages(query){
   const u=new URL("https://api.openverse.org/v1/images/");
   u.search=new URLSearchParams({q:query,page_size:"20",mature:"false"}).toString();
@@ -312,8 +312,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   if(!["web","commons"].includes(collection) ||
     (collection==="commons" && !["images","videos"].includes(selected)))
     return {error:"Colección de búsqueda no válida para esta categoría."};
-  // Commons is an opt-in OPEN ARCHIVE, never a surrogate for the web, YouTube
-  // or TikTok. Cache entries for the two collections must remain isolated.
+  // Commons enriches regular media results alongside independent providers.
+  // The legacy explicit archive API remains available without a separate UI.
   const archive=collection==="commons" || spec.source==="wikimedia";
   const key = selected + ":" + page + ":" + collection + ":" + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
@@ -338,19 +338,22 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
        ? [["Wikimedia Commons", () => wikimediaImages(q)]]
        : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")],
           ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")],
-          ["Openverse",()=>openverseImages(q)]])
+          ["Openverse",()=>openverseImages(q)],
+          ...(!spec.site || platformAllowed("commons.wikimedia.org")
+            ? [["Wikimedia Commons",()=>wikimediaImages(q)]]:[])])
     : selected === "news"
     ? [["GDELT · prensa", () => gdeltNews(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "news")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
     : selected === "videos"
     ? archive
       ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)]]
       : [
-      // WEB video mode must never silently fall back to Wikimedia Commons.
-      // It returns real web/video-platform providers only, or an honest empty
-      // result with direct platform continuation actions in the client.
+      // Commons clips join verified platform clips under their actual
+      // Wikimedia identity; never relabel them as YouTube or TikTok.
       ...(platformAllowed("youtube.com")?[["YouTube",()=>youtubeDataVideos(q)]]:[]),
       ["Brave · Vídeos",()=>braveSearch(videoQuery,"videos")],
       ["PeerTube",()=>peertubeVideos(q)],
+      ...(!spec.site || platformAllowed("commons.wikimedia.org")
+        ? [["Wikimedia Commons · Video",()=>wikimediaVideos(q)]]:[]),
       ...(platformAllowed("youtube.com")?[
         ["Brave · YouTube",async()=>verifiedVideoResults(
           await braveSearch(q+" site:youtube.com","web"),"YouTube")],
@@ -374,13 +377,15 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        // Discovery is a specialist public-link feed; it is not a general
-       // Internet index. Never silently substitute Wikipedia or Wikimedia.
+       // Internet index. Wikipedia and Wikidata enrich, not replace, web hits.
        ...(page===1 && !spec.source && !spec.site
          ? [["WAE Discovery",()=>discoverOpenWeb(q)]]:[]),
-       // User-specified source operators still allow an explicit encyclopedia
-       // lookup; an ordinary web search never silently becomes Wikipedia.
-       ...(page===1 && spec.source==="wikipedia"?[["Wikipedia", () => wikipedia(q)]]:[]),
-       ...(page===1 && spec.source==="wikidata"?[["Wikidata", () => wikidata(q)]]:[])];
+       // Add a bounded number of encyclopedia entries on the first page;
+       // other real web providers retain their own relevance and provenance.
+       ...(page===1 && !spec.site && (!spec.source || spec.source==="wikipedia")
+         ? [["Wikipedia",async()=>(await wikipedia(q)).slice(0,5)]]:[]),
+       ...(page===1 && !spec.site && (!spec.source || spec.source==="wikidata")
+         ? [["Wikidata",async()=>(await wikidata(q)).slice(0,3)]]:[])];
   // The default SERP is a WEB search, not a mixed academic/book feed.
   // Crossref, OpenAlex and Europe PMC belong to Investigación; Open Library
   // belongs to Libros. General web coverage depends on a configured index.
@@ -442,12 +447,14 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       webIndex:available.some(name=>name==="Brave"||name==="Google"||
         /^(Brave|Google) · /.test(name) && !name.endsWith(" no configurado")),
       archive:archive,
+      commonsAvailable:available.some(name=>name==="Wikimedia Commons"||name==="Wikimedia Commons · Video"),
       providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length,
       openverseAvailable:available.includes("Openverse")
     }:null,
     videoCoverage: selected==="videos"?{
       youtubeApi:available.includes("YouTube"),
       peertubeAvailable:available.includes("PeerTube"),
+      commonsAvailable:available.includes("Wikimedia Commons · Video"),
       webIndex:available.some(name=>/^(Brave|Google) · /.test(name) &&
         !name.endsWith(" no configurado")),
       providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length
@@ -465,8 +472,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }:null,
     failedSources: errors, fetchedAt: new Date().toISOString(),
     message: !available.some(s => !s.includes("no configurado"))
-      ? (selected==="all"?"No hay un índice web general conectado. WAEWEB no sustituirá Internet con Wikipedia ni Wikimedia."
-        :selected==="videos"?"No hay un índice de vídeo web conectado. WAEWEB no sustituirá YouTube o TikTok con Wikimedia."
+      ? (selected==="all"?"No se pudieron consultar las fuentes web y enciclopédicas disponibles."
+        :selected==="videos"?"No se pudieron recuperar vídeos de las plataformas y archivos disponibles."
         :"No hay proveedores disponibles para esta categoría.")
       : null
   };

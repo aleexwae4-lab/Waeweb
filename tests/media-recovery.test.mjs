@@ -37,7 +37,8 @@ test("keyless Openverse offers genuine non-Wikimedia images with attributed orig
     assert.equal(data.results.length,1);
     assert.equal(data.mediaCoverage.openverseAvailable,true);
     assert.equal(data.mediaCoverage.webIndex,false);
-    assert.equal(hosts.includes("commons.wikimedia.org"),false);
+    assert.equal(hosts.includes("commons.wikimedia.org"),true);
+    assert.ok(data.failedSources.includes("Wikimedia Commons"));
   });
 });
 test("keyless PeerTube delivers real videos without claiming they came from YouTube",async()=>{
