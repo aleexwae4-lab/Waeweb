@@ -631,18 +631,7 @@ function renderData(data) {
     header.append(details);
     resultsContainer.append(header);
   }
-  if(["images","videos"].includes(state.type)&&state.query){
-    const archive=state.mediaCollection==="commons";
-    const pick=element("nav","media-collection-choice");
-    pick.setAttribute("aria-label","Elegir origen de imágenes y vídeos");
-    pick.append(
-      element("span","tag",archive?"Colección: archivo abierto":"Colección: búsqueda web"),
-      button(archive?"← Volver a búsqueda web":"▤ Explorar archivo Wikimedia",()=>{
-        void performSearch(state.query,state.type,true,archive?"web":"commons");
-      },"link-button")
-    );
-    resultsContainer.append(pick);
-  }
+  // All media providers, including Wikimedia Commons, share these results.
   // Weather races with federated search. A late result must not erase an early card.
   const count = state.results.length;
   const visible = state.type==="all" ? Math.min(count,state.visibleCount) : count;
@@ -775,44 +764,34 @@ function renderData(data) {
     notice.setAttribute("role","status");
     notice.append(element("strong","","Cobertura de plataformas limitada"),
       element("p","",data.videoCoverage.peertubeAvailable
-        ?"Mostramos vídeos reales de PeerTube con su origen identificado. La búsqueda integrada de clips de YouTube y TikTok requiere sus proveedores; puedes continuar en esas plataformas mediante los enlaces."
-        :"Los índices de YouTube, Brave y Google no están disponibles. No sustituimos sus vídeos con Wikimedia; usa los botones de búsqueda directa."));
+        ?"Los clips disponibles proceden de PeerTube y Wikimedia Commons con su origen identificado; YouTube y TikTok dependen de sus proveedores."
+        :data.videoCoverage.commonsAvailable
+          ?"Los vídeos disponibles proceden de Wikimedia Commons. La cobertura de YouTube y TikTok depende de sus proveedores."
+          :"No se recuperaron vídeos de las fuentes disponibles para esta consulta."));
     resultsContainer.prepend(notice);
   }
-  if(state.type==="images" && state.mediaCollection!=="commons" &&
-    data.mediaCoverage && !data.mediaCoverage.webIndex && !data.mediaCoverage.openverseAvailable){
+  if(state.type==="images" && !data.mediaCoverage?.webIndex &&
+    !data.mediaCoverage?.openverseAvailable && !data.mediaCoverage?.commonsAvailable &&
+    !hasResults){
     const notice=element("aside","video-coverage-notice");
     notice.setAttribute("role","status");
-    notice.append(element("strong","","Sin índice general de imágenes"),
-      element("p","","No hay un proveedor de imágenes web conectado. Wikimedia es un archivo separado: elige «Explorar archivo Wikimedia» si deseas consultar sus fotografías, o busca imágenes en el sitio original."));
-    notice.append(external("https://www.google.com/search?tbm=isch&q="+encodeURIComponent(state.query),
-      "↗ Buscar imágenes en Google","link-button"));
+    notice.append(element("strong","","Sin imágenes recuperadas"),
+      element("p","","No se encontraron imágenes en las fuentes disponibles para esta consulta."));
     resultsContainer.prepend(notice);
   }
   if(state.type==="all" && ["limited","specialized"].includes(data.webCoverage)){
     const specialized=data.webCoverage==="specialized";
     const notice=element("aside","web-coverage-notice");
     notice.setAttribute("role","status");
-    const destinations=element("div","web-coverage-actions");
-    const query=encodeURIComponent(state.query);
-    destinations.append(
-      external("https://www.google.com/search?q="+query,
-        "↗ Google","link-button"),
-      external("https://www.bing.com/search?q="+query,
-        "↗ Bing","link-button"),
-      external("https://www.google.com/search?tbm=vid&q="+query,
-        "↗ Vídeos web","link-button")
-    );
+    const encyclopedic=data.sources?.some(name=>name==="Wikipedia"||name==="Wikidata");
     notice.append(
-      element("strong","",specialized?"Web abierta · índice especializado":"Cobertura web limitada"),
-      element("p","",specialized
-        ?"Los enlaces proceden de artículos publicados en Hacker News y de un índice temporal de sus metadatos. WAEWEB no ha leído ni verificado el contenido de cada sitio. Este conjunto no representa toda Internet."
-        :"No se recuperaron resultados de un índice web general. Las fuentes públicas disponibles no sustituyen la búsqueda de todo Internet. Abre un buscador real para continuar."),
-      destinations
+      element("strong","",specialized?"Fuentes web especializadas":"Fuentes disponibles"),
+      element("p","",encyclopedic
+        ?"Resultados enciclopédicos integrados y atribuidos; la cobertura de sitios web generales es limitada."
+        :specialized
+          ?"Estos resultados proceden de páginas web descubiertas e indexadas; no representan toda Internet."
+          :"La cobertura web general es limitada para esta consulta.")
     );
-    notice.append(button("◈ Consultar fuentes de conocimiento",()=>{
-      void performSearch(state.query,"knowledge");
-    },"knowledge-switch"));
     resultsContainer.prepend(notice);
   }
 }
@@ -1181,12 +1160,12 @@ function showEmptyCategory(type,push=true){
   sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
   panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
   const categories={
-    all:["Búsqueda web WAEWEB","La búsqueda general consulta índices web conectados. Investigación, bibliotecas y archivos abiertos tienen categorías separadas.",["Inteligencia artificial","Tecnología en México"]],
+    all:["Búsqueda web WAEWEB","Busca en índices web y consulta resultados de Wikipedia y Wikidata en la misma página.",["Inteligencia artificial","Tecnología en México"]],
     knowledge:["Conocimiento verificable","Consulta enciclopedias, entidades, ciencia, libros y catálogos documentales. No es un índice general de Internet.",["Inteligencia artificial","Medicina","Historia de México"]],
     research:["Investigación","Publicaciones científicas, Wikidata y fuentes bibliográficas.",["Inteligencia artificial","Investigación médica"]],
-    images:["Imágenes web","Busca imágenes de proveedores conectados; Wikimedia Commons se consulta como archivo abierto aparte.",["Jalisco","Arquitectura mexicana"]],
+    images:["Imágenes web","Explora imágenes de buscadores conectados, Openverse y Wikimedia Commons en una sola galería.",["Jalisco","Arquitectura mexicana"]],
     news:["Noticias","Artículos recientes de medios disponibles, con enlaces originales.",["Inteligencia artificial","México"]],
-    videos:["Vídeos de plataformas","Busca clips reales de YouTube y TikTok mediante los proveedores conectados. El archivo Wikimedia es una colección distinta.",["Tecnología","Naturaleza"]],
+    videos:["Vídeos de plataformas","Descubre clips reales de YouTube, TikTok, PeerTube y Wikimedia Commons con su origen identificado.",["Tecnología","Naturaleza"]],
     books:["Biblioteca WAE WEB","Explora Open Library, Google Books, Library of Congress, Project Gutenberg e Internet Archive desde fichas propias. El acceso a cada obra depende de sus derechos.",["Ciencia","Historia de México"]],
     index:["Índice privado","Conecta una bóveda autorizada para consultar documentos.",[]],
     businesses:["Negocios","Busca empresas publicadas voluntariamente.",[]]
