@@ -481,7 +481,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }
   }
   const imageRanked=selected==="images"
-    ?rankImageResults(rankResults(dedupe(results),spec,selected),q):null;
+    ?rankImageResults(rankResults(results,spec,selected),q):null;
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, page,
