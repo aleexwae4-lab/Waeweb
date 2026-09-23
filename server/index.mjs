@@ -182,6 +182,11 @@ export async function handler(req, res) {
     translator: publicTranslateConfig(),
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     braveSearchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY?.trim()),
+    youtubeDataConfigured: Boolean(process.env.YOUTUBE_DATA_API_KEY?.trim()),
+    generalWebSearchConfigured: Boolean(
+      process.env.BRAVE_SEARCH_API_KEY?.trim() ||
+      process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID
+    ),
     streetMapLayer: "openstreetmap_user_initiated_visible_tiles",
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
