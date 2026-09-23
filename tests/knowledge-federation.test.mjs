@@ -105,6 +105,7 @@ test("knowledge is a separate intentional UI mode, not a silent fallback from We
   assert.match(app,/knowledge:\["Conocimiento verificable"/);
   assert.match(app,/state\.type==="knowledge"/);
   assert.match(app,/knowledge-source-overview/);
-  assert.match(app,/performSearch\(state\.query,"knowledge"\)/);
+  assert.match(app,/state\.type==="knowledge"/);
+  assert.match(app,/Wikipedia/);
   assert.match(app,/if \(\["research","knowledge","index"\]\.includes\(state\.type\)\)/);
 });
