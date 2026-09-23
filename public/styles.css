@@ -798,3 +798,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .knowledge-source-overview .link-button:hover,.web-coverage-notice .knowledge-switch:hover{background:#35669e}
 .web-coverage-notice .knowledge-switch{display:block;margin-top:12px}
 @media(max-width:600px){.knowledge-source-overview{padding:15px;gap:10px}.knowledge-metrics .tag{flex:1 1 auto}.knowledge-source-overview .link-button,.web-coverage-notice .knowledge-switch{width:100%}}
+
+/* RC45 · Explicit, robots-compliant web-page indexing, not simulated search. */
+.web-result .web-index-action{min-height:44px;border-color:rgba(104,175,241,.48);background:rgba(29,75,122,.64);color:#e3f4ff}
+.web-result .web-index-action:hover,.web-result .web-index-action:focus-visible{background:rgba(46,107,166,.75);border-color:#bbd8ff}
+.web-result .web-index-action:disabled{cursor:default;opacity:.85}
+.web-index-excerpt{padding:12px 14px;margin:12px 0 3px;border:1px solid rgba(125,186,236,.29);border-radius:12px;background:rgba(20,43,69,.72);font-size:13px;line-height:1.65;color:#ccdcf0;overflow-wrap:anywhere}
+@media(max-width:600px){.web-result .web-index-action{flex:1 1 140px}.web-index-excerpt{padding:10px 11px}}
