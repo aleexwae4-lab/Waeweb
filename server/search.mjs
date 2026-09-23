@@ -47,7 +47,7 @@ export async function wikipediaSummary(pageId){
   if(!page||page.missing!==undefined||!page.title)
     return {error:"Este artículo ya no está disponible."};
   return {pageId:Number(pageId),title:clean(page.title),
-    extract:clean(page.extract).slice(0,4500),
+    extract:clean(page.extract).replace(/\\s+([.,;!?])/g,"$1").slice(0,4500),
     source:"Wikipedia",url:"https://es.wikipedia.org/?curid="+pageId};
 }
 export async function crossref(query) {
