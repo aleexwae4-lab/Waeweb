@@ -635,7 +635,7 @@ function renderData(data) {
     const notice=element("aside","video-coverage-notice");
     notice.setAttribute("role","status");
     notice.append(element("strong","","Cobertura de plataformas limitada"),
-      element("p","","Los índices de YouTube, Brave y Google no están disponibles en esta consulta. Solo aparecen clips recuperados de fuentes que sí respondieron. Puedes continuar en YouTube o TikTok mediante sus botones de búsqueda."));
+      element("p","","Los índices de YouTube, Brave y Google no están disponibles en esta consulta. WAEWEB no mostrará Wikimedia como sustituto de YouTube o TikTok. Usa los botones para continuar en las plataformas reales."));
     resultsContainer.prepend(notice);
   }
   if(state.type==="images" && state.mediaCollection!=="commons" &&
