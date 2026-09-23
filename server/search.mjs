@@ -226,7 +226,7 @@ export function dedupe(items) {
   });
 }
 const cache = new Map();
-export async function search(query, type = "all", { fresh = false, page = 1 } = {}) {
+export async function search(query, type = "all", { fresh = false, page = 1, collection = "web" } = {}) {
   const spec = parseQuery(normalizeQuery(query));
   const q = spec.query;
   if (spec.errors.length) return { error: spec.errors.join(" ") };
@@ -236,7 +236,13 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
     return {error:"La página de búsqueda debe estar entre 1 y 5."};
   if(page>1 && selected!=="all")
     return {error:"La paginación adicional solo está disponible para la búsqueda web."};
-  const key = selected + ":" + page + ":" + spec.input.toLocaleLowerCase("es");
+  if(!["web","commons"].includes(collection) ||
+    (collection==="commons" && !["images","videos"].includes(selected)))
+    return {error:"Colección de búsqueda no válida para esta categoría."};
+  // Commons is an opt-in OPEN ARCHIVE, never a surrogate for the web, YouTube
+  // or TikTok. Cache entries for the two collections must remain isolated.
+  const archive=collection==="commons" || spec.source==="wikimedia";
+  const key = selected + ":" + page + ":" + collection + ":" + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
   if (!fresh && cached && cached.expires > Date.now()) return cached.value;
   const videoQuery=spec.site?q+" site:"+spec.site:q;
@@ -245,13 +251,17 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
     spec.site.endsWith("."+host);
   const sources = selected === "books" ? [["Open Library", () => openLibrary(q)]]
     : selected === "images"
-    ? [["Wikimedia Commons", () => wikimediaImages(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]]
+    ? (archive
+       ? [["Wikimedia Commons", () => wikimediaImages(q)]]
+       : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")],
+          ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]])
     : selected === "news"
     ? [["GDELT · prensa", () => gdeltNews(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "news")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
     : selected === "videos"
-    ? [
+    ? archive
+      ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)]]
+      : [
       ...(platformAllowed("youtube.com")?[["YouTube",()=>youtubeDataVideos(q)]]:[]),
-      ["Wikimedia Commons · Video", () => wikimediaVideos(q)],
       ["Brave · Vídeos",()=>braveSearch(videoQuery,"videos")],
       ...(platformAllowed("youtube.com")?[
         ["Brave · YouTube",async()=>verifiedVideoResults(
@@ -270,7 +280,10 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Europe PMC", () => europePMC(q)], ["Wikipedia", () => wikipedia(q)]]
     : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
-       ...(page===1?[["Wikipedia", () => wikipedia(q)], ["Wikidata", () => wikidata(q)]]:[])];
+       // User-specified source operators still allow an explicit encyclopedia
+       // lookup; an ordinary web search never silently becomes Wikipedia.
+       ...(page===1 && spec.source==="wikipedia"?[["Wikipedia", () => wikipedia(q)]]:[]),
+       ...(page===1 && spec.source==="wikidata"?[["Wikidata", () => wikidata(q)]]:[])];
   // The default SERP is a WEB search, not a mixed academic/book feed.
   // Crossref, OpenAlex and Europe PMC belong to Investigación; Open Library
   // belongs to Libros. General web coverage depends on a configured index.
@@ -303,10 +316,18 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
   }
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
-    type: selected, page, hasMore: selected==="all" && moreFromProviders,
+    type: selected, page, mediaCollection: ["images","videos"].includes(selected)
+      ? (archive?"commons":"web"):null,
+    hasMore: selected==="all" && moreFromProviders,
     results: rankResults(selected==="videos"
       ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected),
     sources: available,
+    mediaCoverage:["videos","images"].includes(selected)?{
+      webIndex:available.some(name=>name==="Brave"||name==="Google"||
+        /^(Brave|Google) · /.test(name) && !name.endsWith(" no configurado")),
+      archive:archive,
+      providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length
+    }:null,
     videoCoverage: selected==="videos"?{
       youtubeApi:available.includes("YouTube"),
       webIndex:available.some(name=>/^(Brave|Google) · /.test(name) &&
@@ -317,7 +338,9 @@ export async function search(query, type = "all", { fresh = false, page = 1 } = 
       ? (available.some(name => name === "Brave" || name === "Google") ? "general-index" : "limited")
       : null,
     failedSources: errors, fetchedAt: new Date().toISOString(),
-    message: !available.some(s => !s.includes("no configurado")) ? "No hay proveedores disponibles para esta categoría." : null
+    message: !available.some(s => !s.includes("no configurado"))
+      ? (selected==="all"?"No hay un índice web general conectado. Wikipedia no sustituye una búsqueda en Internet.":"No hay proveedores disponibles para esta categoría.")
+      : null
   };
   // Retain the API's extractive brief for clients that need it, but the
   // consumer search UI displays organic links first and hides this panel.
