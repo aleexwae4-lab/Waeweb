@@ -130,7 +130,71 @@ test("Pinterest images already returned in ordinary queries join the normal imag
 test("Pinterest image UI has a real pin facet and original destination, not a fake content feed",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(app,/state\.imagePlatform==="all"\|\|item\.imagePlatform===state\.imagePlatform/);
-  assert.match(app,/https:\/\/www\.pinterest\.com\/search\/pins\/\?q=/);
-  assert.match(app,/↗ Buscar también en Pinterest/);
-  assert.match(app,/Los pines aparecen aquí cuando un índice web conectado devuelve imágenes reales/);
+  assert.match(app,/image-tile-platform","Pinterest"/);
+  assert.match(app,/img\.src=primary\|\|original/);
+  assert.match(app,/if\(!triedOriginal&&original&&original!==img\.src\)/);
+  assert.doesNotMatch(app,/↗ Buscar también en Pinterest/);
+});
+
+test("normal non-Pinterest, non-inspiration queries fetch and blend genuine pins in regular grid",async()=>{
+  await withKeys(["token",null,null],async()=>{
+    const queries=[];
+    globalThis.fetch=async input=>{
+      const u=new URL(input);
+      if(u.hostname==="api.search.brave.com"){
+        const query=u.searchParams.get("q");
+        queries.push(query);
+        return new Response(JSON.stringify({results:query.includes("site:pinterest.com/pin/")
+          ? [{title:"Astronomía observatorio imagen",url:"https://www.pinterest.com/pin/987654321000/",
+              thumbnail:{src:"https://imgs.search.brave.com/observatorio-preview"},
+              properties:{url:"https://i.pinimg.com/originals/observatorio.jpg",
+                width:1000,height:1400}}]
+          : [{title:"Astronomía observatorio imagen",url:"https://observatory.example.org/photo",
+              thumbnail:{src:"https://observatory.example.org/thumb.jpg"}}]}),{status:200});
+      }
+      if(u.hostname==="api.openverse.org")
+        return new Response(JSON.stringify({results:[]}),{status:200});
+      if(u.hostname==="commons.wikimedia.org")
+        return new Response(JSON.stringify({query:{pages:{}}}),{status:200});
+      throw Error("Unexpected "+u.hostname);
+    };
+    const data=await search("astronomía observatorio prueba-fotos","images",{fresh:true});
+    assert.ok(queries.includes("astronomía observatorio prueba-fotos"),
+      "general image search still runs");
+    assert.ok(queries.includes("astronomía observatorio prueba-fotos site:pinterest.com/pin/"),
+      "Pinterest search runs automatically without a magic keyword");
+    assert.equal(data.results.length,2);
+    assert.ok(data.results.some(item=>item.imagePlatform==="Pinterest"));
+    const pin=data.results.find(item=>item.imagePlatform==="Pinterest");
+    assert.equal(pin.image,"https://imgs.search.brave.com/observatorio-preview");
+    assert.equal(pin.fullImage,"https://i.pinimg.com/originals/observatorio.jpg");
+    assert.equal(pin.url,"https://www.pinterest.com/pin/987654321000/");
+    assert.equal(data.imageDiscovery.pinterest.hits,1);
+    assert.equal(data.imageDiscovery.pinterest.mode,"indexed_public_pins");
+  });
+});
+test("original provider image works when an indexed Pinterest pin has no thumbnail",async()=>{
+  await withKeys(["token","key","engine"],async()=>{
+    globalThis.fetch=async input=>{
+      const u=new URL(input);
+      if(u.hostname==="api.search.brave.com")
+        return new Response(JSON.stringify({results:[{
+          title:"Pin with source image",url:"https://www.pinterest.com/pin/987654321002/",
+          properties:{url:"https://i.pinimg.com/originals/real-bag.jpg"}
+        }]}),{status:200});
+      if(u.hostname==="www.googleapis.com")
+        return new Response(JSON.stringify({items:[{
+          title:"Pin with source image",link:"https://i.pinimg.com/originals/real-bag2.jpg",
+          image:{contextLink:"https://www.pinterest.com/pin/987654321003/"}
+        }]}),{status:200});
+      throw Error("Unexpected "+u.hostname);
+    };
+    const data=await search("pines validos sin miniatura source:pinterest",
+      "images",{fresh:true});
+    assert.equal(data.results.length,2);
+    assert.deepEqual(new Set(data.results.map(item=>item.image)),
+      new Set(["https://i.pinimg.com/originals/real-bag.jpg",
+        "https://i.pinimg.com/originals/real-bag2.jpg"]));
+    assert.ok(data.results.every(item=>item.source.startsWith("Pinterest · vía ")));
+  });
 });
