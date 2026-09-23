@@ -7,6 +7,7 @@ import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
 import { createYoutubeFrame } from "/youtube-player.js";
 import { isBookWork, openBookDetail } from "/book-experience.js";
+import {renderBookCard} from "/book-gallery.js";
 "use strict";
 const byId = id => document.getElementById(id);
 const hero = byId("hero");
@@ -197,6 +198,7 @@ function formatDate(value) {
 function renderResult(item, index) {
   const url = safeUrl(item.url);
   if (!url) return null;
+  if(state.type==="books")return renderBookCard(item,{workspace,onSaved:refreshLibraryCount,index});
   const card = element("article", "result-card");
   const nativeBook = state.type === "books" && isBookWork(item);
   if(nativeBook) card.classList.add("wae-native-book");
@@ -560,6 +562,7 @@ function renderData(data) {
   options.forEach(name => sourceFilter.add(new Option(name, name)));
   if (!options.includes(state.selectedSource)) state.selectedSource = "";
   sourceFilter.value = state.selectedSource;
+  sourceFilter.hidden = state.type==="books";
   const sourceResults = state.selectedSource
     ? allResults.filter(item => item.source === state.selectedSource):allResults;
   if(state.type==="videos" && state.videoPlatform!=="all" &&
@@ -572,36 +575,46 @@ function renderData(data) {
   resultsContainer.replaceChildren();
   if(state.type==="books"){
     const coverage=data.bookCoverage;
-    const header=element("section","wae-book-coverage");
-    header.setAttribute("aria-label","Bibliotecas conectadas");
-    header.append(element("span","wae-book-eyebrow","WAE WEB · BIBLIOTECA UNIVERSAL"),
-      element("h2","","Un catálogo. Múltiples bibliotecas."));
-    const summary=element("p","",
-      "Resultados bibliográficos recuperados: "+allResults.length+
-      " · Catálogos consultados: "+(coverage?.retrievedSources?.length||0)+
-      " de "+(coverage?.configuredSources?.length||0)+".");
-    header.append(summary);
-    const picker=element("div","wae-book-provider-filters");
-    const providers=["",...(coverage?.configuredSources||[])];
+    const header=element("section","wae-book-coverage wae-library-editorial");
+    header.setAttribute("aria-label","Biblioteca WAE WEB");
+    const identity=element("div","wae-library-identity");
+    identity.append(element("span","wae-library-monogram","w."),
+      element("span","wae-book-eyebrow","WAE WEB / BIBLIOTECA"));
+    const heroCopy=element("div","wae-library-hero-copy");
+    heroCopy.append(element("h2","","Historias que merecen ser descubiertas."),
+      element("p","","Explora libros, autores e ideas en un solo espacio."));
+    const actions=element("div","wae-library-hero-actions");
+    const studio=external("/libros.html#publicar","✦ Crea tu libro en WAE","wae-library-studio-cta");
+    studio.removeAttribute("target");
+    actions.append(studio);
+    header.append(identity,heroCopy,actions);
+    const featured=element("div","wae-library-results-head");
+    featured.append(element("h3","","Descubre tu próxima lectura"),
+      element("span","",allResults.length+" títulos encontrados"));
+    header.append(featured);
+    const picker=element("nav","wae-book-provider-filters");
+    picker.setAttribute("aria-label","Filtrar los libros por catálogo de origen");
+    const providers=["",...new Set(allResults.map(item=>item.source).filter(Boolean))];
     for(const provider of providers){
       const count=provider?allResults.filter(item=>item.source===provider).length:allResults.length;
-      const buttonLabel=(provider||"Todas las bibliotecas")+" · "+count;
-      const chip=button(buttonLabel,()=>{
+      const chip=button((provider||"Todos")+" · "+count,()=>{
         state.selectedSource=provider;
-        sourceFilter.value=provider;
         renderData(data);
       },"wae-book-provider-chip");
       chip.setAttribute("aria-pressed",String(state.selectedSource===provider));
       picker.append(chip);
     }
-    header.append(picker);
-    if(coverage?.failedSources?.length){
-      header.append(element("p","wae-book-coverage-warning",
-        "Algunos catálogos no respondieron: "+coverage.failedSources.join(", ")+
-        ". Los registros de las otras fuentes siguen disponibles."));
-    }
-    header.append(element("p","wae-book-coverage-foot",
-      "Los registros son metadatos; la lectura, préstamo o descarga dependen de los titulares y del país."));
+    if(providers.length>1)header.append(picker);
+    const details=element("details","wae-library-transparency");
+    const failed=coverage?.failedSources||[];
+    const replied=coverage?.retrievedSources||[];
+    details.append(element("summary","",
+      "Fuentes bibliográficas y disponibilidad"+(failed.length?" · "+failed.length+" con incidencias":"")));
+    details.append(element("p","",
+      "Fuentes que respondieron: "+(replied.join(", ")||"ninguna")+
+      ". "+(failed.length?"Sin respuesta: "+failed.join(", ")+". ":"")+
+      "Estos resultados son referencias bibliográficas; la lectura depende de cada edición y sus derechos."));
+    header.append(details);
     resultsContainer.append(header);
   }
   if(["images","videos"].includes(state.type)&&state.query){
@@ -619,7 +632,9 @@ function renderData(data) {
   // Weather races with federated search. A late result must not erase an early card.
   const count = state.results.length;
   const visible = state.type==="all" ? Math.min(count,state.visibleCount) : count;
-  stats.textContent=count===0 && data.message
+  stats.textContent=state.type==="books"
+    ? count+" libro"+(count===1?"":"s")+" · Biblioteca WAE WEB"
+    : count===0 && data.message
     ? "Sin resultados de los índices conectados · "+data.message
     : (state.type==="all" ? "Mostrando "+visible+" de "+count : count+" resultado"+(count===1?"":"s"))+
       " · "+(data.webCoverage==="limited"?"Cobertura web limitada · ":
@@ -691,10 +706,12 @@ function renderData(data) {
       resultsContainer.append(element("h2","web-results-heading","Resultados web"));
     const displayed=state.type==="all"
       ?state.results.slice(0,state.visibleCount):state.results;
+    const cards=state.type==="books"?element("div","wae-library-grid"):resultsContainer;
     displayed.forEach((item, index) => {
       const card = renderResult(item, index);
-      if (card) resultsContainer.append(card);
+      if (card) cards.append(card);
     });
+    if(state.type==="books" && cards.children.length)resultsContainer.append(cards);
     if(state.type==="all" && state.visibleCount<state.results.length){
       const remaining=state.results.length-state.visibleCount;
       const more=button("Mostrar más resultados ("+Math.min(10,remaining)+")",()=>{
@@ -725,7 +742,17 @@ function renderData(data) {
       (state.type === "news" || state.type === "videos"
         ? "No hay resultados recuperados de los proveedores disponibles para esta consulta. Prueba otros términos."
         : "No hubo coincidencias de las fuentes disponibles. Modifica los términos e inténtalo nuevamente.");
-    resultsContainer.append(renderSearchFallback(state.query,detail));
+    if(state.type==="books"){
+      const empty=element("section","wae-library-empty");
+      empty.append(element("span","wae-library-monogram","w."),
+        element("h3","","Tu próxima lectura nos espera."),
+        element("p","","No encontramos títulos para esta búsqueda en los catálogos disponibles. Prueba otro autor, título o tema."));
+      const chips=element("div","wae-library-topics");
+      for(const topic of ["Literatura mexicana","Inteligencia artificial","Historia de México","Diseño"]){
+        chips.append(button(topic,()=>performSearch(topic,"books"),"wae-library-topic"));
+      }
+      empty.append(chips);resultsContainer.append(empty);
+    }else resultsContainer.append(renderSearchFallback(state.query,detail));
   }
   if(state.type==="videos" && state.mediaCollection!=="commons" &&
     data.videoCoverage && !data.videoCoverage.youtubeApi &&
@@ -1148,6 +1175,27 @@ function showEmptyCategory(type,push=true){
     index:["Índice privado","Conecta una bóveda autorizada para consultar documentos.",[]],
     businesses:["Negocios","Busca empresas publicadas voluntariamente.",[]]
   };
+  if(type==="books"){
+    stats.textContent="Biblioteca WAE WEB · Explora libros y autores";
+    sourceFilter.hidden=true;
+    const landing=element("section","wae-library-landing");
+    const identity=element("div","wae-library-identity");
+    identity.append(element("span","wae-library-monogram","w."),
+      element("span","wae-book-eyebrow","WAE WEB / BIBLIOTECA"));
+    landing.append(identity,element("h2","","Cada gran idea empieza con una lectura."),
+      element("p","","Encuentra libros, descubre autores y conserva las obras que inspiran tus próximos proyectos."));
+    const shelf=element("div","wae-library-topics");
+    for(const topic of ["Literatura mexicana","Historia","Ciencia","Negocios","Derecho","Inteligencia artificial"]){
+      shelf.append(button("⌕ "+topic,()=>performSearch(topic,"books"),"wae-library-topic"));
+    }
+    landing.append(element("h3","","Explora por tema"),shelf);
+    const studio=element("a","wae-library-studio-cta","✦ Escribe tu propio libro con WAE →");
+    studio.href="/libros.html#publicar";
+    landing.append(studio);
+    resultsContainer.replaceChildren(landing);
+    if(push)history.pushState({type},"",location.pathname+"?type="+encodeURIComponent(type));
+    return;
+  }
   const [title,description,examples]=categories[type]||categories.all;
   stats.textContent=title+" · Introduce una búsqueda";
   const card=stateCard(title,description);

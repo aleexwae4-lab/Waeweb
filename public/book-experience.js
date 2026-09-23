@@ -53,8 +53,8 @@ export function openBookDetail(item, { workspace, onSaved } = {}) {
   const heading = text("div", "wae-book-dialog-heading");
   const headingCopy = text("div");
   headingCopy.id = "wae-book-detail-title";
-  headingCopy.append(text("span", "wae-book-eyebrow", "WAE WEB · BIBLIOTECA"),
-    text("span", "wae-book-note", "Ficha bibliográfica · No es una oferta de venta"));
+  headingCopy.append(text("span", "wae-book-eyebrow", "WAE WEB / BIBLIOTECA"),
+    text("span", "wae-book-note", "Tu lectura empieza aquí"));
   const close = action("✕", () => dialog.close(), "wae-book-dialog-close");
   close.setAttribute("aria-label", "Cerrar ficha del libro");
   heading.append(headingCopy, close);
@@ -76,10 +76,13 @@ export function openBookDetail(item, { workspace, onSaved } = {}) {
     text("p", "wae-book-detail-description", item.snippet || "Datos bibliográficos pendientes de confirmar."));
   if (item.date) details.append(text("p", "wae-book-detail-year", "Fecha bibliográfica registrada: " + item.date));
   if (item.bookAccess) details.append(text("p", "wae-book-detail-access", item.bookAccess));
-  details.append(text("p", "wae-book-detail-warning",
+  const rights = text("details", "wae-book-rights");
+  rights.append(text("summary", "", "Disponibilidad y derechos"),
+    text("p", "wae-book-detail-warning",
     "Esta ficha no acredita disponibilidad de lectura, descarga, préstamo o compra. Consulta las ediciones y sus derechos en el catálogo de origen."));
+  details.append(rights);
   const actions = text("div", "wae-book-detail-actions");
-  actions.append(link("↗ Consultar obra en origen", item.url, "wae-book-primary"));
+  actions.append(link("↗ Ver en catálogo de origen", item.url, "wae-book-primary"));
   if (workspace?.add && workspace?.has) {
     const save = action(workspace.has(item.url) ? "◆ En mi biblioteca" : "◇ Guardar en mi biblioteca", () => {
       const outcome = workspace.add(item);
@@ -94,13 +97,13 @@ export function openBookDetail(item, { workspace, onSaved } = {}) {
     save.disabled = workspace.has(item.url);
     actions.append(save);
   }
-  const studio = text("a", "wae-book-studio-link", "✦ Estudio editorial WAE WEB →");
+  const studio = text("a", "wae-book-studio-link", "✦ Crear mi propio libro con WAE →");
   studio.href = "/libros.html#publicar";
   details.append(actions, studio);
   const status = text("p", "wae-book-detail-status", "");
   status.setAttribute("role", "status");
   details.append(status, text("p", "wae-book-provenance",
-    "Datos bibliográficos: " + item.source + " · Portada y derechos pertenecen a sus titulares."));
+    "Datos bibliográficos: " + item.source + " · WAE ofrece la experiencia de descubrimiento; la obra y la portada conservan sus derechos."));
   content.append(details);
   dialog.append(heading, content);
   dialog.addEventListener("close", () => dialog.remove(), { once: true });
