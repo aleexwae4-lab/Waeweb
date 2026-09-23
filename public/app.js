@@ -236,11 +236,15 @@ function renderResult(item, index) {
     ? button(item.title, () => bookExperience.openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "result-title browser-result-title")
     : state.type === "all"
     ? button(item.title,()=>openBrowser(url),"result-title web-result-title")
-    : directVideo
-      ? external(url,item.title,"result-title browser-result-title")
+    : state.type==="videos"
+      ? button(item.title,()=>{
+          const player=card.querySelector(".video-primary-play");
+          if(player)player.click();
+          else openBrowser(url);
+        },"result-title browser-result-title")
       : button(item.title, () => openBrowser(url), "result-title browser-result-title");
-  title.title = nativeBook ? "Ver ficha bibliográfica en Biblioteca WAE WEB" : directVideo
-    ? "Abrir sitio original: "+shortHost(url)
+  title.title = nativeBook ? "Ver ficha bibliográfica en Biblioteca WAE WEB"
+    : state.type==="videos" ? "Reproducir dentro de WAE WEB si el origen lo permite"
     : "Navegar en WAEWEB: "+shortHost(url);
   if ((state.type === "books" || state.type === "videos" ||
     state.type === "news" || item.source === "Open Library") && safeUrl(item.image)) {
@@ -293,7 +297,7 @@ function renderResult(item, index) {
         stream.play().catch(()=>{playback.textContent="Reproducción no disponible. Abre la fuente original.";});
         play.textContent="Ⅱ Pausar";
       }else{stream.pause();play.textContent="▷ Continuar";}
-    },"save-button");
+    },"save-button video-primary-play");
     card.append(play,stream,playback);
   }
   if(state.type==="videos" && item.platform==="YouTube" &&
@@ -315,7 +319,7 @@ function renderResult(item, index) {
       activeVideoFrame=frame;
       play.textContent="Ⅱ Cerrar reproductor";
       message.textContent="Si el autor restringe la reproducción integrada, abre el vídeo original.";
-    },"save-button");
+    },"save-button video-primary-play");
     card.append(play,player,message);
   }
   if(state.type==="videos" && ["TikTok","PeerTube"].includes(item.platform) &&
