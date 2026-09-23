@@ -63,8 +63,10 @@ test("cache does not leak general results into site-constrained query", async ()
   };
   try {
     const general = await search("ciencias-cache-prueba");
+    const explicit = await search("ciencias-cache-prueba source:wikipedia");
     const filtered = await search("ciencias-cache-prueba site:example.org");
-    assert.equal(general.results.length, 1);
+    assert.equal(general.results.length, 0);
+    assert.equal(explicit.results.length, 1);
     assert.equal(filtered.results.length, 0);
     assert.equal(filtered.filters.site, "example.org");
     assert.equal(filtered.brief.notes.length, 0);
