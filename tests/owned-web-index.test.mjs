@@ -24,7 +24,7 @@ test("user-initiated reading obeys robots and enriches keyword search with real 
   indexLinkedPage({objectID:"957312",url,title:"Original article title"});
   const seen=[];
   const entry=await enrichIndexedPage(url,{
-    resolver,transport:transport("User-agent: *\\nAllow: /\\n",
+    resolver,transport:transport("User-agent: *\nAllow: /\n",
       "<html><head><title>Research article</title></head><main>The original article contains authenticated source text about pericial sciences and forensic methods.</main></html>",seen)
   });
   assert.equal(entry.url,url);
@@ -45,7 +45,7 @@ test("robots disallow preserves source metadata but never indexes forbidden text
   indexLinkedPage({objectID:"957313",url,title:"Blocked page with link metadata"});
   const seen=[];
   await assert.rejects(()=>enrichIndexedPage(url,{
-    resolver,transport:transport("User-agent: *\\nDisallow: /blocked\\n",
+    resolver,transport:transport("User-agent: *\nDisallow: /blocked\n",
       "<title>Private</title><main>Text from a route blocked by robots must never appear.</main>",seen)
   }),{code:"robots_disallowed"});
   assert.deepEqual(seen.map(x=>x.path),["/robots.txt"]);
