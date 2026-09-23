@@ -910,3 +910,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .wae-pinterest-original{display:inline-flex;align-items:center;justify-content:center;min-height:39px;border:1px solid rgba(234,119,137,.44);border-radius:28px;padding:9px 15px;background:rgba(172,47,70,.14);color:#ffdfe5;text-decoration:none;font-size:12px;font-weight:700}
 .wae-pinterest-original:hover,.wae-pinterest-original:focus-visible{background:rgba(179,48,71,.3);border-color:#f19aab}
 .wae-pinterest-note{font-size:11px;color:#91a6c8;line-height:1.5}
+
+/* Pinterest results remain native image tiles, with readable provenance. */
+.image-tile-badges{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.image-tile-platform{display:inline-flex;border:1px solid rgba(255,180,191,.7);border-radius:24px;padding:5px 8px;background:rgba(173,35,56,.9);color:#fff;font-size:10px;font-weight:800;box-shadow:0 3px 12px #0006;backdrop-filter:blur(7px)}
