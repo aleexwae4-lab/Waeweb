@@ -822,3 +822,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:540px){.hero-section-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 2px}
   .hero-section-links a{font-size:11px;padding:9px 5px;min-width:0}}
 @media(prefers-reduced-motion:reduce){.hero-section-links a{transition:none}}
+
+/* Inline, source-attributed reading. The user stays in the same WAE WEB SERP. */
+.wiki-inline-extract{margin:14px 0;padding:clamp(14px,3vw,22px);border:1px solid rgba(163,199,255,.30);border-left:3px solid #9fc5ff;border-radius:16px;background:linear-gradient(120deg,rgba(67,104,165,.19),rgba(25,36,58,.52));box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.wiki-inline-extract[hidden]{display:none}
+.wiki-inline-text{white-space:pre-line;line-height:1.75;max-width:80ch;overflow-wrap:anywhere}
+.wiki-read-action{min-height:44px}
