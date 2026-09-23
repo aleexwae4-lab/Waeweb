@@ -10,7 +10,7 @@ const css=readFileSync(new URL("../public/styles.css",import.meta.url),"utf8");
 test("organic results open real origin and retain optional in-app browser",()=>{
   assert.match(app,/state\.type === "all"\s*\? external\(url,item\.title,"result-title web-result-title"\)/);
   assert.match(app,/◎ Explorar dentro/);
-  assert.match(app,/state\.type === "research" \|\| state\.type === "index"/);
+  assert.match(app,/\["research","knowledge","index"\]\.includes\(state\.type\)/);
   assert.match(css,/\.result-card\.web-result/);
 });
 test("initial SERP shows ten actual results, then explicitly more recovered ones",()=>{
