@@ -29,7 +29,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", mediaCollection: "web", newsWindow: "24h" };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24 };
 let activeDirections=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
@@ -403,7 +403,8 @@ function renderResult(item, index) {
   card.append(meta);
   return card;
 }
-// Gallery previews only genuine source images, not synthetic covers.
+// Image galleries use only original provider records. Facets are metadata
+// filters, not computer vision claims. Never manufacture a stock thumbnail.
 function renderImages(items) {
   const available=items.filter(item=>safeUrl(item.url)&&safeUrl(item.image));
   const grid=element("div","image-grid image-gallery");
@@ -415,24 +416,57 @@ function renderImages(items) {
   display.alt="";display.referrerPolicy="no-referrer";display.decoding="async";
   const heading=element("h2","image-lightbox-title");
   const source=element("p","image-lightbox-source");
-  const origin=external(safeUrl(available[0].url),"↗ Ver página original","link-button");
+  const extra=element("p","image-lightbox-meta");
+  const origin=external(safeUrl(available[0].url),"↗ Fuente original","link-button");
   const prev=button("← Anterior",()=>show(current-1),"small-action");
   const next=button("Siguiente →",()=>show(current+1),"small-action");
+  const copy=button("⧉ Copiar enlace",()=>copyText(
+    safeUrl(available[current].fullImage)||safeUrl(available[current].image)),"small-action");
+  const save=button("◇ Guardar",()=>{
+    const item=available[current];
+    const outcome=workspace.add(item);
+    if(outcome.ok){save.textContent="◆ Guardado";save.disabled=true;refreshLibraryCount();}
+    else stats.textContent=outcome.reason;
+  },"small-action");
+  const similar=button("⌕ Buscar por título similar",()=>{
+    const item=available[current];
+    const title=String(item.title||"").replace(/\.[a-z0-9]{2,5}$/i,"")
+      .replace(/^File:/i,"").replace(/[_-]+/g," ").trim();
+    const nextQuery=title.length>=3?title.slice(0,120):state.query;
+    dialog.close();void performSearch(nextQuery,"images");
+  },"small-action");
+  const browse=button("◎ Explorar dentro",()=>{
+    const url=safeUrl(available[current].url);
+    dialog.close();if(url)openBrowser(url);
+  },"small-action");
   const controls=element("div","image-lightbox-actions");
-  controls.append(prev,next,origin);
+  controls.append(prev,next,similar,copy,save,browse,origin);
   const figure=element("figure","image-lightbox-figure");
-  figure.append(display,heading,source);
+  figure.append(display,heading,source,extra);
   dialog.append(close,figure,controls);
   let current=0;
   function show(index){
     current=(index+available.length)%available.length;
     const item=available[current];
-    display.src=safeUrl(item.image);
+    const full=safeUrl(item.fullImage);
+    display.src=full||safeUrl(item.image);
+    display.onerror=()=>{
+      const thumb=safeUrl(item.image);
+      if(thumb&&display.src!==thumb){display.onerror=null;display.src=thumb;}
+      else {display.onerror=null;display.alt="Imagen no disponible en esta fuente.";}
+    };
     display.alt=item.title||"Imagen de "+(item.source||"origen público");
     heading.textContent=item.title||"Imagen";
     source.textContent=(item.source||"Fuente identificada")+" · "+(current+1)+" / "+available.length;
+    extra.textContent=[
+      item.width&&item.height?item.width+" × "+item.height+" px":null,
+      item.license?"Licencia indicada: "+item.license:null,
+      item.orientation&&item.orientation!=="desconocida"?item.orientation:null
+    ].filter(Boolean).join(" · ")||"Dimensiones y licencia no informadas";
     origin.href=safeUrl(item.url);
     prev.disabled=next.disabled=available.length<2;
+    save.disabled=workspace.has(item.url);
+    save.textContent=save.disabled?"◆ Guardado":"◇ Guardar";
   }
   dialog.addEventListener("keydown",event=>{
     if(!dialog.open)return;
@@ -446,12 +480,22 @@ function renderImages(items) {
       show(i);
       if(!dialog.isConnected)document.body.append(dialog);
       dialog.showModal();
-    },"image-tile image-gallery-tile");
+    },"image-tile image-gallery-tile image-loading");
     tile.setAttribute("aria-label","Ampliar imagen: "+(item.title||item.source));
     const img=element("img");
     img.src=safeUrl(item.image);img.alt=item.title||"Imagen de "+item.source;
-    img.loading="lazy";img.decoding="async";img.referrerPolicy="no-referrer";
-    tile.append(img,element("span","image-gallery-caption",item.title||item.source),
+    img.loading=i<6?"eager":"lazy";img.decoding="async";img.referrerPolicy="no-referrer";
+    const placeholder=element("span","image-tile-placeholder","Imagen no disponible");
+    placeholder.hidden=true;
+    img.addEventListener("load",()=>tile.classList.remove("image-loading"),{once:true});
+    img.addEventListener("error",()=>{
+      tile.classList.remove("image-loading");img.hidden=true;placeholder.hidden=false;
+    },{once:true});
+    const badges=element("span","image-tile-badges");
+    if(item.width&&item.height)badges.append(element("small","image-tile-dimension",
+      item.width+" × "+item.height));
+    tile.append(img,placeholder,badges,
+      element("span","image-gallery-caption",item.title||item.source),
       element("small","image-gallery-source",item.source||"Fuente"));
     grid.append(tile);
   });
@@ -617,9 +661,14 @@ function renderData(data) {
   if(state.type==="videos" && state.videoPlatform!=="all" &&
     !sourceResults.some(item=>(item.platform||"Web")===state.videoPlatform))
     state.videoPlatform="all";
-  state.results=state.type==="videos" && state.videoPlatform!=="all"
-    ?sourceResults.filter(item=>(item.platform||"Web")===state.videoPlatform)
-    :sourceResults;
+  state.results=state.type==="images"
+    ?sourceResults.filter(item=>
+      (state.imageKind==="all"||item.kind===state.imageKind)&&
+      (state.imageOrientation==="all"||item.orientation===state.imageOrientation)&&
+      (!state.imageHighRes||Number(item.width)>=1200&&Number(item.height)>=800))
+    :state.type==="videos" && state.videoPlatform!=="all"
+      ?sourceResults.filter(item=>(item.platform||"Web")===state.videoPlatform)
+      :sourceResults;
   document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
   if(state.type==="all"){
@@ -648,6 +697,62 @@ function renderData(data) {
       "Los resultados son enlaces reales atribuidos; no representan un índice de toda Internet."));
     toolbar.append(details);
     resultsContainer.append(toolbar);
+  }
+  if(state.type==="images"){
+    const header=element("section","wae-image-search-head");
+    header.append(element("span","wae-image-eyebrow","WAE WEB · DESCUBRIMIENTO VISUAL"),
+      element("h2","","Encuentra la imagen indicada."),
+      element("p","",
+        "Resultados originales según relevancia, contexto y metadatos. "+
+        "Clasificación orientativa; la licencia depende de cada fuente."));
+    const discovery=data.imageDiscovery||{};
+    const context=element("p","wae-image-context",
+      "Intención detectada: "+(discovery.intent||"general")+
+      " · "+allResults.length+" imágenes distintas"+
+      (discovery.duplicatesRemoved?" · "+discovery.duplicatesRemoved+" duplicados omitidos":"")+
+      " · "+(discovery.dimensionsKnown||0)+" con tamaño conocido");
+    header.append(context);
+    const facets=element("nav","wae-image-filters");
+    facets.setAttribute("aria-label","Filtrar imágenes por tipo y orientación");
+    const kinds=[["all","Todas"],["foto","Fotos"],["ilustracion","Ilustraciones"],
+      ["logo","Logos"],["diagrama","Diagramas"]];
+    for(const [kind,label] of kinds){
+      const count=kind==="all"?sourceResults.length:
+        sourceResults.filter(item=>item.kind===kind).length;
+      if(kind!=="all"&&!count)continue;
+      const chip=button(label+" · "+count,()=>{
+        state.imageKind=kind;state.imageVisibleCount=24;renderData(data);
+      },"wae-image-filter");
+      chip.setAttribute("aria-pressed",String(state.imageKind===kind));facets.append(chip);
+    }
+    header.append(facets);
+    const options=element("nav","wae-image-filters wae-image-options");
+    options.setAttribute("aria-label","Filtrar imágenes por formato y tamaño");
+    for(const [orientation,label] of [["all","Cualquier formato"],["horizontal","Horizontal"],
+      ["vertical","Vertical"],["cuadrada","Cuadrada"]]){
+      const count=orientation==="all"?sourceResults.length:
+        sourceResults.filter(item=>item.orientation===orientation).length;
+      if(orientation!=="all"&&!count)continue;
+      const chip=button(label,()=>{
+        state.imageOrientation=orientation;state.imageVisibleCount=24;renderData(data);
+      },"wae-image-filter");
+      chip.setAttribute("aria-pressed",String(state.imageOrientation===orientation));options.append(chip);
+    }
+    const high=button("Alta resolución",()=>{
+      state.imageHighRes=!state.imageHighRes;state.imageVisibleCount=24;renderData(data);
+    },"wae-image-filter");
+    high.setAttribute("aria-pressed",String(state.imageHighRes));
+    high.title="Filtra imágenes con dimensiones originales conocidas de al menos 1200 × 800.";
+    options.append(high);
+    header.append(options);
+    const sourceDetail=element("details","wae-image-source-detail");
+    sourceDetail.append(element("summary","","Fuentes y metadatos disponibles"),
+      element("p","",
+        (data.sources||[]).join(" · ")+". "+
+        (data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
+        "No se estima el tamaño ni la licencia de archivos sin metadatos."));
+    header.append(sourceDetail);
+    resultsContainer.append(header);
   }
   if(state.type==="news"){
     const header=element("section","news-live-header");
@@ -764,8 +869,15 @@ function renderData(data) {
   if (state.type === "businesses") {
     state.results.forEach(item => resultsContainer.append(renderPublicBusiness(item)));
   } else if (state.type === "images") {
-    const grid = renderImages(state.results);
+    const shown=state.results.slice(0,state.imageVisibleCount);
+    const grid = renderImages(shown);
     if (grid.children.length) resultsContainer.append(grid);
+    if(state.imageVisibleCount<state.results.length){
+      resultsContainer.append(button(
+        "Mostrar más imágenes · "+(state.results.length-state.imageVisibleCount)+" restantes",
+        ()=>{state.imageVisibleCount+=24;renderData(data);},
+        "wae-image-more"));
+    }
   } else {
     if(state.type==="videos" && state.query && state.mediaCollection!=="commons"){
       const platforms=[...new Set(sourceResults.map(item=>item.platform||"Web"))];
@@ -1273,7 +1385,7 @@ function showEmptyCategory(type,push=true){
     all:["Búsqueda web WAEWEB","Encuentra fuentes reales, consulta extractos y navega sin salir de WAE WEB. También integra Wikipedia y Wikidata.",["Inteligencia artificial","Tecnología en México"]],
     knowledge:["Conocimiento verificable","Consulta enciclopedias, entidades, ciencia, libros y catálogos documentales. No es un índice general de Internet.",["Inteligencia artificial","Medicina","Historia de México"]],
     research:["Investigación","Publicaciones científicas, Wikidata y fuentes bibliográficas.",["Inteligencia artificial","Investigación médica"]],
-    images:["Imágenes web","Explora imágenes de buscadores conectados, Openverse y Wikimedia Commons en una sola galería.",["Jalisco","Arquitectura mexicana"]],
+    images:["Imágenes WAE WEB","Encuentra fotografías, ilustraciones y fuentes originales; refina por tipo, formato y resolución conocida.",["Jalisco","Arquitectura mexicana"]],
     news:["Noticias en tiempo real","Busca titulares de GDELT, Google News y medios con RSS. Fechas reales, actualización y fuentes identificadas.",["Inteligencia artificial","México","Jalisco"]],
     videos:["Vídeos de plataformas","Descubre clips reales de YouTube, TikTok, PeerTube y Wikimedia Commons con su origen identificado.",["Tecnología","Naturaleza"]],
     books:["Biblioteca WAE WEB","Explora Open Library, Google Books, Library of Congress, Project Gutenberg e Internet Archive desde fichas propias. El acceso a cada obra depende de sus derechos.",["Ciencia","Historia de México"]],
@@ -1349,6 +1461,8 @@ async function performSearch(query, type = "all", push = true, collection = "web
   state.selectedSource = "";
   state.visibleCount = 10;
   state.page = 1; state.loadingMore = false; state.videoPlatform = "all";
+  state.imageKind="all";state.imageOrientation="all";
+  state.imageHighRes=false;state.imageVisibleCount=24;
   state.mediaCollection = collection==="commons"?"commons":"web";
   hero.hidden = true; resultsView.hidden = false;
   heroInput.value = q; resultsInput.value = q; setTab(type);

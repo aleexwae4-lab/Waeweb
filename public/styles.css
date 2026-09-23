@@ -867,3 +867,39 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .web-result-title,.web-result .web-result-title{background:none;border:0;padding:0;text-align:left;color:#ecf2ff;cursor:pointer}
 .web-result .web-result-title:hover{color:#93baff;text-decoration:underline}
 @media(max-width:550px){.web-search-toolbar{padding:18px}.web-search-metrics{font-size:11px}.web-search-toolbar h2{font-size:23px}}
+
+/* WAE WEB · Premium image discovery: accessible metadata-driven facets */
+.wae-image-search-head{border:1px solid rgba(120,169,244,.31);border-radius:25px;padding:clamp(19px,3.5vw,31px);background:radial-gradient(circle at 90% 0%,rgba(72,116,234,.22),transparent 48%),linear-gradient(130deg,rgba(15,30,56,.96),rgba(8,13,27,.94));box-shadow:0 18px 55px #0005,inset 0 1px rgba(255,255,255,.05)}
+.wae-image-eyebrow{font-size:10px;color:#9fc4ff;letter-spacing:.16em;font-weight:800}
+.wae-image-search-head h2{font-size:clamp(23px,4vw,35px);margin:10px 0 7px;letter-spacing:-.05em;line-height:1.2;color:#f3f7ff}
+.wae-image-search-head>p{margin:0;color:#b6c7e1;font-size:12px;line-height:1.7}
+.wae-image-context{margin-top:12px!important;color:#8dbbff!important}
+.wae-image-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.wae-image-options{margin-top:11px}
+.wae-image-filter{border:1px solid rgba(131,175,239,.33);border-radius:30px;background:rgba(101,141,207,.09);color:#d2e2fa;padding:9px 13px;min-height:38px;font-size:12px;transition:background .2s,border-color .2s,box-shadow .2s}
+.wae-image-filter:hover{border-color:#91b8ff;background:rgba(82,123,221,.23)}
+.wae-image-filter[aria-pressed="true"]{border-color:#afceff;color:#07152b;background:linear-gradient(125deg,#8ac2ff,#c0b1ff);font-weight:800;box-shadow:0 5px 23px #6390f04a}
+.wae-image-source-detail{font-size:12px;color:#a9bcd9;margin-top:17px;padding-top:13px;border-top:1px solid rgba(154,180,232,.18)}
+.wae-image-source-detail summary{cursor:pointer}
+.wae-image-source-detail p{margin:9px 0 0;color:#b7c6da;font-size:12px}
+.wae-image-more{align-self:center;width:min(100%,430px);border:1px solid rgba(141,175,247,.5);border-radius:30px;padding:14px 18px;color:#e7f0ff;background:linear-gradient(120deg,rgba(52,102,205,.28),rgba(114,91,214,.18));font-size:13px;font-weight:720}
+.wae-image-more:hover{background:#253c66;box-shadow:0 0 25px #4c83e040}
+.image-gallery{grid-template-columns:repeat(auto-fill,minmax(min(190px,38vw),1fr));gap:15px;align-items:stretch}
+.image-gallery-tile{border:1px solid rgba(144,172,230,.23);border-radius:18px;background:linear-gradient(145deg,#111c31,#0a101d);box-shadow:0 12px 33px rgba(0,0,0,.23);overflow:hidden}
+.image-gallery-tile img{width:100%;height:clamp(164px,21vw,255px);object-fit:cover;transition:transform .24s,filter .24s}
+.image-gallery-tile:hover img{transform:scale(1.04)}
+.image-gallery-tile:focus-visible{outline:3px solid #95bfff;outline-offset:3px}
+.image-gallery-tile.image-loading img{background:linear-gradient(100deg,#172641 20%,#243958 38%,#172641 55%);background-size:210% 100%;animation:wae-image-shimmer 1.7s linear infinite}
+@keyframes wae-image-shimmer{to{background-position:-210% 0}}
+.image-gallery-caption{font-size:12px;font-weight:700;min-height:41px;color:#e2ecff}
+.image-gallery-source{color:#91b1df!important}
+.image-tile-placeholder{display:flex;align-items:center;justify-content:center;height:185px;padding:20px;color:#b2c7e8;font-size:12px;background:linear-gradient(140deg,#1a2b47,#0b1425)}
+.image-tile-badges{display:block;position:absolute;top:9px;right:9px;pointer-events:none}
+.image-tile-dimension{font-size:10px;color:#f4f9ff;border:1px solid #d3e4ff4b;border-radius:24px;background:rgba(8,16,29,.8);padding:5px 7px;backdrop-filter:blur(8px)}
+.image-lightbox{border:1px solid #759be0;background:radial-gradient(circle at 85% 0%,#172a4b,#08101e 55%);border-radius:22px;box-shadow:0 34px 110px #000e}
+.image-lightbox-picture{border-radius:13px}
+.image-lightbox-meta{margin:3px 0;font-size:11px;color:#9eb8da;text-align:center}
+.image-lightbox-actions{max-height:24vh;overflow-y:auto}
+.image-lightbox-actions>*{font-size:12px}
+@media(max-width:550px){.wae-image-search-head{padding:19px}.wae-image-filter{font-size:11px;padding:8px 11px}.image-gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.image-gallery-tile img{height:clamp(126px,37vw,194px)}.image-lightbox-picture{max-height:calc(100dvh - 290px)}}
+@media(prefers-reduced-motion:reduce){.image-gallery-tile.image-loading img{animation:none}.image-gallery-tile img{transition:none}}

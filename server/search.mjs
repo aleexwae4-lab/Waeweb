@@ -3,6 +3,7 @@ import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResul
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
 import {googleBooks, projectGutenberg, congressBooks, internetArchiveBooks, BOOK_SOURCES} from "./book-providers.mjs";
 import {NEWS_WINDOWS,normalizeNewsDate,newsFeedSources,rankNewsResults} from "./news.mjs";
+import {rankImageResults} from "./image-intelligence.mjs";
 import {searxngWeb,technicalWebQuery,stackExchangeWeb,mdnWeb} from "./web-providers.mjs";
 import {registerWebHits} from "./web-preview.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
@@ -79,11 +80,22 @@ export async function googleSearch(query, type = "web", page = 1) {
   if (type === "videos") params.q = query;
   u.search = new URLSearchParams(params).toString();
   const data = await json(u);
-  const items=(data.items || []).map(item => result(
-    item.title, item.link, item.snippet, "Google Programmable Search",
-    item.pagemap?.metatags?.[0]?.["article:published_time"] || null,
-    item.image?.thumbnailLink || item.pagemap?.cse_thumbnail?.[0]?.src || null
-  )).filter(item => item.title && urlAllowed(item.url));
+  const items=(data.items || []).map(item => {
+    const isImage=type==="images";
+    const link=isImage&&urlAllowed(item.image?.contextLink)?item.image.contextLink:item.link;
+    const entry=result(item.title,link,item.snippet,"Google Programmable Search",
+      item.pagemap?.metatags?.[0]?.["article:published_time"] || null,
+      item.image?.thumbnailLink || item.pagemap?.cse_thumbnail?.[0]?.src || null);
+    if(isImage){
+      entry.fullImage=urlAllowed(item.link)?item.link:null;
+      entry.width=Number(item.image?.width)||null;
+      entry.height=Number(item.image?.height)||null;
+      entry.mime=typeof item.mime==="string"?item.mime:null;
+      entry.license=null;
+    }
+    return entry;
+  }).filter(item => item.title && urlAllowed(item.url) &&
+    (type!=="images"||urlAllowed(item.image)));
   if(type==="web" && Array.isArray(data.queries?.nextPage))
     items.hasMorePage=data.queries.nextPage.length>0;
   return items;
@@ -113,8 +125,15 @@ export async function braveSearch(query, type = "web", page = 1) {
     const link = item.url;
     const image = category === "images" || category === "videos"
       ? item.thumbnail?.src : item.thumbnail?.src || null;
-    return result(item.title || "", link, item.description || item.snippet || item.source || "",
+    const entry=result(item.title || "", link, item.description || item.snippet || item.source || "",
       "Brave Search", item.page_age || item.page_fetched || null, urlAllowed(image) ? image : null);
+    if(category==="images"){
+      entry.width=Number(item.properties?.width||item.width)||null;
+      entry.height=Number(item.properties?.height||item.height)||null;
+      entry.fullImage=urlAllowed(item.properties?.url)?item.properties.url:null;
+      entry.mime=null;entry.license=null;
+    }
+    return entry;
   }).filter(item => item.title && urlAllowed(item.url) &&
     (category !== "images" || urlAllowed(item.image)));
   if(category==="web" && typeof data.query?.more_results_available==="boolean")
@@ -142,7 +161,7 @@ export async function openLibrary(query) {
 // Keyless independent image catalog. Wikimedia Commons also participates in image search.
 export async function openverseImages(query){
   const u=new URL("https://api.openverse.org/v1/images/");
-  u.search=new URLSearchParams({q:query,page_size:"20",mature:"false"}).toString();
+  u.search=new URLSearchParams({q:query,page_size:"30",mature:"false"}).toString();
   const data=await json(u);
   return (Array.isArray(data.results)?data.results:[]).flatMap(item=>{
     if(item.source==="wikimedia")return [];
@@ -150,10 +169,16 @@ export async function openverseImages(query){
     const image=urlAllowed(item.thumbnail)?item.thumbnail:item.url;
     if(!urlAllowed(link)||!urlAllowed(image))return [];
     const creator=clean(item.creator||""),license=clean(item.license||"");
-    return [result(item.title||"Imagen",link,
+    const entry=result(item.title||"Imagen",link,
       [creator?"Autoría: "+creator:null,license?"Licencia: "+license:null]
         .filter(Boolean).join(" · ")||"Imagen indexada en Openverse",
-      "Openverse · imágenes abiertas",null,image)];
+      "Openverse · imágenes abiertas",null,image);
+    entry.width=Number(item.width)||null;
+    entry.height=Number(item.height)||null;
+    entry.mime=typeof item.filetype==="string"?"image/"+item.filetype:null;
+    entry.license=license||null;
+    entry.fullImage=urlAllowed(item.url)?item.url:null;
+    return [entry];
   });
 }
 // PeerTube is not YouTube or TikTok; preserve source and canonical video URL.
@@ -175,16 +200,22 @@ export async function wikimediaImages(query) {
   const u = new URL("https://commons.wikimedia.org/w/api.php");
   u.search = new URLSearchParams({
     action: "query", generator: "search", gsrsearch: query,
-    gsrnamespace: "6", gsrlimit: "28", prop: "imageinfo",
-    iiprop: "url|mime", iiurlwidth: "520", format: "json"
+    gsrnamespace: "6", gsrlimit: "48", prop: "imageinfo",
+    iiprop: "url|mime|size|extmetadata", iiurlwidth: "720", format: "json"
   }).toString();
   const data = await json(u);
   return Object.values(data.query?.pages || {}).map(page => {
     const image = page.imageinfo?.[0];
-    return image && image.mime?.startsWith("image/") ? result(
-      page.title.replace(/^File:/, ""), image.descriptionurl || image.url,
-      "Imagen de Wikimedia Commons", "Wikimedia Commons", null, image.thumburl || image.url
-    ) : null;
+    if(!image||!image.mime?.startsWith("image/"))return null;
+    const entry=result(page.title.replace(/^File:/, ""), image.descriptionurl || image.url,
+      "Imagen de Wikimedia Commons", "Wikimedia Commons", null, image.thumburl || image.url);
+    entry.width=Number(image.width)||null;
+    entry.height=Number(image.height)||null;
+    entry.mime=image.mime;
+    entry.fullImage=urlAllowed(image.url)?image.url:null;
+    const license=clean(image.extmetadata?.LicenseShortName?.value||"");
+    entry.license=license||null;
+    return entry;
   }).filter(item => item && urlAllowed(item.image) && urlAllowed(item.url));
 }
 // Public, source-backed additions: no fabricated hits when Google is absent.
@@ -449,6 +480,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       }
     }
   }
+  const imageRanked=selected==="images"
+    ?rankImageResults(rankResults(results,spec,selected),q):null;
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, page,
@@ -466,10 +499,11 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }:null, mediaCollection: ["images","videos"].includes(selected)
       ? (archive?"commons":"web"):null,
     hasMore: selected==="all" && moreFromProviders,
-    results: selected==="news"
-      ?rankNewsResults(rankResults(dedupe(results),spec,selected),q,newsWindow)
-      :rankResults(selected==="videos"
-        ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected),
+    results: selected==="images"?imageRanked.results
+      :selected==="news"
+        ?rankNewsResults(rankResults(dedupe(results),spec,selected),q,newsWindow)
+        :rankResults(selected==="videos"
+          ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected),
     sources: available,
     searchCoverage:selected==="all"?{
       generalIndexes:["Brave","Google","SearXNG"].filter(name=>available.includes(name)),
@@ -486,6 +520,13 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       unavailableSources:errors,
       noPublicationDate:results.filter(item=>!item.date).length,
       liveGuarantee:false
+    }:null,
+    imageDiscovery:selected==="images"?{
+      intent:imageRanked.intent,duplicatesRemoved:imageRanked.duplicatesRemoved,
+      metadataBased:true,visualModelUsed:false,
+      availableResults:imageRanked.results.length,
+      dimensionsKnown:imageRanked.results.filter(item=>item.width&&item.height).length,
+      providers:sources.map(([name])=>name)
     }:null,
     mediaCoverage:["videos","images"].includes(selected)?{
       webIndex:available.some(name=>name==="Brave"||name==="Google"||
