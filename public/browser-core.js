@@ -9,6 +9,25 @@ export function looksLikeWebAddress(input) {
   return /^(?:www\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d{1,5})?(?:[/?#][^\s]*)?$/i.test(value);
 }
 
+
+// No web application can override X-Frame-Options or frame-ancestors imposed
+// by a third party. These destinations should be external-first, with an
+// explicit optional attempt at the embedded view. This does NOT claim that
+// every URL on these domains is blocked.
+export function browserPresentation(value){
+  let host;
+  try{host=new URL(value).hostname.toLowerCase().replace(/^www\./,"");}catch{
+    return {externalFirst:false,reason:""};
+  }
+  const restricted=["youtube.com","youtu.be","tiktok.com","facebook.com",
+    "instagram.com","accounts.google.com","google.com","x.com","twitter.com"];
+  const externalFirst=restricted.some(domain=>host===domain||host.endsWith("."+domain))||
+    /^google\.[a-z]{2,}(?:\.[a-z]{2,})?$/.test(host);
+  return externalFirst
+    ?{externalFirst:true,reason:"Esta plataforma suele restringir la vista dentro de otras páginas."}
+    :{externalFirst:false,reason:""};
+}
+
 export function browserInputTarget(input, appOrigin = "") {
   const value = String(input ?? "").trim();
   if (!value) return { kind: "empty", value: "" };
