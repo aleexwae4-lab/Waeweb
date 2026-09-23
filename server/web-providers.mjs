@@ -67,7 +67,8 @@ export async function stackExchangeWeb(query,site="stackoverflow"){
   const origin=site==="stackoverflow"?"stackoverflow.com":"superuser.com";
   return data.items.slice(0,8).flatMap(item=>{
     const link=safeUrl(item.link);
-    if(!link||!new URL(link).hostname.endsWith(origin)||!item.title)return [];
+    if(!link||!(new URL(link).hostname===origin||
+      new URL(link).hostname.endsWith("."+origin))||!item.title)return [];
     const votes=Number.isFinite(item.score)?item.score:null;
     const answers=Number.isFinite(item.answer_count)?item.answer_count:null;
     const description=[answers!==null?answers+" respuestas":null,
@@ -76,7 +77,8 @@ export async function stackExchangeWeb(query,site="stackoverflow"){
     return [{title:decodeWebText(item.title).slice(0,240),url:link,
       snippet:description||"Pregunta publicada en la comunidad técnica",
       source:site==="stackoverflow"?"Stack Overflow · comunidad":"Super User · comunidad",
-      date:Number.isFinite(created)&&created>0?new Date(created).toISOString().slice(0,10):null,
+      date:Number.isFinite(created)&&created>0&&created<8640000000000000
+        ?new Date(created).toISOString().slice(0,10):null,
       image:null}];
   });
 }
