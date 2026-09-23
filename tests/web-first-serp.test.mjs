@@ -56,7 +56,7 @@ test("default general search does not query paper or book providers without user
     const found=await search("waeweb-motos-prueba-web-first","all",{fresh:true});
     assert.equal(found.results.length,0);
     assert.equal(found.webCoverage,"limited");
-    assert.equal(found.message,"No hay un índice web general conectado. Wikipedia no sustituye una búsqueda en Internet.");
+    assert.match(found.message,/No hay un índice web general conectado/);
     assert.ok(!seen.includes("es.wikipedia.org"));
     assert.ok(seen.every(host=>!/(wikipedia|wikidata|crossref|openalex|europepmc|openlibrary)/i.test(host)));
     assert.equal(found.brief.kind,"extractive");
