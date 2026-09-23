@@ -16,9 +16,9 @@ async function withoutIndexes(callback){
     KEYS.forEach((k,i)=>{if(saved[i]===undefined)delete process.env[k];else process.env[k]=saved[i];});
   }
 }
-test("video/web/images no longer manufacture relevance from Wikimedia or Wikipedia without indexes",async()=>{
+test("unavailable providers never manufacture Wikimedia or platform hits",async()=>{
   await withoutIndexes(async()=>{
-    globalThis.fetch=()=>{throw Error("An archive must not be queried without explicit consent");};
+    globalThis.fetch=()=>{throw Error("Simulated Wikimedia and media outage");};
     for(const [type,q] of [["all","YouTube"],["videos","YouTube"],["images","YouTube"]]){
       const result=await search(q+"-provider-integrity-check",type,{fresh:true});
       assert.deepEqual(result.results,[],type);
@@ -27,7 +27,7 @@ test("video/web/images no longer manufacture relevance from Wikimedia or Wikiped
     }
   });
 });
-test("open archive is opt-in and never leaks into general or platform results",async()=>{
+test("legacy explicit archive collection is still available for API clients",async()=>{
   await withoutIndexes(async()=>{
     const seen=[];
     globalThis.fetch=async url=>{
@@ -77,11 +77,13 @@ test("public media API rejects archive misuse and returns honest zero video resu
     }finally{if(server.listening)await new Promise(resolve=>server.close(resolve));}
   });
 });
-test("search UI separates open archive from platform search, including history and empty state",()=>{
+test("search UI blends Commons organically without a separate archive button",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
-  assert.match(app,/Explorar archivo Wikimedia/);
-  assert.match(app,/Volver a búsqueda web/);
-  assert.match(app,/collection=commons/);
+  const search=readFileSync(new URL("../server/search.mjs",import.meta.url),"utf8");
+  assert.doesNotMatch(app,/Explorar archivo Wikimedia|Volver a búsqueda web/);
+  assert.doesNotMatch(app,/Wikimedia es un archivo separado/);
+  assert.match(search,/Wikimedia Commons",\(\)=>wikimediaImages\(q\)/);
+  assert.match(search,/Wikimedia Commons · Video",\(\)=>wikimediaVideos\(q\)/);
+  assert.match(search,/Wikipedia",async\(\)=>/);
   assert.match(app,/state\.results\.some\(item=>safeUrl\(item\.url\)&&safeUrl\(item\.image\)\)/);
-  assert.match(app,/Sin índice general de imágenes/);
 });
