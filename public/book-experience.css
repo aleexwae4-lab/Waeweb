@@ -1,0 +1,60 @@
+/* Biblioteca WAE WEB · native source-backed bibliographic experience. */
+.result-card.wae-native-book {
+  background:linear-gradient(139deg,#14243d 0%,#0c1528 73%,#10152a 100%);
+  border:1px solid rgba(143,185,245,.3);
+  box-shadow:0 15px 42px rgba(0,6,21,.32), inset 0 1px rgba(255,255,255,.045);
+}
+.wae-native-book .source-avatar {
+  background:linear-gradient(135deg,#375cb6,#7964b8);
+  color:#f5f8ff;
+}
+.wae-native-book .source-label {font-size:13px;color:#e1efff;letter-spacing:.01em}
+.wae-native-book .source-url {color:#a4bbd9}
+.wae-native-book .book-cover {
+  width:106px;max-width:106px;height:150px;max-height:150px;object-fit:contain;
+  border-radius:9px;background:#0e1829;box-shadow:0 8px 24px rgba(0,0,0,.45);
+  margin:0 17px 14px 0;
+}
+.wae-native-book .result-title {
+  color:#eaf3ff;display:block;cursor:pointer;text-align:left;background:none;border:0;
+  padding:0;font:inherit;font-size:clamp(18px,2.4vw,23px);font-weight:790;line-height:1.36;
+}
+.wae-native-book .result-title:hover {color:#a5d1ff}
+.wae-native-book .media-context{background:#18375a;color:#d1e7ff}
+.wae-native-book .snippet {color:#c1d0e6}
+.wae-book-dialog {
+  box-sizing:border-box;width:min(770px,calc(100vw - 28px));max-height:calc(100dvh - 32px);
+  overflow:auto;margin:auto;padding:clamp(20px,3vw,31px);color:#ecf4ff;
+  border:1px solid rgba(162,196,255,.44);border-radius:25px;
+  background:linear-gradient(140deg,#152643,#080f20 78%);
+  box-shadow:0 30px 110px rgba(0,0,0,.68),inset 0 1px rgba(255,255,255,.09);
+}
+.wae-book-dialog::backdrop{background:rgba(0,4,13,.84);backdrop-filter:blur(9px)}
+.wae-book-dialog-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:19px;border-bottom:1px solid rgba(159,194,247,.17)}
+.wae-book-dialog-heading>div{display:grid;gap:6px}
+.wae-book-eyebrow{color:#9bc6ff;letter-spacing:.14em;font-weight:800;font-size:11px}
+.wae-book-note{color:#a8b9d2;font-size:12px}
+.wae-book-dialog-close{width:39px;height:39px;flex-shrink:0;border-radius:12px;border:1px solid rgba(154,191,248,.33);background:#1a2d48;color:#e2edff;cursor:pointer}
+.wae-book-dialog-body{display:grid;grid-template-columns:minmax(125px,190px) minmax(0,1fr);gap:clamp(18px,3vw,28px);padding-top:25px}
+.wae-book-detail-cover{display:block;width:100%;aspect-ratio:2/3;max-height:285px;object-fit:contain;border-radius:13px;background:#0c1424;box-shadow:0 12px 36px rgba(0,0,0,.46)}
+.wae-book-no-cover{display:grid;place-items:center;color:#a3bce0;font-size:66px;border:1px dashed #496284}
+.wae-book-detail-copy h2{font-size:clamp(23px,4vw,34px);letter-spacing:-.035em;line-height:1.22;margin:0 0 13px}
+.wae-book-detail-description{color:#c6d8ee;line-height:1.7;margin:0 0 12px}
+.wae-book-detail-year{font-size:12px;color:#98b6df}
+.wae-book-detail-warning{font-size:12px;color:#c6cede;line-height:1.65;background:rgba(153,179,232,.08);padding:10px 12px;border-radius:12px}
+.wae-book-detail-actions{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0 12px}
+.wae-book-primary,.wae-book-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:43px;border-radius:12px;padding:11px 14px;font-size:12px;font-weight:750;text-decoration:none;cursor:pointer}
+.wae-book-primary{background:#8abaff;color:#09172b;border:1px solid #b5d5ff}
+.wae-book-secondary{background:#1a3554;color:#eaf3ff;border:1px solid #4a6997}
+.wae-book-secondary:disabled{opacity:.64;cursor:default}
+.wae-book-studio-link{display:inline-block;margin:5px 0 10px;color:#b5caff;font-size:12px}
+.wae-book-provenance{padding-top:12px;border-top:1px solid rgba(159,194,247,.16);color:#a0b4cf;font-size:11px}
+.wae-book-detail-status{color:#ffd69b;font-size:12px}
+@media(max-width:580px){
+  .wae-book-dialog{padding:19px;border-radius:19px}
+  .wae-book-dialog-body{grid-template-columns:1fr}
+  .wae-book-detail-cover{width:132px;max-height:195px;margin:auto}
+  .wae-book-detail-actions>*{width:100%;text-align:center}
+  .wae-native-book .book-cover{width:85px;max-width:85px;height:115px;max-height:115px}
+}
+@media(prefers-reduced-motion:reduce){.wae-book-dialog,.wae-native-book{animation:none!important;transition:none!important}}
