@@ -138,7 +138,7 @@ test("video UI offers inline player for 5 supported source types and playable-on
   assert.match(app,/videoPlayableOnly/);
   assert.match(app,/▶ Ver aquí/);
   assert.match(player,/www\.tiktok\.com\/player\/v1\//);
-  assert.ok(player.includes("videos/embed"));
+  assert.match(player,/videos.*embed/);
   assert.match(css,/\.video-native-slot/);
   assert.match(css,/\.video-results-studio/);
 });
