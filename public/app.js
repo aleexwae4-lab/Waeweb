@@ -1274,12 +1274,14 @@ function renderData(data) {
     const displayed=state.type==="all"
       ?state.results.slice(0,state.visibleCount):state.results;
     const cards=state.type==="books"?element("div","wae-library-grid"):
-      state.type==="videos"?element("div","video-results-grid"):resultsContainer;
+      state.type==="videos"?element("div","video-results-grid"):
+      ["news","knowledge","research"].includes(state.type)
+        ?element("div","wae-reading-grid"):resultsContainer;
     displayed.forEach((item, index) => {
       const card = renderResult(item, index);
       if (card) cards.append(card);
     });
-    if(["books","videos"].includes(state.type)&&cards.children.length)
+    if(["books","videos","news","knowledge","research"].includes(state.type)&&cards.children.length)
       resultsContainer.append(cards);
     if(state.type==="all" && state.visibleCount<state.results.length){
       const remaining=state.results.length-state.visibleCount;
