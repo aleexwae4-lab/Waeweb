@@ -1359,6 +1359,12 @@ window.addEventListener("popstate", () => {
     else runOmnibox(q,type,false);
   }
   else if(params.get("type")==="translate")renderTranslator(false);
+else if(["books","knowledge","research","news","images","videos","index"].includes(params.get("type")))
+  showEmptyCategory(params.get("type"),false);
+else if(params.get("type")==="maps")void performSearch("","maps",false);
+  else if(["books","knowledge","research","news","images","videos","index"].includes(params.get("type")))
+    showEmptyCategory(params.get("type"),false);
+  else if(params.get("type")==="maps")void performSearch("","maps",false);
   else { stopDirections();translator.hide();state.controller?.abort(); state.sequence++; hero.hidden = false; resultsView.hidden = true; }
 });
 const params = new URLSearchParams(location.search);
