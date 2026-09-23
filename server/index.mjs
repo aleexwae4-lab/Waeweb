@@ -191,7 +191,7 @@ export async function handler(req, res) {
   }
   if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: VERSION, previewMode:previewMode(),
     publicMode:previewMode() ? "isolated" : "full", 
-    revision: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,12) || null });
+    revision: (process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA)?.slice(0,12) || null });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
     mapsEnabled: true, mapPrecision: "locality_centroid_or_user_coordinates",

@@ -2,6 +2,7 @@
 // No preview bypasses, no cookies or secrets; 404/401 are failures.
 const base=process.env.WAEWEB_BASE_URL||"https://waeweb.onrender.com";
 const expected=process.env.WAEWEB_EXPECT_VERSION||"1.0.0-rc.35";
+const expectedRevision=process.env.GITHUB_SHA?.slice(0,12)||null;
 if(new URL(base).protocol!=="https:")throw Error("HTTPS production base required");
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const request=async(path)=>{
@@ -24,17 +25,19 @@ const request=async(path)=>{
 let ready=false;
 for(let i=0;i<20;i++){
   const r=await request("/api/health");
-  if(r.ok&&r.marker&&r.body?.status==="ok"&&r.body?.version===expected){
+  if(r.ok&&r.marker&&r.body?.status==="ok"&&r.body?.version===expected&&
+    (!expectedRevision||r.body?.revision===expectedRevision)){
     console.log("LIVE READY",JSON.stringify(r.body));ready=true;break;
   }
   console.log("LIVE WAIT",i+1,JSON.stringify({
     status:r.status,marker:r.marker,version:r.body?.version||null,
+    revision:r.body?.revision||null,expectedRevision,
     cause:r.status===404?"API route missing":r.status===401?"blocked":r.message||"old revision"
   }));
   if(i<19)await sleep(15000);
 }
 if(!ready){
-  console.error("FAIL: production domain does not serve new WAEWEB /api/health. Check Vercel Git deployment source and function routing.");
+  console.error("FAIL: production domain does not serve new WAEWEB /api/health. Check Render Git deployment source and API routing.");
   process.exitCode=1;
 }else{
   const checks=[
@@ -42,7 +45,12 @@ if(!ready){
     ["/api/maps?q=20.6767%2C-103.3475",r=>r.marker&&r.body?.results?.[0]?.precision==="coordinate"],
     ["/api/translate/capabilities",r=>r.marker&&Array.isArray(r.body?.languages)],
     ["/native-map.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("createNativeMap")],
-    ["/translator.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("Reconectar")]
+    ["/translator.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("Reconectar")],
+    ["/",r=>r.mime.includes("text/html")&&typeof r.body==="string"&&r.body.includes("href=\"/?type=videos\"")],
+    ["/app.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("loadBookModules")],
+    ["/book-gallery.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("renderBookCard")],
+    ["/book-experience.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("openBookDetail")],
+    ["/book-experience.css",r=>r.mime.includes("text/css")&&typeof r.body==="string"&&r.body.includes("wae-library-grid")]
   ];
   for(const[path,validate]of checks){
     const r=await request(path);
@@ -80,10 +88,20 @@ if(!ready){
     if(!config.web&&!config.youtube){
       const videos=await request("/api/search?q=YouTube&type=videos");
       const honest=videos.ok&&videos.marker&&videos.body?.mediaCollection==="web"&&
-        Array.isArray(videos.body?.results)&&videos.body.results.length===0;
+        Array.isArray(videos.body?.results)&&videos.body.results.every(item=>
+          item.platform==="PeerTube"&&item.source==="PeerTube · vídeo abierto"&&
+          /^https?:/i.test(item.url||""));
       console.log(honest?"LIVE PASS":"LIVE FAIL","YouTube video without provider",
         "HTTP",videos.status,"count",videos.body?.results?.length??null);
       if(!honest)process.exitCode=1;
+    }
+    for(const type of ["images","videos"]){
+      const media=await request("/api/search?q=waeweb%20nature&type="+type);
+      const valid=media.ok&&media.marker&&media.body?.type===type&&
+        Array.isArray(media.body?.results)&&Array.isArray(media.body?.failedSources);
+      console.log(valid?"LIVE PASS":"LIVE FAIL","public "+type+" API","HTTP",media.status,
+        "results",media.body?.results?.length??null,"failed",media.body?.failedSources?.join(",")||"none");
+      if(!valid)process.exitCode=1;
     }
   }
   // Verify the deployed knowledge mode, not only fixture-based unit tests.

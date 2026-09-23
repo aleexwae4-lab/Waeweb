@@ -805,3 +805,20 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .web-result .web-index-action:disabled{cursor:default;opacity:.85}
 .web-index-excerpt{padding:12px 14px;margin:12px 0 3px;border:1px solid rgba(125,186,236,.29);border-radius:12px;background:rgba(20,43,69,.72);font-size:13px;line-height:1.65;color:#ccdcf0;overflow-wrap:anywhere}
 @media(max-width:600px){.web-result .web-index-action{flex:1 1 140px}.web-index-excerpt{padding:10px 11px}}
+
+/* RC Search Recovery: categories remain discoverable without JS event handlers. */
+.hero-section-links{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;
+  max-width:790px;margin:15px auto 21px;padding:0 12px}
+.hero-section-links a{display:inline-flex;align-items:center;justify-content:center;
+  min-height:44px;padding:10px 15px;border-radius:100px;
+  text-decoration:none;font-size:12px;font-weight:750;letter-spacing:.01em;
+  color:#d8eaff;background:linear-gradient(135deg,rgba(23,49,81,.92),rgba(13,28,51,.92));
+  border:1px solid rgba(153,190,243,.30);
+  box-shadow:inset 0 1px rgba(255,255,255,.04);
+  transition:background .17s,border-color .17s,transform .17s}
+.hero-section-links a:hover,.hero-section-links a:focus-visible{
+  color:#fff;border-color:#94c5ff;background:linear-gradient(120deg,#245c96,#304b89);
+  transform:translateY(-1px)}
+@media(max-width:540px){.hero-section-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 2px}
+  .hero-section-links a{font-size:11px;padding:9px 5px;min-width:0}}
+@media(prefers-reduced-motion:reduce){.hero-section-links a{transition:none}}

@@ -11,7 +11,7 @@ test("WAE library is native in the existing search rather than an Open Library i
   ]);
   assert.match(html, /data-type="books">▤ Biblioteca WAE<\/button>/);
   assert.match(html, /href="\/book-experience\.css"/);
-  assert.match(app, /import \{ isBookWork, openBookDetail \} from "\/book-experience\.js"/);
+  assert.match(app, /import\("\/book-experience\.js"\)/);
   assert.match(app, /nativeBook\?"Biblioteca WAE WEB"/);
   assert.match(app, /openBookDetail\(item, \{ workspace, onSaved: refreshLibraryCount \}\)/);
   assert.match(details, /dialog\.showModal\(\)/);

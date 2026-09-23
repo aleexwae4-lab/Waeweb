@@ -7,8 +7,8 @@ test("book results are first-class WAE editorial bookshelf rather than repeated 
   const [app,gallery,css,modal]=await Promise.all([
     file("app.js"),file("book-gallery.js"),file("book-experience.css"),file("book-experience.js")
   ]);
-  assert.match(app,/import \{renderBookCard\} from "\/book-gallery\.js"/);
-  assert.match(app,/if\(state\.type==="books"\)return renderBookCard/);
+  assert.match(app,/import\("\/book-gallery\.js"\)/);
+  assert.match(app,/bookGallery\?\.renderBookCard/);
   assert.match(app,/Historias que merecen ser descubiertas/);
   assert.match(app,/Cada gran idea empieza con una lectura/);
   assert.match(app,/wae-library-grid/);
