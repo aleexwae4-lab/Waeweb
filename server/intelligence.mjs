@@ -12,13 +12,13 @@ export function parseQuery(raw) {
   const siteMatch = input.match(/(?:^|\s)site:([a-z0-9.-]+\.[a-z]{2,})(?=\s|$)/i);
   const afterMatch = input.match(/(?:^|\s)after:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
   const beforeMatch = input.match(/(?:^|\s)before:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
-  const sourceMatch = input.match(/(?:^|\s)source:(wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt)(?=\s|$)/i);
+  const sourceMatch = input.match(/(?:^|\s)source:(wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt|searxng|stackoverflow|superuser|mdn)(?=\s|$)/i);
   const excludes = [...input.matchAll(/(?:^|\s)-([\p{L}\p{N}]{2,})(?=\s|$)/gu)].map(x => fold(x[1])).slice(0, 8);
   const phrases = [...input.matchAll(/"([^"]{2,80})"/g)].map(x => fold(x[1])).slice(0, 3);
   const query = input
     .replace(/(?:^|\s)site:[a-z0-9.-]+\.[a-z]{2,}(?=\s|$)/gi, " ")
     .replace(/(?:^|\s)(?:after|before):\d{4}(?:-\d{2}-\d{2})?(?=\s|$)/gi, " ")
-    .replace(/(?:^|\s)source:(?:wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt)(?=\s|$)/gi, " ")
+    .replace(/(?:^|\s)source:(?:wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt|searxng|stackoverflow|superuser|mdn)(?=\s|$)/gi, " ")
     .replace(/(?:^|\s)-[\p{L}\p{N}]{2,}(?=\s|$)/gu, " ")
     .replace(/"/g, " ")
     .replace(/\s+/g, " ").trim();
@@ -37,7 +37,8 @@ export function parseQuery(raw) {
 }
 const sourceName = source => fold(source || "");
 const SOURCE_ALIASES = {googlebooks:"google books",loc:"library of congress",
-  gutenberg:"project gutenberg",internetarchive:"internet archive"};
+  gutenberg:"project gutenberg",internetarchive:"internet archive",
+  stackoverflow:"stack overflow",superuser:"super user",mdn:"mdn web docs"};
 function dateComparable(value) {
   if (!value) return null;
   if (/^\d{4}$/.test(value)) return value + "-01-01";
@@ -80,8 +81,9 @@ export function scoreResult(item, query, type = "all") {
   if (type === "all") {
     if (normalizedQuery && title === normalizedQuery) score += 18;
     const origin=sourceName(item.source);
-    if (/brave search|google programmable search/.test(origin)) score += 10;
+    if (/brave search|google programmable search|searxng/.test(origin)) score += 10;
     else if (/wikipedia|wikidata/.test(origin)) score += 7;
+    else if (/stack overflow|super user|mdn web docs/.test(origin)) score += 6;
     else if (/crossref|openalex|europe pmc/.test(origin)) score -= 4;
   }
   if (type === "videos") {
