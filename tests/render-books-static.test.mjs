@@ -35,7 +35,8 @@ test("Render WAEWEB serves every module/style needed by the native book library"
 
 test("direct category URLs and history restore WAE Biblioteca without a search query",async()=>{
   const app=await readFile(new URL("../public/app.js",import.meta.url),"utf8");
-  const occurrences=app.match(/showEmptyCategory\(params\.get\("type"\),false\)/g)||[];
-  assert.equal(occurrences.length,2,"initial load and popstate must both handle ?type=books");
-  assert.match(app,/\["books","knowledge","research","news","images","videos","index"\]/);
+  assert.match(app,/window\.addEventListener\("popstate",restoreRoute\)/);
+  assert.match(app,/restoreRoute\(\);/);
+  assert.match(app,/ROUTABLE_SECTIONS\.has\(type\).*showEmptyCategory\(type,false\)/);
+  assert.match(app,/new Set\(\["all","books","knowledge","research","news","images","videos","index"\]\)/);
 });
