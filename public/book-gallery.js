@@ -56,7 +56,7 @@ export function renderBookCard(item,{workspace,onSaved,index=0}={}){
   const foot=el("div","wae-library-book-foot");
   foot.append(el("span","wae-library-source","Fuente: "+item.source));
   const actions=el("div","wae-library-book-actions");
-  actions.append(action("Ver libro →",open,"wae-library-open"));
+  actions.append(action("Descubrir →",open,"wae-library-open"));
   if(workspace?.has && workspace?.add){
     const saved=workspace.has(item.url);
     const save=action(saved?"◆ Guardado":"◇ Guardar",()=>{
