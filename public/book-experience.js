@@ -2,8 +2,23 @@
 
 // Native WAEWEB book details. Bibliographic discovery is separate from
 // publishing, selling or hosting a third-party book.
-const OL_WORK = /^https:\/\/openlibrary\.org\/works\/OL\d+W$/;
-const OL_COVER = /^https:\/\/covers\.openlibrary\.org\/b\/id\/\d+-[SML]\.jpg$/;
+const BOOK_PATTERNS = Object.freeze({
+  "Open Library": /^https:\/\/openlibrary\.org\/works\/OL\d+W$/,
+  "Google Books": /^https:\/\/books\.google\.com\/books\?id=[A-Za-z0-9_-]{2,80}$/,
+  "Library of Congress": /^https:\/\/(?:www\.)?loc\.gov\//,
+  "Project Gutenberg": /^https:\/\/www\.gutenberg\.org\/ebooks\/[1-9]\d*$/,
+  "Internet Archive": /^https:\/\/archive\.org\/details\/[A-Za-z0-9][A-Za-z0-9._-]{1,99}$/
+});
+const COVER_PATTERNS = [
+  /^https:\/\/covers\.openlibrary\.org\/b\/id\/\d+-[SML]\.jpg$/,
+  /^https:\/\/books\.google\.com\//,
+  /^https:\/\/books\.googleusercontent\.com\//,
+  /^https:\/\/lh3\.googleusercontent\.com\//,
+  /^https:\/\/www\.gutenberg\.org\//,
+  /^https:\/\/(?:www\.)?loc\.gov\//,
+  /^https:\/\/(?:tile|cdn)\.loc\.gov\//,
+  /^https:\/\/archive\.org\/services\/img\/[A-Za-z0-9._-]+$/
+];
 const text = (tag, css, value) => {
   const el = document.createElement(tag);
   if (css) el.className = css;
@@ -25,7 +40,7 @@ const link = (label, href, css = "") => {
 };
 
 export function isBookWork(item) {
-  return Boolean(item && item.source === "Open Library" && OL_WORK.test(item.url || ""));
+  return Boolean(item && BOOK_PATTERNS[item.source]?.test(item.url || ""));
 }
 
 export function openBookDetail(item, { workspace, onSaved } = {}) {
@@ -44,7 +59,7 @@ export function openBookDetail(item, { workspace, onSaved } = {}) {
   close.setAttribute("aria-label", "Cerrar ficha del libro");
   heading.append(headingCopy, close);
   const content = text("div", "wae-book-dialog-body");
-  if (OL_COVER.test(item.image || "")) {
+  if (COVER_PATTERNS.some(pattern => pattern.test(item.image || ""))) {
     const cover = text("img", "wae-book-detail-cover");
     cover.src = item.image;
     cover.alt = "Portada registrada de " + item.title;
@@ -59,7 +74,8 @@ export function openBookDetail(item, { workspace, onSaved } = {}) {
   const details = text("div", "wae-book-detail-copy");
   details.append(text("h2", "", item.title || "Libro sin título"),
     text("p", "wae-book-detail-description", item.snippet || "Datos bibliográficos pendientes de confirmar."));
-  if (item.date) details.append(text("p", "wae-book-detail-year", "Primera publicación registrada: " + item.date));
+  if (item.date) details.append(text("p", "wae-book-detail-year", "Fecha bibliográfica registrada: " + item.date));
+  if (item.bookAccess) details.append(text("p", "wae-book-detail-access", item.bookAccess));
   details.append(text("p", "wae-book-detail-warning",
     "Esta ficha no acredita disponibilidad de lectura, descarga, préstamo o compra. Consulta las ediciones y sus derechos en el catálogo de origen."));
   const actions = text("div", "wae-book-detail-actions");
@@ -84,7 +100,7 @@ export function openBookDetail(item, { workspace, onSaved } = {}) {
   const status = text("p", "wae-book-detail-status", "");
   status.setAttribute("role", "status");
   details.append(status, text("p", "wae-book-provenance",
-    "Datos bibliográficos: Open Library · Portada y derechos pertenecen a sus titulares."));
+    "Datos bibliográficos: " + item.source + " · Portada y derechos pertenecen a sus titulares."));
   content.append(details);
   dialog.append(heading, content);
   dialog.addEventListener("close", () => dialog.remove(), { once: true });
