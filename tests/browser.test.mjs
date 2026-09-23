@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createBrowserState, normalizeBrowserUrl, browserInputTarget, MAX_BROWSER_TABS, MAX_BROWSER_HISTORY } from "../public/browser-core.js";
+import { createBrowserState, normalizeBrowserUrl, browserInputTarget, browserPresentation, MAX_BROWSER_TABS, MAX_BROWSER_HISTORY } from "../public/browser-core.js";
 
 test("Browser Core resolves HTTPS domains and preserves ordinary secure paths", () => {
   assert.equal(normalizeBrowserUrl("example.org"), "https://example.org/");
@@ -63,4 +63,35 @@ test("Browser omnibox searches natural language and navigates explicit domains",
   assert.equal(browserInputTarget("openai.com").kind, "url");
   assert.equal(browserInputTarget("https://example.org/docs").value, "https://example.org/docs");
   assert.equal(browserInputTarget("javascript:alert(1)").kind, "invalid");
+});
+
+test("known iframe-hostile platforms get safe external-first handling, not a dead frame",()=>{
+  for(const url of [
+    "https://www.google.com/search?q=test",
+    "https://www.youtube.com/watch?v=aB3_-xyZ901",
+    "https://m.tiktok.com/@creator/video/7420123456789012345",
+    "https://accounts.google.com/signin"
+  ])assert.equal(browserPresentation(url).externalFirst,true,url);
+  for(const url of [
+    "https://youtube.com.evil.example/video",
+    "https://docs.example.org/news",
+    "https://wae-os-enterprice22.onrender.com/"
+  ])assert.equal(browserPresentation(url).externalFirst,false,url);
+  assert.equal(browserPresentation("javascript:bad").externalFirst,false);
+});
+test("browser keeps the real-site escape visible and requires click before restricted iframe",async()=>{
+  const {readFile}=await import("node:fs/promises");
+  const html=await readFile(new URL("../public/index.html",import.meta.url),"utf8");
+  const browser=await readFile(new URL("../public/browser.js",import.meta.url),"utf8");
+  const css=await readFile(new URL("../public/styles.css",import.meta.url),"utf8");
+  const app=await readFile(new URL("../public/app.js",import.meta.url),"utf8");
+  assert.match(html,/id="browser-access-link"/);
+  assert.match(html,/id="browser-frame-gate"/);
+  assert.match(html,/id="browser-attempt"/);
+  assert.match(browser,/if\(plan\.externalFirst && !previewOptIn\.has\(tab\.id\)\)/);
+  assert.match(browser,/attempt\.addEventListener\("click"/);
+  assert.match(browser,/accessLink\.href=current\.url/);
+  assert.match(browser,/if \(lastView === "hero"\)/);
+  assert.match(css,/\.browser-access-link/);
+  assert.match(app,/https:\/\/www\.bing\.com\/search\?q=/);
 });
