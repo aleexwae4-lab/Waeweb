@@ -19,12 +19,19 @@ export function pinterestVisualIntent(query,intent="general"){
   return ["productos","arte","lugares","logotipos"].includes(intent)||
     /\b(pinterest|inspiracion|ideas|moda|fashion|bolsas?|bolsos?|monederos?|outfit|decoracion|interior|estilo|diseno|diseño|recetas?|manualidades|wedding|boda|inspiration|aesthetic)\b/i.test(query);
 }
+const verifiedImageUrl=value=>{
+  try{
+    const u=new URL(value);
+    return u.protocol==="https:"&&!u.username&&!u.password?u.href:null;
+  }catch{return null;}
+};
 export function verifiedPinterestImages(items,indexLabel){
   if(!Array.isArray(items))return items===null?null:[];
   return items.flatMap(item=>{
     const url=pinterestPinUrl(item.url);
-    if(!url||!item.image||!item.title)return [];
-    return [{...item,url,source:"Pinterest · vía "+indexLabel,
+    const preview=verifiedImageUrl(item.image)||verifiedImageUrl(item.fullImage);
+    if(!url||!preview||!item.title)return [];
+    return [{...item,image:preview,url,source:"Pinterest · vía "+indexLabel,
       imagePlatform:"Pinterest",pinId:url.match(/\/pin\/([0-9]+)\//)?.[1],
       discoveryIndex:indexLabel,license:null}];
   });
@@ -34,10 +41,12 @@ export function verifiedPinterestImages(items,indexLabel){
 export function labelPinterestImages(items){
   return items.map(item=>{
     const url=pinterestPinUrl(item.url);
-    if(!url||!item.image)return item;
+    const preview=verifiedImageUrl(item.image)||verifiedImageUrl(item.fullImage);
+    if(!url||!preview)return item;
     const origin=item.source==="Brave Search"?"Brave":
-      item.source==="Google Programmable Search"?"Google":null;
-    return origin?{...item,url,source:"Pinterest · vía "+origin,
+      item.source==="Google Programmable Search"?"Google":
+      item.source==="Openverse · imágenes abiertas"?"Openverse":null;
+    return origin?{...item,image:preview,url,source:"Pinterest · vía "+origin,
       imagePlatform:"Pinterest",pinId:url.match(/\/pin\/([0-9]+)\//)?.[1],
       discoveryIndex:origin,license:null}:item;
   });
