@@ -37,7 +37,7 @@ export function imageCanonical(value){
     if(!["https:","http:"].includes(u.protocol)||u.username||u.password)return null;
     u.hash="";
     for(const key of [...u.searchParams.keys()]){
-      if(/^(utm_.+|fbclid|gclid|msclkid|width|height|w|h|size|quality|q|format|fit|crop|auto)$/i.test(key))
+      if(/^(utm_.+|fbclid|gclid|msclkid|width|height|w|h|size|quality|format|fit|crop|auto)$/i.test(key))
         u.searchParams.delete(key);
     }
     // Commons thumbnails: /thumb/a/ab/File.jpg/520px-File.jpg is the same
