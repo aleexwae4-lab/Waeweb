@@ -544,9 +544,11 @@ function renderData(data) {
   // Weather races with federated search. A late result must not erase an early card.
   const count = state.results.length;
   const visible = state.type==="all" ? Math.min(count,state.visibleCount) : count;
-  stats.textContent = (state.type==="all" ? "Mostrando "+visible+" de "+count : count+" resultado"+(count===1?"":"s"))+
-    " · "+(data.webCoverage==="limited"?"Cobertura web limitada · ":"")+
-    (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
+  stats.textContent=count===0 && data.message
+    ? "Sin resultados de los índices conectados · "+data.message
+    : (state.type==="all" ? "Mostrando "+visible+" de "+count : count+" resultado"+(count===1?"":"s"))+
+      " · "+(data.webCoverage==="limited"?"Cobertura web limitada · ":"")+
+      (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
   renderPanel(data);
   if (state.type === "research" || state.type === "index") {
     const filteredBrief = state.selectedSource ? {
@@ -1030,11 +1032,11 @@ function showEmptyCategory(type,push=true){
   sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
   panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
   const categories={
-    all:["Búsqueda WAEWEB","Consulta fuentes académicas, imágenes y bibliotecas.",["Inteligencia artificial","Tecnología en México"]],
+    all:["Búsqueda web WAEWEB","La búsqueda general consulta índices web conectados. Investigación, bibliotecas y archivos abiertos tienen categorías separadas.",["Inteligencia artificial","Tecnología en México"]],
     research:["Investigación","Publicaciones científicas, Wikidata y fuentes bibliográficas.",["Inteligencia artificial","Investigación médica"]],
-    images:["Imágenes","Fotografías y archivos multimedia con origen identificable.",["Jalisco","Arquitectura mexicana"]],
+    images:["Imágenes web","Busca imágenes de proveedores conectados; Wikimedia Commons se consulta como archivo abierto aparte.",["Jalisco","Arquitectura mexicana"]],
     news:["Noticias","Artículos recientes de medios disponibles, con enlaces originales.",["Inteligencia artificial","México"]],
-    videos:["Videos","Archivos audiovisuales disponibles de fuentes verificables.",["Tecnología","Naturaleza"]],
+    videos:["Vídeos de plataformas","Busca clips reales de YouTube y TikTok mediante los proveedores conectados. El archivo Wikimedia es una colección distinta.",["Tecnología","Naturaleza"]],
     books:["Libros","Explora fichas bibliográficas y autores.",["Ciencia","Historia de México"]],
     index:["Índice privado","Conecta una bóveda autorizada para consultar documentos.",[]],
     businesses:["Negocios","Busca empresas publicadas voluntariamente.",[]]
