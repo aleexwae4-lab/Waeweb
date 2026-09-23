@@ -3,8 +3,8 @@ import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResul
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
 import {googleBooks, projectGutenberg, congressBooks, internetArchiveBooks, BOOK_SOURCES} from "./book-providers.mjs";
 import {NEWS_WINDOWS,normalizeNewsDate,newsFeedSources,rankNewsResults} from "./news.mjs";
-import {rankImageResults,imageIntent} from "./image-intelligence.mjs";
-import {pinterestPinUrl,pinterestQuery,pinterestVisualIntent,verifiedPinterestImages,labelPinterestImages}
+import {rankImageResults} from "./image-intelligence.mjs";
+import {pinterestQuery,verifiedPinterestImages,labelPinterestImages}
   from "./pinterest-discovery.mjs";
 import {searxngWeb,technicalWebQuery,stackExchangeWeb,mdnWeb} from "./web-providers.mjs";
 import {registerWebHits} from "./web-preview.mjs";
@@ -85,9 +85,10 @@ export async function googleSearch(query, type = "web", page = 1) {
   const items=(data.items || []).map(item => {
     const isImage=type==="images";
     const link=isImage&&urlAllowed(item.image?.contextLink)?item.image.contextLink:item.link;
+    const thumb=item.image?.thumbnailLink || item.pagemap?.cse_thumbnail?.[0]?.src || null;
     const entry=result(item.title,link,item.snippet,"Google Programmable Search",
       item.pagemap?.metatags?.[0]?.["article:published_time"] || null,
-      item.image?.thumbnailLink || item.pagemap?.cse_thumbnail?.[0]?.src || null);
+      isImage?(urlAllowed(thumb)?thumb:item.link):thumb);
     if(isImage){
       entry.fullImage=urlAllowed(item.link)?item.link:null;
       entry.width=Number(item.image?.width)||null;
@@ -125,8 +126,9 @@ export async function braveSearch(query, type = "web", page = 1) {
   const items = category === "web" ? data.web?.results : data.results;
   const found=(Array.isArray(items) ? items : []).map(item => {
     const link = item.url;
-    const image = category === "images" || category === "videos"
-      ? item.thumbnail?.src : item.thumbnail?.src || null;
+    const image = category === "images"
+      ? item.thumbnail?.src || item.properties?.url || item.properties?.placeholder || null
+      : item.thumbnail?.src || null;
     const entry=result(item.title || "", link, item.description || item.snippet || item.source || "",
       "Brave Search", item.page_age || item.page_fetched || null, urlAllowed(image) ? image : null);
     if(category==="images"){
@@ -365,10 +367,12 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   if (!fresh && cached && cached.expires > Date.now()) return cached.value;
   const videoQuery=spec.site?q+" site:"+spec.site:q;
   const pinterestOnly=selected==="images"&&spec.source==="pinterest";
+  // A regular image query always includes Pinterest discovery if the
+  // existing indexes have credentials. No keyword gate, separate tab, or
+  // synthetic thumbnail. Generic search hits are blended into the same grid.
   const pinterestAllowed=selected==="images"&&!archive&&
     (!spec.site||spec.site==="pinterest.com"||spec.site.endsWith(".pinterest.com"))&&
-    (!spec.source||spec.source==="pinterest")&&
-    (pinterestOnly||pinterestVisualIntent(q,imageIntent(q)));
+    (!spec.source||spec.source==="pinterest");
   const platformAllowed=host=>!spec.site||
     host===spec.site||host.endsWith("."+spec.site)||
     spec.site.endsWith("."+host);
