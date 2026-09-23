@@ -208,7 +208,7 @@ function renderResult(item, index) {
   const labels = element("div");
   append(labels,
     element("div","source-label",nativeBook?"Biblioteca WAE WEB":state.type==="all"?shortHost(url):item.source||"Fuente"),
-    element("div","source-url",nativeBook?"Catálogo bibliográfico · Origen: Open Library":displayResultUrl(url)));
+    element("div","source-url",nativeBook?"Catálogo bibliográfico · Origen: "+item.source:displayResultUrl(url)));
   row.append(avatar, labels);
   // General web results open the actual destination, like a conventional
   // SERP. The separate WAEWEB action keeps integrated browsing available.
@@ -235,7 +235,8 @@ function renderResult(item, index) {
     card.append(cover);
   }
   append(card, row, title);
-  if (state.type === "books") card.append(element("span", "tag media-context", "WAE WEB · Ficha bibliográfica · No implica acceso al texto completo"));
+  if (state.type === "books") card.append(element("span", "tag media-context",
+    "WAE WEB · "+(item.bookAccess || "Ficha bibliográfica · No implica acceso al texto completo")));
   if (state.type === "videos"){
     const platform=item.platform||"Web";
     card.append(element("span","tag media-context","Vídeo · Ver en la fuente original"));
@@ -569,6 +570,40 @@ function renderData(data) {
     :sourceResults;
   document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
+  if(state.type==="books"){
+    const coverage=data.bookCoverage;
+    const header=element("section","wae-book-coverage");
+    header.setAttribute("aria-label","Bibliotecas conectadas");
+    header.append(element("span","wae-book-eyebrow","WAE WEB · BIBLIOTECA UNIVERSAL"),
+      element("h2","","Un catálogo. Múltiples bibliotecas."));
+    const summary=element("p","",
+      "Resultados bibliográficos recuperados: "+allResults.length+
+      " · Catálogos consultados: "+(coverage?.retrievedSources?.length||0)+
+      " de "+(coverage?.configuredSources?.length||0)+".");
+    header.append(summary);
+    const picker=element("div","wae-book-provider-filters");
+    const providers=["",...(coverage?.configuredSources||[])];
+    for(const provider of providers){
+      const count=provider?allResults.filter(item=>item.source===provider).length:allResults.length;
+      const buttonLabel=(provider||"Todas las bibliotecas")+" · "+count;
+      const chip=button(buttonLabel,()=>{
+        state.selectedSource=provider;
+        sourceFilter.value=provider;
+        renderData(data);
+      },"wae-book-provider-chip");
+      chip.setAttribute("aria-pressed",String(state.selectedSource===provider));
+      picker.append(chip);
+    }
+    header.append(picker);
+    if(coverage?.failedSources?.length){
+      header.append(element("p","wae-book-coverage-warning",
+        "Algunos catálogos no respondieron: "+coverage.failedSources.join(", ")+
+        ". Los registros de las otras fuentes siguen disponibles."));
+    }
+    header.append(element("p","wae-book-coverage-foot",
+      "Los registros son metadatos; la lectura, préstamo o descarga dependen de los titulares y del país."));
+    resultsContainer.append(header);
+  }
   if(["images","videos"].includes(state.type)&&state.query){
     const archive=state.mediaCollection==="commons";
     const pick=element("nav","media-collection-choice");
@@ -1109,7 +1144,7 @@ function showEmptyCategory(type,push=true){
     images:["Imágenes web","Busca imágenes de proveedores conectados; Wikimedia Commons se consulta como archivo abierto aparte.",["Jalisco","Arquitectura mexicana"]],
     news:["Noticias","Artículos recientes de medios disponibles, con enlaces originales.",["Inteligencia artificial","México"]],
     videos:["Vídeos de plataformas","Busca clips reales de YouTube y TikTok mediante los proveedores conectados. El archivo Wikimedia es una colección distinta.",["Tecnología","Naturaleza"]],
-    books:["Biblioteca WAE WEB","Explora títulos y autores en nuestra experiencia bibliográfica nativa. Los datos proceden de catálogos identificados; la lectura y compra dependen de cada edición.",["Ciencia","Historia de México"]],
+    books:["Biblioteca WAE WEB","Explora Open Library, Google Books, Library of Congress, Project Gutenberg e Internet Archive desde fichas propias. El acceso a cada obra depende de sus derechos.",["Ciencia","Historia de México"]],
     index:["Índice privado","Conecta una bóveda autorizada para consultar documentos.",[]],
     businesses:["Negocios","Busca empresas publicadas voluntariamente.",[]]
   };
