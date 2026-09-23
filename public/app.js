@@ -260,6 +260,39 @@ function renderResult(item, index) {
       platform==="YouTube"?"▶ YouTube":platform==="TikTok"?"♪ TikTok":"▷ "+platform));
   }
   if (item.snippet) card.append(element("p", "snippet", item.snippet));
+  // Read a cited Wikipedia introduction inside the existing search card.
+  if(item.source==="Wikipedia" && Number.isSafeInteger(item.pageId)){
+    const article=element("section","wiki-inline-extract");
+    article.hidden=true;
+    article.setAttribute("aria-label","Lectura dentro de WAE WEB");
+    const articleText=element("p","wiki-inline-text");
+    const articleSource=external(url,"↗ Artículo original · Wikipedia","save-button");
+    article.append(articleText,articleSource);
+    let recovered=false,loading=false;
+    const read=button("▤ Leer artículo aquí",async()=>{
+      if(recovered){
+        article.hidden=!article.hidden;
+        read.textContent=article.hidden?"▤ Leer artículo aquí":"Ⅱ Cerrar lectura";
+        return;
+      }
+      if(loading)return;
+      loading=true;read.disabled=true;
+      article.hidden=false;articleText.textContent="Recuperando el artículo…";
+      try{
+        const data=await getJSON("/api/wiki/summary?pageid="+item.pageId);
+        if(!article.isConnected)return;
+        if(!data.extract)throw new Error("Sin introducción disponible.");
+        articleText.textContent=data.extract;recovered=true;
+        read.textContent="Ⅱ Cerrar lectura";
+      }catch(error){
+        if(article.isConnected){
+          articleText.textContent="No se pudo cargar esta lectura. Puedes reintentar.";
+          read.textContent="↻ Reintentar lectura";
+        }
+      }finally{loading=false;read.disabled=false;}
+    },"save-button wiki-read-action");
+    card.append(read,article);
+  }
   if(state.type==="videos" && /^https:\/\/upload\.wikimedia\.org\//.test(item.mediaUrl||"")){
     const stream=element("video","video-native-player");
     stream.controls=true;stream.preload="none";stream.playsInline=true;
