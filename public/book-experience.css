@@ -58,3 +58,20 @@
   .wae-native-book .book-cover{width:85px;max-width:85px;height:115px;max-height:115px}
 }
 @media(prefers-reduced-motion:reduce){.wae-book-dialog,.wae-native-book{animation:none!important;transition:none!important}}
+
+/* RC Library 2.0: multi-catalog discovery, source chips and transparency. */
+.wae-book-coverage {
+  margin-bottom:18px;padding:23px;border:1px solid rgba(154,194,250,.37);
+  border-radius:21px;background:linear-gradient(130deg,#163359,#0d1930 75%,#1c1c3c);
+  box-shadow:0 15px 47px rgba(0,7,22,.28), inset 0 1px rgba(255,255,255,.045);
+}
+.wae-book-coverage h2{font-size:clamp(19px,3vw,28px);margin:7px 0 7px;letter-spacing:-.03em;color:#eef6ff}
+.wae-book-coverage>p{margin:8px 0 12px;color:#b8cde5;font-size:12px;line-height:1.6}
+.wae-book-provider-filters{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.wae-book-provider-chip{cursor:pointer;border:1px solid rgba(140,185,238,.31);border-radius:40px;background:#182f4c;color:#cfdef0;font-size:11px;min-height:40px;padding:9px 13px;transition:background .16s,border-color .16s}
+.wae-book-provider-chip:hover,.wae-book-provider-chip[aria-pressed="true"]{background:linear-gradient(120deg,#336aa5,#405a9d);border-color:#93bdff;color:#fff}
+.wae-book-coverage .wae-book-coverage-warning{color:#f6d8a5;background:rgba(190,129,52,.12);padding:11px;border-radius:10px}
+.wae-book-coverage .wae-book-coverage-foot{font-size:11px;color:#96aabe;margin-bottom:0}
+.wae-book-detail-access{color:#b0f2d8;border:1px solid rgba(110,218,177,.24);background:rgba(47,127,104,.12);padding:10px 12px;border-radius:11px;font-size:12px}
+@media(max-width:580px){.wae-book-coverage{padding:16px}.wae-book-provider-chip{flex:1 1 42%;padding:10px}}
+@media(prefers-reduced-motion:reduce){.wae-book-provider-chip{transition:none!important}}
