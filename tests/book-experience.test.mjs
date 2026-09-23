@@ -15,8 +15,12 @@ test("WAE library is native in the existing search rather than an Open Library i
   assert.match(app, /nativeBook\?"Biblioteca WAE WEB"/);
   assert.match(app, /openBookDetail\(item, \{ workspace, onSaved: refreshLibraryCount \}\)/);
   assert.match(details, /dialog\.showModal\(\)/);
-  assert.match(details, /Datos bibliográficos: Open Library/);
+  assert.match(details, /Datos bibliográficos: " \+ item\.source/);
   assert.match(details, /no acredita disponibilidad de lectura, descarga, préstamo o compra/);
+  assert.match(details, /"Google Books":/);
+  assert.match(details, /"Project Gutenberg":/);
+  assert.match(details, /"Internet Archive":/);
+  assert.match(app, /wae-book-provider-filters/);
   assert.match(details, /\/libros\.html#publicar/);
   assert.doesNotMatch(details, /iframe|dangerouslySetInnerHTML|innerHTML/);
   assert.match(css, /\.wae-book-dialog::backdrop/);
