@@ -1,4 +1,4 @@
-import { createBrowserState, normalizeBrowserUrl, browserInputTarget } from "/browser-core.js";
+import { createBrowserState, normalizeBrowserUrl, browserInputTarget, browserPresentation } from "/browser-core.js";
 
 const $ = id => document.getElementById(id);
 const state = createBrowserState();
@@ -21,6 +21,12 @@ const forward = $("browser-forward");
 const reload = $("browser-reload");
 const reader = $("browser-reader");
 const empty = $("browser-empty");
+const gate=$("browser-frame-gate");
+const access=$("browser-access");
+const accessLabel=$("browser-access-label");
+const accessLink=$("browser-access-link");
+const attempt=$("browser-attempt");
+const previewOptIn=new Set();
 let lastView = "hero";
 
 // The web pane is CHILD of search results, not another page or product.
@@ -108,6 +114,7 @@ function render() {
       }
       frames.get(tab.id)?.remove();
       frames.delete(tab.id);
+      previewOptIn.delete(tab.id);
       const next = state.close(tab.id);
       if (!next) leaveBrowser();
       else render();
@@ -115,7 +122,21 @@ function render() {
     item.append(select, close);
     tabs.append(item);
   }
-  if (!native) for (const [id, frame] of frames) frame.hidden = !current || current.id !== id;
+  const planned=current?.url?browserPresentation(current.url):null;
+  const blocked=Boolean(!native && current?.url && planned.externalFirst &&
+    !previewOptIn.has(current.id));
+  if (!native) for (const [id, frame] of frames)
+    frame.hidden = !current || current.id !== id || blocked;
+  access.hidden=!current?.url;
+  if(current?.url){
+    accessLink.href=current.url;
+    accessLabel.textContent=blocked
+      ?planned.reason+" Abrir el original es la opción fiable."
+      :"Si la vista integrada queda en blanco, abre la página original.";
+  }else accessLink.removeAttribute("href");
+  attempt.hidden=!blocked;
+  gate.hidden=!blocked;
+
   address.value = current?.url || "";
   address.removeAttribute("aria-invalid");
   back.disabled = !current?.canBack;
@@ -126,13 +147,20 @@ function render() {
   if (current?.url) external.href = current.url;
   else external.removeAttribute("href");
   empty.hidden = Boolean(current?.url);
-  stage.classList.toggle("is-empty",!current?.url);
+  stage.classList.toggle("is-empty",!current?.url || blocked);
   $("browser-new").disabled = tabItems.length >= 8;
 }
 function loadCurrent() {
   if (native) return;
   const tab = state.active();
   if (!tab?.url) { render(); return; }
+  const plan=browserPresentation(tab.url);
+  if(plan.externalFirst && !previewOptIn.has(tab.id)){
+    render();
+    status.textContent=plan.reason+
+      " Usa «Abrir página en el navegador» o elige intentar la vista integrada.";
+    return;
+  }
   const frame = frames.get(tab.id) || makeFrame(tab);
   // Explicit address changes only: cross-origin navigations inside an iframe
   // cannot be observed or rewritten into the app's address/history.
@@ -163,7 +191,10 @@ export function openBrowser(value = "", { newTab = false } = {}) {
     if (newTab || !state.active()) state.create(url);
     else if (url) state.navigate(url);
   } catch (error) { render(); displayError(error); return false; }
-  if (url) state.rename(state.active().id, new URL(url).hostname);
+  if(url) {
+    previewOptIn.delete(state.active().id);
+    state.rename(state.active().id, new URL(url).hostname);
+  }
   if (url) loadCurrent();
   else { render(); status.textContent = "Escribe un dominio HTTPS para verlo junto a los resultados de búsqueda."; address.focus(); }
   view.scrollIntoView({behavior:"smooth",block:"start"});
@@ -201,6 +232,12 @@ $("browser-reload").addEventListener("click", () => {
   else if (state.active()?.url) loadCurrent();
 });
 $("browser-new").addEventListener("click", () => openBrowser("", { newTab: true }));
+attempt.addEventListener("click",()=>{
+  const tab=state.active();
+  if(!tab?.url)return;
+  previewOptIn.add(tab.id);
+  loadCurrent();
+});
 $("browser-close").addEventListener("click", leaveBrowser);
 // Header entry uses the unified omnibox, never opens a second empty page.
 $("browser-open").addEventListener("click", () => {
