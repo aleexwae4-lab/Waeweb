@@ -1,5 +1,6 @@
 import { parseQuery, rankResults, researchBrief } from "./intelligence.mjs";
-import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResults} from "./video-discovery.mjs";
+import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResults, peertubeEmbed} from "./video-discovery.mjs";
+import {internetArchiveVideos} from "./archive-videos.mjs";
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
 import {googleBooks, projectGutenberg, congressBooks, internetArchiveBooks, BOOK_SOURCES} from "./book-providers.mjs";
 import {NEWS_WINDOWS,normalizeNewsDate,newsFeedSources,rankNewsResults} from "./news.mjs";
@@ -198,7 +199,11 @@ export async function peertubeVideos(query){
         .filter(x=>typeof x==="string"&&x.trim()).join(" · ").slice(0,700),
       "PeerTube · vídeo abierto",item.publishedAt||null,
       urlAllowed(item.thumbnailUrl)?item.thumbnailUrl:null);
-    video.platform="PeerTube";return [video];
+    video.platform="PeerTube";
+    video.embedUrl=peertubeEmbed({url:item.url,uuid:item.uuid});
+    video.playback=video.embedUrl?"embed":"external";
+    video.duration=Number(item.duration)>0?Number(item.duration):null;
+    return [video];
   });
 }
 export async function wikimediaImages(query) {
@@ -422,6 +427,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       ...(platformAllowed("youtube.com")?[["YouTube",()=>youtubeDataVideos(q)]]:[]),
       ["Brave · Vídeos",()=>braveSearch(videoQuery,"videos")],
       ["PeerTube",()=>peertubeVideos(q)],
+      ...(!spec.site || platformAllowed("archive.org")
+        ? [["Internet Archive · Video",()=>internetArchiveVideos(q)]]:[]),
       ...(!spec.site || platformAllowed("commons.wikimedia.org")
         ? [["Wikimedia Commons · Video",()=>wikimediaVideos(q)]]:[]),
       ...(platformAllowed("youtube.com")?[
@@ -496,11 +503,13 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   }
   if(selected==="videos"){
     for(const item of results){
+      if(item.platform==="Wikimedia Commons"&&item.mediaUrl)item.playback="native";
       const identity=videoIdentity(item.url);
       if(identity){
         item.platform=identity.platform;
         item.videoId=identity.videoId;
         item.url=identity.canonical;
+        item.playback=identity.platform==="YouTube"||identity.platform==="TikTok"?"embed":null;
       }
     }
   }
@@ -574,6 +583,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     videoCoverage: selected==="videos"?{
       youtubeApi:available.includes("YouTube"),
       peertubeAvailable:available.includes("PeerTube"),
+      archiveAvailable:available.includes("Internet Archive · Video"),
       commonsAvailable:available.includes("Wikimedia Commons · Video"),
       webIndex:available.some(name=>/^(Brave|Google) · /.test(name) &&
         !name.endsWith(" no configurado")),
