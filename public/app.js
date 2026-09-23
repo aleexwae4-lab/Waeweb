@@ -579,6 +579,9 @@ function renderResult(item, index) {
     }
   }
   if(state.type==="all"){
+    const listen=button("▶ Escuchar resultado",()=>listenToResult(item),"save-button wae-result-voice");
+    listen.disabled=!voiceReader.snapshot().available;
+    meta.append(listen);
     meta.append(external(url,"↗ Fuente original","save-button"));
     if(url.startsWith("https://")){
       const extract=element("div","web-inline-extract");
@@ -591,7 +594,10 @@ function renderResult(item, index) {
           extract.replaceChildren(
             element("strong","","Extracto de "+(data.title||shortHost(url))),
             element("p","",data.excerpt),
-            element("small","",data.disclaimer));
+            element("small","",data.disclaimer),
+            button("▶ Escuchar este extracto",
+              ()=>readAloud(data.excerpt,"Extracto de "+(data.title||item.title)),
+              "save-button wae-result-voice"));
           preview.textContent="✓ Extracto disponible";
         }catch(error){
           extract.replaceChildren(element("p","","No se pudo leer esta página aquí: "+
@@ -842,7 +848,9 @@ function renderSummary(data) {
   const markdown = briefMarkdown(data);
   append(actions,
     button("⧉ Copiar panorama y fuentes", () => copyText(markdown)),
-    button("◖ Leer / detener", () => readAloud(notes.map(n => n.statement).join(". "))),
+    button("▶ Escuchar panorama", () => readAloud(
+      notes.map(n=>n.title+". "+n.statement+". Fuente: "+n.source).join(". "),
+      "Panorama documental")),
     button("◇ Guardar fuentes", () => {
       let saved = 0;
       for (const note of notes) {
@@ -934,6 +942,7 @@ function renderPublicBusiness(item) {
 }
 function renderData(data) {
   stopInlineVideo();
+  speechSynthesisSafeCancel();
   state.data = data;
   const allResults = data.results || [];
   const options = [...new Set(allResults.map(item => item.source).filter(Boolean))].sort();
@@ -1076,13 +1085,33 @@ function renderData(data) {
     }
     const reload=button("↻ Actualizar noticias",()=>{void refreshNews();},"news-refresh");
     controls.append(reload);
+    const bulletin=button("▶ Escuchar boletín",()=>{
+      const items=state.results.slice(0,8);
+      const script=items.map((item,i)=>[
+        "Noticia "+(i+1)+": "+item.title,
+        item.snippet||"",
+        "Fuente: "+(item.publisher||item.source||"No identificada"),
+        item.date?"Publicado: "+formatDate(item.date):
+          item.seenAt?"Detectado: "+formatDate(item.seenAt):""
+      ].filter(Boolean).join(". ")).join(". ");
+      readAloud(script,"Boletín de titulares · "+state.query);
+    },"news-bulletin");
+    bulletin.disabled=!voiceReader.snapshot().available||!state.results.length;
+    if(bulletin.disabled)bulletin.title="Sin titulares o voz del navegador no disponible.";
+    controls.append(bulletin);
     header.append(intro,controls);
     const coverage=data.newsCoverage;
     const status=element("p","news-live-status",
       "Consultado: "+(data.fetchedAt?new Date(data.fetchedAt).toLocaleString("es-MX"):"sin hora")+
-      " · "+(coverage?.respondingSources?.length||0)+" fuentes respondieron"+
+      " · "+state.results.length+" titulares de "+new Set(state.results.map(
+        item=>item.publisher||item.source||"Fuente")).size+" medios/fuentes"+
+      " · "+(coverage?.respondingSources?.length||0)+" proveedores respondieron"+
       (data.failedSources?.length?" · "+data.failedSources.length+" sin respuesta":""));
     header.append(status);
+    const note=element("p","news-reading-note",
+      "El boletín lee titulares y extractos recuperados, no artículos completos. "+
+      "Publicado y detectado son fechas distintas; comprueba los detalles en el origen.");
+    header.append(note);
     resultsContainer.append(header);
   }
   if(state.type==="books"){
@@ -1156,8 +1185,10 @@ function renderData(data) {
     const recovered=new Set(state.results.map(item=>item.source));
     overview.append(
       element("span","knowledge-eyebrow","◈ BIBLIOTECA DOCUMENTAL · FUENTES RASTREABLES"),
-      element("h2","","Conocimiento, no resultados de toda Internet"),
-      element("p","","Documentos y fichas recuperados de catálogos independientes. Comprueba el contenido de cada fuente antes de usarlo como evidencia.")
+      element("h2","","Información con fuentes identificables"),
+      element("p","","Enciclopedias, investigaciones y catálogos documentales reunidos "+
+        "para consultar extractos y abrir sus fichas dentro de WAE WEB. "+
+        "Una referencia no equivale a verificación independiente.")
     );
     const totals=element("div","knowledge-metrics");
     totals.append(element("span","tag",state.results.length+" documentos"),
@@ -1166,7 +1197,15 @@ function renderData(data) {
     overview.append(totals);
     if(data.failedSources?.length)overview.append(element("p","knowledge-partial",
       "Algunas fuentes no respondieron: "+data.failedSources.join(", ")+". Los resultados proceden de las que sí respondieron."));
-    overview.append(button("⌕ Buscar en la web",()=>performSearch(state.query,"all"),"link-button"));
+    const actions=element("div","knowledge-reading-actions");
+    actions.append(button("▶ Escuchar resultados",()=>{
+      const script=state.results.slice(0,10).map((item,i)=>(
+        "Fuente "+(i+1)+". "+item.title+". "+(item.snippet||"")+
+        ". Origen: "+(item.source||"no informado"))).join(". ");
+      readAloud(script,"Información · "+state.query);
+    },"link-button"));
+    actions.append(button("⌕ Buscar en la web",()=>performSearch(state.query,"all"),"link-button"));
+    overview.append(actions);
     resultsContainer.append(overview);
   }
   if (state.type === "businesses") {
