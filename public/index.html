@@ -3,23 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#030407">
+  <meta name="theme-color" content="#07101e">
   <meta name="description" content="WAE WEB: búsqueda federada, investigación académica y conocimiento global con fuentes rastreables.">
   <title>WAE WEB · Búsqueda de nueva generación</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/premium.css">
   <script type="module" src="/app.js"></script>
   <script type="module" src="/browser.js"></script>
   <script type="module" src="/accounts.js"></script>
   <script type="module" src="/business-profile.js"></script>
   <script type="module" src="/marketplace.js"></script>
+  <script type="module" src="/premium-experience.js"></script>
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><div class="blob one"></div><div class="blob two"></div><div class="blob three"></div></div>
   <div class="app-shell">
     <header class="topbar">
       <button id="home-button" class="brand-small" type="button" aria-label="Volver al inicio">wae<span class="brand-dot">.</span></button>
-      <div class="topbar-right"><span class="status-led" aria-hidden="true"></span><span>WAE WEB</span><button id="browser-open" class="browser-launch" type="button" title="Abrir una dirección dentro de los resultados">◎ Abrir URL</button><button id="marketplace-button" class="browser-launch" type="button">▦ Marketplace</button><button id="account-button" class="account-button" type="button">♙ Mi cuenta / Negocios</button><button id="library-button" class="library-button" type="button" aria-label="Abrir biblioteca de investigación">◇ Biblioteca <span id="library-count">0</span></button><button id="about-button" class="icon-button" type="button" aria-label="Información y fuentes">ⓘ</button></div>
+      <div class="topbar-right"><span class="status-led" aria-hidden="true"></span><span>WAE WEB</span><button id="premium-launch" class="premium-launch" type="button" aria-haspopup="dialog" aria-controls="premium-command-dialog" aria-keyshortcuts="Control+K Meta+K" title="Explorar WAE WEB (Ctrl+K)">⌕ <span>Explorar</span><kbd>Ctrl K</kbd></button><button id="browser-open" class="browser-launch" type="button" title="Abrir una dirección dentro de los resultados">◎ Abrir URL</button><button id="marketplace-button" class="browser-launch" type="button">▦ Marketplace</button><button id="account-button" class="account-button" type="button">♙ Mi cuenta / Negocios</button><button id="library-button" class="library-button" type="button" aria-label="Abrir biblioteca de investigación">◇ Biblioteca <span id="library-count">0</span></button><button id="about-button" class="icon-button" type="button" aria-label="Información y fuentes">ⓘ</button></div>
     </header>
     <main id="main-content">
       <section id="hero" class="hero" aria-labelledby="hero-title">
@@ -190,6 +192,30 @@
     </main>
     <footer class="footer"><span>WAE WEB · WAE OS ENTERPRISE</span><span>Información con atribución · Desarrollo independiente</span><a class="footer-books-link" href="/libros.html" aria-label="Libros: librería digital y estudio de autores de WAEWEB">▤ Libros →</a><a class="footer-books-link" href="/enterprise.html" aria-label="Abrir Wae os enterprise' a pantalla completa dentro de WAEWEB">Wae os enterprise'</a></footer>
   </div>
+  <nav id="premium-mobile-dock" class="premium-mobile-dock" aria-label="Navegación rápida móvil">
+    <button type="button" data-premium-action="home" aria-label="Volver al inicio"><span aria-hidden="true">⌂</span><small>Inicio</small></button>
+    <button type="button" data-premium-action="search" aria-label="Buscar o abrir URL"><span aria-hidden="true">⌕</span><small>Buscar</small></button>
+    <button type="button" data-premium-action="maps" aria-label="Explorar mapas"><span aria-hidden="true">⌖</span><small>Mapas</small></button>
+    <button type="button" data-premium-action="marketplace" aria-label="Explorar Marketplace"><span aria-hidden="true">▦</span><small>Negocios</small></button>
+  </nav>
+  <dialog id="premium-command-dialog" class="premium-command-dialog" aria-labelledby="premium-command-title">
+    <div class="premium-command-header"><div><span class="premium-command-eyebrow">WAE WEB · EXPERIENCE 3.0</span><h2 id="premium-command-title">¿Qué quieres explorar?</h2></div><button id="premium-command-close" type="button" class="premium-command-close" aria-label="Cerrar explorador">✕</button></div>
+    <label class="sr-only" for="premium-command-search">Filtrar accesos rápidos o escribir una búsqueda</label>
+    <input id="premium-command-search" type="search" maxlength="180" autocomplete="off" placeholder="Buscar o elegir una herramienta…" aria-describedby="premium-command-help">
+    <p id="premium-command-help" class="premium-command-help">Escribe una consulta y pulsa Enter para buscar; también puedes elegir una sección.</p>
+    <div id="premium-command-list" class="premium-command-list" aria-label="Acciones disponibles">
+      <button type="button" data-premium-action="search" data-premium-label="buscar web url búsqueda" class="premium-command-item"><span aria-hidden="true">⌕</span><span><strong>Buscar</strong><small>Web o dirección HTTPS</small></span><span aria-hidden="true">↗</span></button>
+      <button type="button" data-premium-action="images" data-premium-label="imágenes fotos galería" class="premium-command-item"><span aria-hidden="true">▧</span><span><strong>Imágenes</strong><small>Explorar resultados visuales</small></span><span aria-hidden="true">↗</span></button>
+      <button type="button" data-premium-action="videos" data-premium-label="videos youtube tiktok clips" class="premium-command-item"><span aria-hidden="true">▷</span><span><strong>Videos</strong><small>Clips y fuentes originales</small></span><span aria-hidden="true">↗</span></button>
+      <button type="button" data-premium-action="maps" data-premium-label="mapas rutas lugares" class="premium-command-item"><span aria-hidden="true">⌖</span><span><strong>Mapas</strong><small>Lugares y rutas</small></span><span aria-hidden="true">↗</span></button>
+      <button type="button" data-premium-action="books" data-premium-label="libros autores biblioteca" class="premium-command-item"><span aria-hidden="true">▤</span><span><strong>Libros</strong><small>Fichas y autores</small></span><span aria-hidden="true">↗</span></button>
+      <button type="button" data-premium-action="translate" data-premium-label="traductor idiomas traducir" class="premium-command-item"><span aria-hidden="true">🌐</span><span><strong>Traductor</strong><small>Herramienta de idiomas</small></span><span aria-hidden="true">↗</span></button>
+      <button type="button" data-premium-action="marketplace" data-premium-label="negocios marketplace empresas productos" class="premium-command-item"><span aria-hidden="true">▦</span><span><strong>Marketplace</strong><small>Productos y servicios</small></span><span aria-hidden="true">↗</span></button>
+      <button type="button" data-premium-action="library" data-premium-label="biblioteca investigación guardados" class="premium-command-item"><span aria-hidden="true">◇</span><span><strong>Mi biblioteca</strong><small>Fuentes guardadas</small></span><span aria-hidden="true">↗</span></button>
+      <button type="button" data-premium-action="account" data-premium-label="cuenta iniciar sesión mis empresas" class="premium-command-item"><span aria-hidden="true">♙</span><span><strong>Mi cuenta</strong><small>Perfil y negocios</small></span><span aria-hidden="true">↗</span></button>
+    </div>
+    <p class="premium-command-empty" id="premium-command-empty" hidden>No hay accesos coincidentes. Pulsa Enter para buscar ese texto.</p>
+  </dialog>
   <dialog id="market-inquiry-dialog" class="modal" aria-labelledby="market-inquiry-title">
     <form id="market-inquiry-form" class="business-form">
       <h2 id="market-inquiry-title">Consultar al negocio</h2>
