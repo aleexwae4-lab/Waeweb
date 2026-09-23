@@ -90,7 +90,10 @@ if(!ready){
       const honest=videos.ok&&videos.marker&&videos.body?.mediaCollection==="web"&&
         Array.isArray(videos.body?.results)&&videos.body.results.every(item=>
           ((item.platform==="PeerTube"&&item.source==="PeerTube · vídeo abierto")||
-           (item.platform==="Wikimedia Commons"&&item.source==="Wikimedia Commons · Video"))&&
+           (item.platform==="Wikimedia Commons"&&item.source==="Wikimedia Commons · Video")||
+           (item.platform==="Internet Archive"&&
+             item.source==="Internet Archive · vídeos"&&
+             /^https:\/\/archive\.org\/download\//.test(item.mediaUrl||"")))&&
           /^https?:/i.test(item.url||""));
       console.log(honest?"LIVE PASS":"LIVE FAIL","YouTube video without provider",
         "HTTP",videos.status,"count",videos.body?.results?.length??null);

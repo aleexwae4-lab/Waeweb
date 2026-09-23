@@ -22,6 +22,24 @@ export function videoIdentity(value){
   }
   return null;
 }
+// PeerTube embeddable origin comes ONLY from a public HTTPS instance URL
+// returned in its public search record. No user-supplied arbitrary iframe.
+export function peertubeEmbed(video){
+  try{
+    const u=new URL(video?.url);
+    const host=u.hostname.toLowerCase();
+    if(u.protocol!=="https:"||u.username||u.password||
+      !host.includes(".")||u.port||
+      /(?:^|\.)(?:localhost|local|internal|test|invalid|onion)$/.test(host)||
+      /^\d+(?:\.\d+){3}$/.test(host)||host.includes(":"))return null;
+    const match=u.pathname.match(/^\/(?:w|videos\/watch)\/([A-Za-z0-9_-]{12,36})\/?$/);
+    if(!match)return null;
+    const uuid=typeof video.uuid==="string"&&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(video.uuid)
+      ?video.uuid:match[1];
+    return u.origin+"/videos/embed/"+uuid;
+  }catch{return null;}
+}
 export function verifiedVideoResults(items,platform){
   // Preserve "not configured" across the provider wrapper: [] means a real
   // zero-hit response, while null means Brave/Google was never queried.
