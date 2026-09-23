@@ -2,6 +2,7 @@
 // No preview bypasses, no cookies or secrets; 404/401 are failures.
 const base=process.env.WAEWEB_BASE_URL||"https://waeweb.onrender.com";
 const expected=process.env.WAEWEB_EXPECT_VERSION||"1.0.0-rc.35";
+const expectedRevision=process.env.GITHUB_SHA?.slice(0,12)||null;
 if(new URL(base).protocol!=="https:")throw Error("HTTPS production base required");
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const request=async(path)=>{
@@ -24,11 +25,13 @@ const request=async(path)=>{
 let ready=false;
 for(let i=0;i<20;i++){
   const r=await request("/api/health");
-  if(r.ok&&r.marker&&r.body?.status==="ok"&&r.body?.version===expected){
+  if(r.ok&&r.marker&&r.body?.status==="ok"&&r.body?.version===expected&&
+    (!expectedRevision||r.body?.revision===expectedRevision)){
     console.log("LIVE READY",JSON.stringify(r.body));ready=true;break;
   }
   console.log("LIVE WAIT",i+1,JSON.stringify({
     status:r.status,marker:r.marker,version:r.body?.version||null,
+    revision:r.body?.revision||null,expectedRevision,
     cause:r.status===404?"API route missing":r.status===401?"blocked":r.message||"old revision"
   }));
   if(i<19)await sleep(15000);
