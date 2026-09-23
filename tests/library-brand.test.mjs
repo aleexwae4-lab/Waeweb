@@ -14,7 +14,7 @@ test("book results are first-class WAE editorial bookshelf rather than repeated 
   assert.match(app,/wae-library-grid/);
   assert.match(app,/Fuentes bibliográficas y disponibilidad/);
   assert.match(app,/Crea tu libro en WAE/);
-  assert.match(gallery,/Fuente: " \+ item\.source/);
+  assert.match(gallery,/"Fuente: "\+item\.source/);
   assert.match(gallery,/Ver libro →/);
   assert.match(gallery,/openBookDetail\(item,\{workspace,onSaved\}\)/);
   assert.match(css,/\.wae-library-cover-action/);
