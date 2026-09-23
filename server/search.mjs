@@ -3,7 +3,9 @@ import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResul
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
 import {googleBooks, projectGutenberg, congressBooks, internetArchiveBooks, BOOK_SOURCES} from "./book-providers.mjs";
 import {NEWS_WINDOWS,normalizeNewsDate,newsFeedSources,rankNewsResults} from "./news.mjs";
-import {rankImageResults} from "./image-intelligence.mjs";
+import {rankImageResults,imageIntent} from "./image-intelligence.mjs";
+import {pinterestPinUrl,pinterestQuery,pinterestVisualIntent,verifiedPinterestImages,labelPinterestImages}
+  from "./pinterest-discovery.mjs";
 import {searxngWeb,technicalWebQuery,stackExchangeWeb,mdnWeb} from "./web-providers.mjs";
 import {registerWebHits} from "./web-preview.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
@@ -362,6 +364,11 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   const cached = cache.get(key);
   if (!fresh && cached && cached.expires > Date.now()) return cached.value;
   const videoQuery=spec.site?q+" site:"+spec.site:q;
+  const pinterestOnly=selected==="images"&&spec.source==="pinterest";
+  const pinterestAllowed=selected==="images"&&!archive&&
+    (!spec.site||spec.site==="pinterest.com"||spec.site.endsWith(".pinterest.com"))&&
+    (!spec.source||spec.source==="pinterest")&&
+    (pinterestOnly||pinterestVisualIntent(q,imageIntent(q)));
   const platformAllowed=host=>!spec.site||
     host===spec.site||host.endsWith("."+spec.site)||
     spec.site.endsWith("."+host);
@@ -379,11 +386,19 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     : selected === "images"
     ? (archive
        ? [["Wikimedia Commons", () => wikimediaImages(q)]]
-       : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")],
+       : [...(!pinterestOnly?[
+          ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")],
           ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")],
-          ["Openverse",()=>openverseImages(q)],
+          ...(!spec.site?[["Openverse",()=>openverseImages(q)]]:[]),
           ...(!spec.site || platformAllowed("commons.wikimedia.org")
-            ? [["Wikimedia Commons",()=>wikimediaImages(q)]]:[])])
+            ? [["Wikimedia Commons",()=>wikimediaImages(q)]]:[])
+         ]:[]),
+         ...(pinterestAllowed?[
+           ["Pinterest · Brave",async()=>verifiedPinterestImages(
+             await braveSearch(pinterestQuery(q),"images"),"Brave")],
+           ["Pinterest · Google",async()=>verifiedPinterestImages(
+             await googleSearch(pinterestQuery(q),"images"),"Google")]
+         ]:[])])
     : selected === "news"
     ? [["GDELT · prensa", () => gdeltNews(q,newsWindow)],
        ...(!spec.site?newsFeedSources(q,newsWindow):[]),
@@ -481,7 +496,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }
   }
   const imageRanked=selected==="images"
-    ?rankImageResults(rankResults(results,spec,selected),q):null;
+    ?rankImageResults(rankResults(labelPinterestImages(results),spec,selected),q):null;
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, page,
@@ -523,6 +538,15 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }:null,
     imageDiscovery:selected==="images"?{
       intent:imageRanked.intent,duplicatesRemoved:imageRanked.duplicatesRemoved,
+      pinterest:{
+        mode:"indexed_public_pins",officialApi:false,
+        hits:imageRanked.results.filter(item=>item.imagePlatform==="Pinterest").length,
+        discoveredVia:["Pinterest · Brave","Pinterest · Google"]
+          .filter(name=>available.includes(name)),
+        unconfigured:["Pinterest · Brave","Pinterest · Google"]
+          .filter(name=>available.includes(name+" no configurado")),
+        notGuaranteed:true
+      },
       metadataBased:true,visualModelUsed:false,
       availableResults:imageRanked.results.length,
       dimensionsKnown:imageRanked.results.filter(item=>item.width&&item.height).length,
