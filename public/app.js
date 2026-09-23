@@ -428,7 +428,7 @@ function renderImages(items) {
     if(outcome.ok){save.textContent="◆ Guardado";save.disabled=true;refreshLibraryCount();}
     else stats.textContent=outcome.reason;
   },"small-action");
-  const similar=button("⌕ Buscar imágenes similares",()=>{
+  const similar=button("⌕ Buscar por título similar",()=>{
     const item=available[current];
     const title=String(item.title||"").replace(/\.[a-z0-9]{2,5}$/i,"")
       .replace(/^File:/i,"").replace(/[_-]+/g," ").trim();
