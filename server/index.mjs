@@ -176,7 +176,7 @@ export async function handler(req, res) {
     publicMode:previewMode() ? "isolated" : "full", 
     revision: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,12) || null });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
-    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "GDELT", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
+    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
     mapsEnabled: true, mapPrecision: "locality_centroid_or_user_coordinates",
     directions: {...routingCapabilities(),addressSearch:addressCapabilities()},
     translator: publicTranslateConfig(),
@@ -189,7 +189,9 @@ export async function handler(req, res) {
     ),
     knowledgeSearch:{mode:"public_federation",generalWebIndex:false,
       sources:["Wikipedia","Wikidata","Crossref","OpenAlex","Europe PMC",
-        "Open Library","Library of Congress"],generative:false},
+        "Open Library","Library of Congress","DataCite"],generative:false},
+    webDiscovery:{mode:"HN_linked_page_metadata",provider:"Hacker News / Algolia",
+      generalWebIndex:false,persistence:"memory_only",thirdPartyArticleContentVerified:false},
     streetMapLayer: "openstreetmap_user_initiated_visible_tiles",
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
