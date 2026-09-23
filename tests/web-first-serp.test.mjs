@@ -7,8 +7,10 @@ import {search} from "../server/search.mjs";
 const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
 const css=readFileSync(new URL("../public/styles.css",import.meta.url),"utf8");
 
-test("organic results open real origin and retain optional in-app browser",()=>{
-  assert.match(app,/state\.type === "all"\s*\? external\(url,item\.title,"result-title web-result-title"\)/);
+test("organic results open inside WAE WEB and retain an origin action",()=>{
+  assert.match(app,/state\.type === "all"\s*\? button\(item\.title,\(\)=>openBrowser\(url\),"result-title web-result-title"\)/);
+  assert.match(app,/↗ Fuente original/);
+  assert.match(app,/Leer extracto aquí/);
   assert.match(app,/◎ Explorar dentro/);
   assert.match(app,/\["research","knowledge","index"\]\.includes\(state\.type\)/);
   assert.match(css,/\.result-card\.web-result/);
