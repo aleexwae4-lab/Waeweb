@@ -30,11 +30,13 @@ export async function internetArchiveVideos(query){
   const words=String(query||"").normalize("NFKC").match(/[\p{L}\p{N}]{3,}/gu)||[];
   if(!words.length)return [];
   const url=new URL("https://archive.org/advancedsearch.php");
-  url.search=new URLSearchParams({
+  const params=new URLSearchParams({
     q:"mediatype:movies AND ("+words.slice(0,6).join(" AND ")+")",
-    "fl[]":"identifier","fl[]":"title",
     rows:"10",page:"1",output:"json"
-  }).toString();
+  });
+  params.append("fl[]","identifier");
+  params.append("fl[]","title");
+  url.search=params.toString();
   const data=await archiveJson(url);
   if(!Array.isArray(data.response?.docs))throw Error("archive_video_invalid_search");
   const candidates=data.response.docs.slice(0,7).filter(x=>ID.test(x.identifier||""));
