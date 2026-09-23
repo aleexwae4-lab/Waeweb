@@ -714,25 +714,19 @@ function renderData(data) {
       " · "+(discovery.dimensionsKnown||0)+" con tamaño conocido");
     header.append(context);
     const pinterestCount=sourceResults.filter(item=>item.imagePlatform==="Pinterest").length;
-    const pinterestBar=element("nav","wae-image-filters wae-pinterest-controls");
-    pinterestBar.setAttribute("aria-label","Explorar imágenes de Pinterest");
+    // Pins are ordinary gallery tiles. A source filter is optional, never a
+    // substitute for rendering their actual preview in the normal result set.
     if(pinterestCount){
+      const pinterestBar=element("nav","wae-image-filters wae-pinterest-controls");
+      pinterestBar.setAttribute("aria-label","Filtrar por origen Pinterest");
       const pins=button("Pinterest · "+pinterestCount,()=>{
         state.imagePlatform=state.imagePlatform==="Pinterest"?"all":"Pinterest";
         state.imageVisibleCount=24;renderData(data);
       },"wae-image-filter wae-pinterest-chip");
       pins.setAttribute("aria-pressed",String(state.imagePlatform==="Pinterest"));
       pinterestBar.append(pins);
+      header.append(pinterestBar);
     }
-    const pinterestSearch=external(
-      "https://www.pinterest.com/search/pins/?q="+encodeURIComponent(state.query),
-      "↗ Buscar también en Pinterest","wae-pinterest-original");
-    pinterestBar.append(pinterestSearch);
-    if(!pinterestCount){
-      pinterestBar.append(element("span","wae-pinterest-note",
-        "Los pines aparecen aquí cuando un índice web conectado devuelve imágenes reales."));
-    }
-    header.append(pinterestBar);
     const facets=element("nav","wae-image-filters");
     facets.setAttribute("aria-label","Filtrar imágenes por tipo y orientación");
     const kinds=[["all","Todas"],["foto","Fotos"],["ilustracion","Ilustraciones"],
@@ -771,7 +765,9 @@ function renderData(data) {
       element("p","",
         (data.sources||[]).join(" · ")+". "+
         (data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
-        "No se estima el tamaño ni la licencia de archivos sin metadatos."));
+        "No se estima el tamaño ni la licencia de archivos sin metadatos. "+
+        "Pinterest se integra en la galería cuando los índices web conectados "+
+        "recuperan pines con miniaturas verificables."));
     header.append(sourceDetail);
     resultsContainer.append(header);
   }
