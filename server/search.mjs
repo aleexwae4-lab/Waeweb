@@ -136,6 +136,38 @@ export async function openLibrary(query) {
   }).filter(item => item.title && urlAllowed(item.url));
 }
 
+// Keyless independent image catalog. Commons remains a separate opt-in archive.
+export async function openverseImages(query){
+  const u=new URL("https://api.openverse.org/v1/images/");
+  u.search=new URLSearchParams({q:query,page_size:"20",mature:"false"}).toString();
+  const data=await json(u);
+  return (Array.isArray(data.results)?data.results:[]).flatMap(item=>{
+    if(item.source==="wikimedia")return [];
+    const link=urlAllowed(item.foreign_landing_url)?item.foreign_landing_url:item.url;
+    const image=urlAllowed(item.thumbnail)?item.thumbnail:item.url;
+    if(!urlAllowed(link)||!urlAllowed(image))return [];
+    const creator=clean(item.creator||""),license=clean(item.license||"");
+    return [result(item.title||"Imagen",link,
+      [creator?"Autoría: "+creator:null,license?"Licencia: "+license:null]
+        .filter(Boolean).join(" · ")||"Imagen indexada en Openverse",
+      "Openverse · imágenes abiertas",null,image)];
+  });
+}
+// PeerTube is not YouTube or TikTok; preserve source and canonical video URL.
+export async function peertubeVideos(query){
+  const u=new URL("https://sepiasearch.org/api/v1/search/videos");
+  u.search=new URLSearchParams({search:query,count:"15",nsfw:"false"}).toString();
+  const data=await json(u);
+  return (Array.isArray(data.data)?data.data:[]).flatMap(item=>{
+    if(!urlAllowed(item.url)||!item.name)return [];
+    const video=result(item.name,item.url,
+      [item.channel?.displayName||item.channel?.name,item.description]
+        .filter(x=>typeof x==="string"&&x.trim()).join(" · ").slice(0,700),
+      "PeerTube · vídeo abierto",item.publishedAt||null,
+      urlAllowed(item.thumbnailUrl)?item.thumbnailUrl:null);
+    video.platform="PeerTube";return [video];
+  });
+}
 export async function wikimediaImages(query) {
   const u = new URL("https://commons.wikimedia.org/w/api.php");
   u.search = new URLSearchParams({
@@ -305,7 +337,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     ? (archive
        ? [["Wikimedia Commons", () => wikimediaImages(q)]]
        : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")],
-          ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")]])
+          ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")],
+          ["Openverse",()=>openverseImages(q)]])
     : selected === "news"
     ? [["GDELT · prensa", () => gdeltNews(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "news")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
     : selected === "videos"
@@ -317,6 +350,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       // result with direct platform continuation actions in the client.
       ...(platformAllowed("youtube.com")?[["YouTube",()=>youtubeDataVideos(q)]]:[]),
       ["Brave · Vídeos",()=>braveSearch(videoQuery,"videos")],
+      ["PeerTube",()=>peertubeVideos(q)],
       ...(platformAllowed("youtube.com")?[
         ["Brave · YouTube",async()=>verifiedVideoResults(
           await braveSearch(q+" site:youtube.com","web"),"YouTube")],
@@ -408,10 +442,12 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       webIndex:available.some(name=>name==="Brave"||name==="Google"||
         /^(Brave|Google) · /.test(name) && !name.endsWith(" no configurado")),
       archive:archive,
-      providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length
+      providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length,
+      openverseAvailable:available.includes("Openverse")
     }:null,
     videoCoverage: selected==="videos"?{
       youtubeApi:available.includes("YouTube"),
+      peertubeAvailable:available.includes("PeerTube"),
       webIndex:available.some(name=>/^(Brave|Google) · /.test(name) &&
         !name.endsWith(" no configurado")),
       providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length
