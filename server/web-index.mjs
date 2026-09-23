@@ -12,7 +12,8 @@ export function indexedUrl(value){
     const u=new URL(value);
     if(u.protocol!=="https:"||u.username||u.password||u.port&&u.port!=="443")return null;
     const h=u.hostname.toLowerCase().replace(/\.$/,"");
-    if(!h.includes(".")||/\.(?:local|localhost|internal|test|invalid|onion)$/.test(h)||
+    if(!/^[a-z0-9.-]+$/.test(h)||!h.includes(".")||
+      /\.(?:local|localhost|internal|test|invalid|onion)$/.test(h)||
       /^(?:localhost|\d{1,3}(?:\.\d{1,3}){3})$/.test(h)||
       /^(?:wikimedia\.org|wikipedia\.org|wikidata\.org)$/.test(h)||
       /\.(?:wikimedia|wikipedia|wikidata)\.org$/.test(h))return null;
