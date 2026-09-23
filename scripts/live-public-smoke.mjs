@@ -89,7 +89,8 @@ if(!ready){
       const videos=await request("/api/search?q=YouTube&type=videos");
       const honest=videos.ok&&videos.marker&&videos.body?.mediaCollection==="web"&&
         Array.isArray(videos.body?.results)&&videos.body.results.every(item=>
-          item.platform==="PeerTube"&&item.source==="PeerTube · vídeo abierto"&&
+          ((item.platform==="PeerTube"&&item.source==="PeerTube · vídeo abierto")||
+           (item.platform==="Wikimedia Commons"&&item.source==="Wikimedia Commons · Video"))&&
           /^https?:/i.test(item.url||""));
       console.log(honest?"LIVE PASS":"LIVE FAIL","YouTube video without provider",
         "HTTP",videos.status,"count",videos.body?.results?.length??null);
@@ -105,6 +106,23 @@ if(!ready){
       if(!valid)process.exitCode=1;
     }
   }
+  // News must return real, attributable, dated records from production feeds.
+  // One transient provider outage must not invalidate other responding sources.
+  const news=await request("/api/search?q=inteligencia%20artificial&type=news&window=7d&fresh=1");
+  const stories=news.body?.results||[];
+  const newsGood=news.ok&&news.marker&&news.body?.type==="news"&&
+    news.body?.newsWindow==="7d"&&
+    Array.isArray(news.body?.newsCoverage?.respondingSources)&&
+    news.body.newsCoverage.respondingSources.length>0&&
+    Array.isArray(stories)&&stories.length>0&&
+    stories.some(item=>Number.isFinite(Date.parse(item.date||item.seenAt)))&&
+    stories.every(item=>typeof item.source==="string"&&
+      /^https?:/i.test(item.url||""));
+  console.log(newsGood?"LIVE PASS":"LIVE FAIL","federated live news",
+    "HTTP",news.status,"count",stories.length,
+    "sources",news.body?.newsCoverage?.respondingSources?.join(",")||"none",
+    "failed",news.body?.failedSources?.join(",")||"none");
+  if(!newsGood)process.exitCode=1;
   // Verify the deployed knowledge mode, not only fixture-based unit tests.
   // External catalogs may independently fail; the API must still expose
   // honest per-source failures and must never relabel them as general web.
@@ -124,12 +142,18 @@ if(!ready){
   // Exercise the real public translator end to end; capabilities alone do
   // not prove that the provider returns translated text from Render.
   try{
-    const response=await fetch(new URL("/api/translate",base),{
-      method:"POST",credentials:"omit",cache:"no-store",
-      headers:{"content-type":"application/json",accept:"application/json"},
-      body:JSON.stringify({text:"Hola mundo",source:"es",target:"en"}),
-      signal:AbortSignal.timeout(14000)
-    });
+    let response;
+    for(let attempt=0;attempt<2;attempt++){
+      response=await fetch(new URL("/api/translate",base),{
+        method:"POST",credentials:"omit",cache:"no-store",
+        headers:{"content-type":"application/json",accept:"application/json"},
+        body:JSON.stringify({text:"Hola mundo",source:"es",target:"en"}),
+        signal:AbortSignal.timeout(14000)
+      });
+      if(response.status!==429||attempt===1)break;
+      console.log("LIVE RATE LIMIT /api/translate, retrying after one minute");
+      await sleep(61000);
+    }
     const own=response.headers.get("x-waeweb-api")==="1";
     const body=await response.json();
     const valid=response.status===200&&own&&
