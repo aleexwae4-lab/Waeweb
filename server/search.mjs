@@ -29,11 +29,26 @@ export async function wikipedia(query) {
     format: "json", utf8: "1", origin: "*"
   }).toString();
   const data = await json(u);
-  return (data.query?.search || []).map(item => result(
-    item.title,
-    "https://es.wikipedia.org/?curid=" + encodeURIComponent(item.pageid),
-    item.snippet, "Wikipedia"
-  ));
+  return (data.query?.search || []).filter(item=>Number.isSafeInteger(item.pageid)&&item.pageid>0)
+    .map(item=>({
+      ...result(item.title,"https://es.wikipedia.org/?curid="+item.pageid,
+        item.snippet,"Wikipedia"),pageId:item.pageid
+    }));
+}
+// Fixed public host + validated numeric ID: no user-controlled fetch URL.
+export async function wikipediaSummary(pageId){
+  if(!/^[1-9][0-9]{0,11}$/.test(String(pageId||"")))
+    return {error:"Artículo no válido."};
+  const u=new URL("https://es.wikipedia.org/w/api.php");
+  u.search=new URLSearchParams({action:"query",prop:"extracts",explaintext:"1",
+    exintro:"1",pageids:String(pageId),format:"json"}).toString();
+  const data=await json(u);
+  const page=data.query?.pages?.[String(pageId)];
+  if(!page||page.missing!==undefined||!page.title)
+    return {error:"Este artículo ya no está disponible."};
+  return {pageId:Number(pageId),title:clean(page.title),
+    extract:clean(page.extract).replace(/\s+([.,;!?])/g,"$1").slice(0,4500),
+    source:"Wikipedia",url:"https://es.wikipedia.org/?curid="+pageId};
 }
 export async function crossref(query) {
   const u = new URL("https://api.crossref.org/works");
@@ -312,8 +327,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   if(!["web","commons"].includes(collection) ||
     (collection==="commons" && !["images","videos"].includes(selected)))
     return {error:"Colección de búsqueda no válida para esta categoría."};
-  // Commons is an opt-in OPEN ARCHIVE, never a surrogate for the web, YouTube
-  // or TikTok. Cache entries for the two collections must remain isolated.
+  // Wikimedia is a named content source; collection=commons is a filter,
+  // never a substitute identity for YouTube, TikTok or the general web.
   const archive=collection==="commons" || spec.source==="wikimedia";
   const key = selected + ":" + page + ":" + collection + ":" + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
@@ -338,16 +353,16 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
        ? [["Wikimedia Commons", () => wikimediaImages(q)]]
        : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")],
           ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")],
-          ["Openverse",()=>openverseImages(q)]])
+          ["Openverse",()=>openverseImages(q)],
+          ...(spec.site && !platformAllowed("commons.wikimedia.org")?[]:
+            [["Wikimedia Commons",()=>wikimediaImages(q)]])])
     : selected === "news"
     ? [["GDELT · prensa", () => gdeltNews(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "news")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
     : selected === "videos"
     ? archive
       ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)]]
       : [
-      // WEB video mode must never silently fall back to Wikimedia Commons.
-      // It returns real web/video-platform providers only, or an honest empty
-      // result with direct platform continuation actions in the client.
+      // Federate source-backed Commons clips with their own native player.
       ...(platformAllowed("youtube.com")?[["YouTube",()=>youtubeDataVideos(q)]]:[]),
       ["Brave · Vídeos",()=>braveSearch(videoQuery,"videos")],
       ["PeerTube",()=>peertubeVideos(q)],
@@ -362,7 +377,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
           await braveSearch(q+" site:tiktok.com","web"),"TikTok")],
         ["Google · TikTok",async()=>verifiedVideoResults(
           await googleSearch(q+" site:tiktok.com","web"),"TikTok")]
-      ]:[])
+      ]:[]),
+      ...(spec.site && !platformAllowed("commons.wikimedia.org")?[]:
+        [["Wikimedia Commons · Video",()=>wikimediaVideos(q)]])
     ]
     : selected === "research"
     ? [["Crossref", () => crossref(q)], ["OpenAlex", () => openAlex(q)], ["Europe PMC", () => europePMC(q)], ["Wikipedia", () => wikipedia(q)]]
@@ -373,17 +390,14 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
        ["Library of Congress",()=>libraryOfCongress(q)],["DataCite",()=>dataCite(q)]]
     : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
-       // Discovery is a specialist public-link feed; it is not a general
-       // Internet index. Never silently substitute Wikipedia or Wikimedia.
+       // Search general-web results and separately attributed knowledge.
        ...(page===1 && !spec.source && !spec.site
          ? [["WAE Discovery",()=>discoverOpenWeb(q)]]:[]),
-       // User-specified source operators still allow an explicit encyclopedia
-       // lookup; an ordinary web search never silently becomes Wikipedia.
-       ...(page===1 && spec.source==="wikipedia"?[["Wikipedia", () => wikipedia(q)]]:[]),
+       ...(page===1 && !spec.site && (!spec.source||spec.source==="wikipedia")
+         ? [["Wikipedia",()=>wikipedia(q)]]:[]),
        ...(page===1 && spec.source==="wikidata"?[["Wikidata", () => wikidata(q)]]:[])];
-  // The default SERP is a WEB search, not a mixed academic/book feed.
-  // Crossref, OpenAlex and Europe PMC belong to Investigación; Open Library
-  // belongs to Libros. General web coverage depends on a configured index.
+  // Wikipedia complements the web but is not a general Internet index.
+  // Research, book and specialist catalogs remain separately attributed.
   // The local index is a bounded volatile cache of independently sourced
   // article-link metadata. It does not contain scraped article bodies.
   const previous=selected==="all"&&page===1&&!spec.source&&!spec.site
@@ -454,7 +468,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }:null,
     webCoverage: selected === "all"
       ? (available.some(name => name === "Brave" || name === "Google") ? "general-index"
-         : available.some(name=>name==="WAE Discovery"||name==="WAE Index local")
+         : available.some(name=>name==="Wikipedia"||name==="WAE Discovery"||name==="WAE Index local")
            ? "specialized":"limited")
       : null,
     webDiscovery:selected==="all"?{
@@ -465,8 +479,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }:null,
     failedSources: errors, fetchedAt: new Date().toISOString(),
     message: !available.some(s => !s.includes("no configurado"))
-      ? (selected==="all"?"No hay un índice web general conectado. WAEWEB no sustituirá Internet con Wikipedia ni Wikimedia."
-        :selected==="videos"?"No hay un índice de vídeo web conectado. WAEWEB no sustituirá YouTube o TikTok con Wikimedia."
+      ? (selected==="all"?"No se recuperaron resultados de las fuentes disponibles."
+        :selected==="videos"?"No se recuperaron vídeos para esta búsqueda."
         :"No hay proveedores disponibles para esta categoría.")
       : null
   };

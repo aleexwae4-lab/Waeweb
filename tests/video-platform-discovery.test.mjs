@@ -102,7 +102,7 @@ test("video player stays isolated and loads only on click; server serves module"
   const player=readFileSync(new URL("../public/youtube-player.js",import.meta.url),"utf8");
   assert.match(app,/createYoutubeFrame\(item\.videoId,item\.title\)/);
   assert.match(app,/▶ Reproducir YouTube aquí/);
-  assert.match(app,/https:\/\/www\.tiktok\.com\/search\?q=/);
+  assert.doesNotMatch(app,/https:\/\/www\.tiktok\.com\/search\?q=/);
   assert.match(player,/youtube-nocookie\.com\/embed/);
   assert.match(player,/^[\s\S]*document\.createElement\("iframe"\)/);
   const server=http.createServer((req,res)=>handler(req,res).catch(e=>{res.statusCode=500;res.end(e.message);}));

@@ -16,18 +16,39 @@ async function withoutIndexes(callback){
     KEYS.forEach((k,i)=>{if(saved[i]===undefined)delete process.env[k];else process.env[k]=saved[i];});
   }
 }
-test("video/web/images no longer manufacture relevance from Wikimedia or Wikipedia without indexes",async()=>{
+test("default search returns attributed Wikipedia and Wikimedia even without a paid index",async()=>{
   await withoutIndexes(async()=>{
-    globalThis.fetch=()=>{throw Error("An archive must not be queried without explicit consent");};
-    for(const [type,q] of [["all","YouTube"],["videos","YouTube"],["images","YouTube"]]){
-      const result=await search(q+"-provider-integrity-check",type,{fresh:true});
-      assert.deepEqual(result.results,[],type);
-      assert.ok(result.sources.every(name=>name.endsWith(" no configurado")),type);
-      assert.ok(result.message,type);
-    }
+    const seen=[];
+    globalThis.fetch=async input=>{
+      const u=new URL(input);seen.push(u.hostname);
+      if(u.hostname==="es.wikipedia.org")return new Response(JSON.stringify({
+        query:{search:[{title:"Inteligencia artificial",pageid:321,snippet:"Conocimiento público"}]}}),{status:200});
+      if(u.hostname==="commons.wikimedia.org"){
+        const video=u.searchParams.get("gsrsearch")?.startsWith("filetype:video ");
+        return new Response(JSON.stringify({query:{pages:video
+          ?{"1":{title:"File:AI.webm",imageinfo:[{mime:"video/webm",descriptionurl:"https://commons.wikimedia.org/wiki/File:AI.webm",url:"https://upload.wikimedia.org/ai.webm"}]}}
+          :{"2":{title:"File:AI.jpg",imageinfo:[{mime:"image/jpeg",descriptionurl:"https://commons.wikimedia.org/wiki/File:AI.jpg",thumburl:"https://upload.wikimedia.org/ai.jpg"}]}}
+        }}),{status:200});
+      }
+      throw Error("Other source unavailable");
+    };
+    const web=await search("inteligencia artificial","all",{fresh:true});
+    assert.equal(web.results.length,1);
+    assert.equal(web.results[0].source,"Wikipedia");
+    assert.equal(web.results[0].pageId,321);
+    assert.equal(web.webCoverage,"specialized");
+    const videos=await search("inteligencia artificial","videos",{fresh:true});
+    assert.equal(videos.results.length,1);
+    assert.equal(videos.results[0].source,"Wikimedia Commons · Video");
+    assert.equal(videos.results[0].platform,"Wikimedia Commons");
+    assert.equal(videos.mediaCollection,"web");
+    const images=await search("inteligencia artificial","images",{fresh:true});
+    assert.equal(images.results.length,1);
+    assert.equal(images.results[0].source,"Wikimedia Commons");
+    assert.ok(seen.includes("commons.wikimedia.org"));
   });
 });
-test("open archive is opt-in and never leaks into general or platform results",async()=>{
+test("archive-only filter remains available alongside federated default results",async()=>{
   await withoutIndexes(async()=>{
     const seen=[];
     globalThis.fetch=async url=>{
@@ -79,9 +100,9 @@ test("public media API rejects archive misuse and returns honest zero video resu
 });
 test("search UI separates open archive from platform search, including history and empty state",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
-  assert.match(app,/Explorar archivo Wikimedia/);
-  assert.match(app,/Volver a búsqueda web/);
+  assert.match(app,/Wikimedia Commons/);
+  assert.match(app,/Todos los resultados/);
   assert.match(app,/collection=commons/);
   assert.match(app,/state\.results\.some\(item=>safeUrl\(item\.url\)&&safeUrl\(item\.image\)\)/);
-  assert.match(app,/Sin índice general de imágenes/);
+  assert.doesNotMatch(app,/Sin índice general de imágenes/);
 });

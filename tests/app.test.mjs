@@ -15,7 +15,7 @@ test("dedupe removes invalid and repeated links", () => {
     { title: "Bad", url: "javascript:alert(1)" }
   ]).length, 1);
 });
-test("general web never impersonates an encyclopedia; explicit wiki lookup stays available", async () => {
+test("general web includes attributed encyclopedia results and explicit wiki lookup stays available", async () => {
   const original=globalThis.fetch;
   const saved=[process.env.BRAVE_SEARCH_API_KEY,process.env.GOOGLE_SEARCH_API_KEY,process.env.GOOGLE_SEARCH_ENGINE_ID];
   delete process.env.BRAVE_SEARCH_API_KEY;
@@ -32,9 +32,11 @@ test("general web never impersonates an encyclopedia; explicit wiki lookup stays
   };
   try{
     const data=await search("concepto prueba sintética","all",{fresh:true});
-    assert.deepEqual(data.results,[]);
-    assert.equal(data.webCoverage,"limited");
-    assert.ok(visited.every(url=>!url.includes("wikipedia.org")&&!url.includes("wikidata.org")));
+    assert.equal(data.results.length,1);
+    assert.equal(data.results[0].source,"Wikipedia");
+    assert.equal(data.webCoverage,"specialized");
+    assert.ok(visited.some(url=>url.includes("es.wikipedia.org")));
+    assert.ok(visited.every(url=>!url.includes("wikidata.org")));
     const explicit=await search("concepto prueba sintética source:wikipedia","all",{fresh:true});
     assert.equal(explicit.results.length,1);
     assert.equal(explicit.results[0].source,"Wikipedia");
