@@ -914,3 +914,27 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 /* Pinterest results remain native image tiles, with readable provenance. */
 .image-tile-badges{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
 .image-tile-platform{display:inline-flex;border:1px solid rgba(255,180,191,.7);border-radius:24px;padding:5px 8px;background:rgba(173,35,56,.9);color:#fff;font-size:10px;font-weight:800;box-shadow:0 3px 12px #0006;backdrop-filter:blur(7px)}
+
+/* Video discovery studio: playback takes priority over outbound navigation. */
+.video-results-studio{border:1px solid rgba(143,187,250,.32);border-radius:22px;padding:clamp(17px,3vw,29px);background:radial-gradient(circle at 95% -10%,rgba(69,113,208,.28),transparent 56%),linear-gradient(140deg,#0f213c,#070f1e);box-shadow:0 18px 53px #0006;margin:0 0 18px}
+.video-results-studio h2{font-size:clamp(23px,3.7vw,34px);letter-spacing:-.045em;line-height:1.17;color:#f0f6ff;margin:7px 0 8px}
+.video-results-studio p{font-size:12px;line-height:1.6;color:#b5cae8;margin:0}
+.video-platform-filters{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 12px}
+.video-platform-filter{border:1px solid #5276a6;border-radius:22px;padding:9px 13px;min-height:44px;background:#14243c;color:#d5e5ff}
+.video-platform-filter[aria-pressed="true"]{background:linear-gradient(110deg,#8ebeff,#c5b7ff);color:#08162e;border-color:#cae2ff;font-weight:800}
+.video-playable-filter{border-color:rgba(99,227,201,.65);background:rgba(31,123,120,.24)}
+.video-original-searches{padding:8px 0;margin:4px 0 16px;color:#a8bddd;font-size:12px}
+.video-original-searches summary{cursor:pointer;min-height:30px}
+.video-original-searches .video-platform-links{margin:9px 0}
+.video-result{border:1px solid rgba(128,176,241,.27);border-radius:19px;background:linear-gradient(150deg,#101c31,#091323);box-shadow:0 12px 28px rgba(0,0,0,.24);padding:clamp(15px,2.6vw,22px);overflow:hidden}
+.video-result>.book-cover{border-radius:14px;width:min(100%,270px);max-width:40%;aspect-ratio:16/9;object-fit:cover}
+.video-result>.video-primary-play,.video-result>.save-button{border-radius:12px;padding:11px 16px;background:linear-gradient(100deg,#3d72be,#24549a);border:1px solid #89b8ff;color:#fff;font-size:13px;font-weight:750;min-height:46px}
+.video-result>.video-primary-play:hover{background:#396dbc;box-shadow:0 0 22px #518ad54b}
+.youtube-player-slot{width:100%;max-width:100%;margin-top:12px}
+.youtube-inline-frame,.video-inline-frame{display:block;width:100%;max-width:100%;aspect-ratio:16/9;height:auto;min-height:210px;border:1px solid #3d608e;border-radius:14px;background:#050a15}
+.video-native-slot:has(.video-inline-frame[src*="tiktok.com"]){max-width:430px;margin-inline:auto}
+.video-native-slot .video-inline-frame[src*="tiktok.com"]{aspect-ratio:9/16;min-height:480px}
+.video-native-player{width:100%;aspect-ratio:16/9;max-height:560px;object-fit:contain;background:#050910}
+.video-playback-status{margin:8px 0;font-size:12px;line-height:1.6;color:#bfd4f3}
+@media(max-width:600px){.video-result>.book-cover{width:100%;max-width:100%;height:auto;max-height:250px;float:none}.video-inline-frame,.youtube-inline-frame{min-height:205px}.video-native-slot .video-inline-frame[src*="tiktok.com"]{min-height:390px}.video-results-studio{padding:17px}}
+@media(prefers-reduced-motion:reduce){.video-result{animation:none}}
