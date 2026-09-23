@@ -96,11 +96,12 @@ if(!ready){
       if(!honest)process.exitCode=1;
     }
     for(const type of ["images","videos"]){
-      const media=await request("/api/search?q=waeweb%20nature&type="+type);
+      const media=await request("/api/search?q="+(type==="images"?"cat":"nature")+"&type="+type);
       const valid=media.ok&&media.marker&&media.body?.type===type&&
         Array.isArray(media.body?.results)&&Array.isArray(media.body?.failedSources);
       console.log(valid?"LIVE PASS":"LIVE FAIL","public "+type+" API","HTTP",media.status,
-        "results",media.body?.results?.length??null,"failed",media.body?.failedSources?.join(",")||"none");
+        "results",media.body?.results?.length??null,"sources",media.body?.sources?.join(",")||"none",
+        "failed",media.body?.failedSources?.join(",")||"none");
       if(!valid)process.exitCode=1;
     }
   }
