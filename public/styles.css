@@ -771,3 +771,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .browser-form input{font-size:16px}
  .browser-access span{flex-basis:100%}
 }
+
+.web-coverage-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+.web-coverage-actions .link-button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:9px 15px;border:1px solid rgba(158,199,254,.46);border-radius:11px;background:#264b7a;color:#eef6ff;text-decoration:none;font-weight:750}
+.web-coverage-actions .link-button:hover,.web-coverage-actions .link-button:focus-visible{border-color:#c5e0ff;background:#315f98}
+@media(max-width:600px){.web-coverage-actions .link-button{flex:1 1 100px;min-width:0}}
