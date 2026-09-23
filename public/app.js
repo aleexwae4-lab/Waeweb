@@ -550,13 +550,33 @@ function renderData(data) {
       " · "+(data.webCoverage==="limited"?"Cobertura web limitada · ":"")+
       (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
   renderPanel(data);
-  if (state.type === "research" || state.type === "index") {
+  if (["research","knowledge","index"].includes(state.type)) {
     const filteredBrief = state.selectedSource ? {
       ...data, brief: { ...data.brief, notes: (data.brief?.notes || []).filter(note => note.source === state.selectedSource) }
     } : data;
     renderSummary(filteredBrief);
   }
   else answer.replaceChildren();
+  if(state.type==="knowledge"){
+    const overview=element("section","knowledge-source-overview");
+    overview.setAttribute("aria-label","Cobertura de fuentes documentales");
+    const coverage=data.knowledgeCoverage;
+    const recovered=new Set(state.results.map(item=>item.source));
+    overview.append(
+      element("span","knowledge-eyebrow","◈ BIBLIOTECA DOCUMENTAL · FUENTES RASTREABLES"),
+      element("h2","","Conocimiento, no resultados de toda Internet"),
+      element("p","","Documentos y fichas recuperados de catálogos independientes. Comprueba el contenido de cada fuente antes de usarlo como evidencia.")
+    );
+    const totals=element("div","knowledge-metrics");
+    totals.append(element("span","tag",state.results.length+" documentos"),
+      element("span","tag",recovered.size+" fuentes con resultados"),
+      element("span","tag",(coverage?.retrievedSources?.length||0)+" catálogos consultados"));
+    overview.append(totals);
+    if(data.failedSources?.length)overview.append(element("p","knowledge-partial",
+      "Algunas fuentes no respondieron: "+data.failedSources.join(", ")+". Los resultados proceden de las que sí respondieron."));
+    overview.append(button("⌕ Buscar en la web",()=>performSearch(state.query,"all"),"link-button"));
+    resultsContainer.append(overview);
+  }
   if (state.type === "businesses") {
     state.results.forEach(item => resultsContainer.append(renderPublicBusiness(item)));
   } else if (state.type === "images") {
@@ -668,6 +688,9 @@ function renderData(data) {
       element("p","","No se recuperaron resultados de un índice web general. Las fuentes públicas disponibles no sustituyen la búsqueda de todo Internet. Abre un buscador real para continuar."),
       destinations
     );
+    notice.append(button("◈ Consultar fuentes de conocimiento",()=>{
+      void performSearch(state.query,"knowledge");
+    },"knowledge-switch"));
     resultsContainer.prepend(notice);
   }
 }
@@ -720,6 +743,10 @@ function renderSearchFallback(query,message){
   const links=element("div","search-fallback-links");
   const encoded=encodeURIComponent(query);
   const options={
+    knowledge:[
+      ["https://www.loc.gov/search/?q="+encoded,"↗ Biblioteca del Congreso"],
+      ["https://openlibrary.org/search?q="+encoded,"↗ Open Library"]
+    ],
     images:[
       ["https://commons.wikimedia.org/w/index.php?search="+encoded+"&title=Special:MediaSearch&type=image","↗ Imágenes en Wikimedia Commons"],
       ["https://www.google.com/search?tbm=isch&q="+encoded,"↗ Imágenes en Google"]
@@ -1033,6 +1060,7 @@ function showEmptyCategory(type,push=true){
   panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
   const categories={
     all:["Búsqueda web WAEWEB","La búsqueda general consulta índices web conectados. Investigación, bibliotecas y archivos abiertos tienen categorías separadas.",["Inteligencia artificial","Tecnología en México"]],
+    knowledge:["Conocimiento verificable","Consulta enciclopedias, entidades, ciencia, libros y catálogos documentales. No es un índice general de Internet.",["Inteligencia artificial","Medicina","Historia de México"]],
     research:["Investigación","Publicaciones científicas, Wikidata y fuentes bibliográficas.",["Inteligencia artificial","Investigación médica"]],
     images:["Imágenes web","Busca imágenes de proveedores conectados; Wikimedia Commons se consulta como archivo abierto aparte.",["Jalisco","Arquitectura mexicana"]],
     news:["Noticias","Artículos recientes de medios disponibles, con enlaces originales.",["Inteligencia artificial","México"]],
