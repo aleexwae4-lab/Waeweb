@@ -328,7 +328,61 @@ function renderCompactVideo(item,index){
   }
   return card;
 }
+// News and knowledge receive a compact, attributable reading card. It never
+// implies that a feed snippet or catalog abstract is the complete article.
+function renderInformationCard(item,index){
+  const url=safeUrl(item.url);
+  if(!url)return null;
+  const news=state.type==="news";
+  const card=element("article","result-card wae-information-card "+
+    (news?"news-result":"wae-knowledge-result"));
+  if(news&&index===0)card.classList.add("news-lead");
+  card.style.animationDelay=Math.min(index*.025,.3)+"s";
+  const heading=element("div","wae-information-heading");
+  const source=item.publisher&&news?item.publisher:item.source||"Fuente pública";
+  heading.append(element("span","wae-information-source",source));
+  if(item.date)heading.append(element("time","wae-information-date",
+    (news?"Publicado · ":"")+formatDate(item.date)));
+  else if(news&&item.seenAt)heading.append(element("span","wae-information-date",
+    "Detectado · "+formatDate(item.seenAt)));
+  const title=button(item.title,()=>openBrowser(url),"wae-information-title");
+  title.title="Explorar el documento en WAE WEB";
+  card.append(heading,title);
+  if(safeUrl(item.image)){
+    const image=element("img","wae-information-image");
+    image.src=safeUrl(item.image);image.alt="Imagen de la fuente: "+item.title;
+    image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
+    image.addEventListener("error",()=>image.remove(),{once:true});
+    card.append(image);
+  }
+  if(item.snippet)card.append(element("p","wae-information-snippet",item.snippet));
+  const actions=element("div","wae-information-actions");
+  const play=button("▶ Escuchar",()=>listenToResult(item),"wae-information-listen");
+  play.disabled=!voiceReader.snapshot().available;
+  if(play.disabled)play.title="La síntesis de voz no está disponible en este navegador.";
+  const open=button("◎ Leer aquí",()=>openBrowser(url),"wae-information-open");
+  const more=element("details","wae-information-more");
+  more.append(element("summary","","⋯ Más"));
+  const options=element("div","wae-information-more-content");
+  const original=external(url,"↗ Fuente original","wae-information-link");
+  const copy=button("⧉ Copiar referencia",()=>copyText(
+    [item.title,source,item.date||item.seenAt||"Fecha no informada",url].join("\n")),
+    "wae-information-link");
+  const save=button(workspace.has(url)?"◆ Guardado":"◇ Guardar fuente",()=>{
+    const outcome=workspace.add(item);
+    if(outcome.ok){save.textContent="◆ Guardado";save.disabled=true;refreshLibraryCount();}
+    else stats.textContent=outcome.reason;
+  },"wae-information-link");
+  save.disabled=workspace.has(url);
+  options.append(original,copy,save);
+  more.append(options);
+  actions.append(play,open,more);
+  card.append(actions);
+  return card;
+}
 function renderResult(item, index) {
+  if(["news","knowledge","research"].includes(state.type))
+    return renderInformationCard(item,index);
   if(state.type==="videos")return renderCompactVideo(item,index);
   const url = safeUrl(item.url);
   if (!url) return null;
