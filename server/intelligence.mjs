@@ -110,11 +110,31 @@ export function diversifyWebResults(items, {limit=12,maxPerHost=2}={}) {
   }
   return [...featured,...deferred];
 }
+// Fair first-page exposure across independent catalogs. Preserve each
+// provider's internally ranked order and return EVERY source-backed record.
+export function diversifyKnowledgeResults(items){
+  const buckets=new Map();
+  for(const item of items){
+    if(!buckets.has(item.source))buckets.set(item.source,[]);
+    buckets.get(item.source).push(item);
+  }
+  const groups=[...buckets.values()];
+  const ordered=[];
+  let pending=true;
+  while(pending){
+    pending=false;
+    for(const group of groups)if(group.length){
+      ordered.push(group.shift());pending=true;
+    }
+  }
+  return ordered;
+}
 export function rankResults(items, spec, type = "all") {
   const ranked=items.filter(item => eligible(item, spec))
     .map((item, i) => ({ ...item, _score: scoreResult(item, spec.query, type), _order: i }))
     .sort((a, b) => b._score - a._score || a._order - b._order)
     .map(({ _score, _order, ...item }) => item);
+  if(type==="knowledge"&&!spec.source)return diversifyKnowledgeResults(ranked);
   return type==="all" && !spec.site && !spec.source
     ? diversifyWebResults(ranked)
     : ranked;
