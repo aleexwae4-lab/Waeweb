@@ -38,7 +38,8 @@ test("video cards expose real platform filters, native player and truthful empty
   assert.match(app,/aria-label","Filtrar vídeos por plataforma"/);
   assert.match(app,/aria-pressed",String\(state\.videoPlatform===platform\)/);
   assert.match(app,/item\.platform==="YouTube"\|\|item\.platform==="TikTok"/);
-  assert.match(app,/\? button\(item\.title,\(\)=>openBrowser\(url\),"result-title web-result-title"\)/);
+  assert.match(app,/state\.type==="videos"/);
+  assert.match(app,/card\.querySelector\("\.video-primary-play"\)/);
   assert.match(app,/const hasResults=state\.type==="images"/);
   assert.match(app,/Cobertura de plataformas limitada/);
   assert.match(css,/\.video-platform-filter\[aria-pressed="true"\]/);
