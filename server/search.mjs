@@ -3,6 +3,8 @@ import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResul
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
 import {googleBooks, projectGutenberg, congressBooks, internetArchiveBooks, BOOK_SOURCES} from "./book-providers.mjs";
 import {NEWS_WINDOWS,normalizeNewsDate,newsFeedSources,rankNewsResults} from "./news.mjs";
+import {searxngWeb,technicalWebQuery,stackExchangeWeb,mdnWeb} from "./web-providers.mjs";
+import {registerWebHits} from "./web-preview.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -389,6 +391,16 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
        ["Library of Congress",()=>libraryOfCongress(q)],["DataCite",()=>dataCite(q)]]
     : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
+       ...(!spec.source||spec.source==="searxng"
+         ? [["SearXNG",()=>searxngWeb(spec.site?q+" site:"+spec.site:q,page)]]:[]),
+       ...(page===1&&technicalWebQuery(q,spec.site,spec.source)?[
+         ...((!spec.source||spec.source==="stackoverflow")&&platformAllowed("stackoverflow.com")
+           ? [["Stack Overflow",()=>stackExchangeWeb(q,"stackoverflow")]]:[]),
+         ...((!spec.source||spec.source==="superuser")&&platformAllowed("superuser.com")
+           ? [["Super User",()=>stackExchangeWeb(q,"superuser")]]:[]),
+         ...((!spec.source||spec.source==="mdn")&&platformAllowed("developer.mozilla.org")
+           ? [["MDN Web Docs",()=>mdnWeb(q)]]:[])
+       ]:[]),
        // Discovery is a specialist public-link feed; it is not a general
        // Internet index. Wikipedia and Wikidata enrich, not replace, web hits.
        ...(page===1 && !spec.source && !spec.site
@@ -396,9 +408,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
        // Add a bounded number of encyclopedia entries on the first page;
        // other real web providers retain their own relevance and provenance.
        ...(page===1 && !spec.site && (!spec.source || spec.source==="wikipedia")
-         ? [["Wikipedia",async()=>(await wikipedia(q)).slice(0,5)]]:[]),
+         ? [["Wikipedia",async()=>(await wikipedia(q)).slice(0,3)]]:[]),
        ...(page===1 && !spec.site && (!spec.source || spec.source==="wikidata")
-         ? [["Wikidata",async()=>(await wikidata(q)).slice(0,3)]]:[])];
+         ? [["Wikidata",async()=>(await wikidata(q)).slice(0,2)]]:[])];
   // The default SERP is a WEB search, not a mixed academic/book feed.
   // Crossref, OpenAlex and Europe PMC belong to Investigación; Open Library
   // belongs to Libros. General web coverage depends on a configured index.
@@ -459,6 +471,14 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       :rankResults(selected==="videos"
         ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected),
     sources: available,
+    searchCoverage:selected==="all"?{
+      generalIndexes:["Brave","Google","SearXNG"].filter(name=>available.includes(name)),
+      specialistSources:["WAE Discovery","WAE Index local","Stack Overflow",
+        "Super User","MDN Web Docs","Wikipedia","Wikidata"]
+        .filter(name=>available.includes(name)),
+      unconfigured:sources.map(([name])=>name).filter(name=>available.includes(name+" no configurado")),
+      failed:errors,inlineExcerpt:true,entireWebIndexed:false
+    }:null,
     newsCoverage:selected==="news"?{
       mode:"on_demand",window:newsWindow,
       configuredSources:sources.map(([name])=>name),
@@ -484,8 +504,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length
     }:null,
     webCoverage: selected === "all"
-      ? (available.some(name => name === "Brave" || name === "Google") ? "general-index"
-         : available.some(name=>name==="WAE Discovery"||name==="WAE Index local")
+      ? (available.some(name => ["Brave","Google","SearXNG"].includes(name)) ? "general-index"
+         : available.some(name=>["WAE Discovery","WAE Index local",
+             "Stack Overflow","Super User","MDN Web Docs"].includes(name))
            ? "specialized":"limited")
       : null,
     webDiscovery:selected==="all"?{
@@ -501,6 +522,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
         :"No hay proveedores disponibles para esta categoría.")
       : null
   };
+  if(selected==="all")registerWebHits(payload.results);
   // Retain the API's extractive brief for clients that need it, but the
   // consumer search UI displays organic links first and hides this panel.
   payload.brief = ["all","research","knowledge"].includes(selected)
