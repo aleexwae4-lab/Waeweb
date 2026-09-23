@@ -5,7 +5,7 @@ import { osmEmbedUrl, osmPlaceUrl, validMapPlace, localMapCoordinates } from "/m
 import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
-import { createYoutubeFrame } from "/youtube-player.js";
+import { createYoutubeFrame, createPlatformVideoFrame } from "/youtube-player.js";
 // Book UI is lazy-loaded: a library-module outage cannot disable Web, Videos or Images.
 "use strict";
 const byId = id => document.getElementById(id);
@@ -29,7 +29,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24, imagePlatform: "all" };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", videoPlayableOnly: false, mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24, imagePlatform: "all" };
 let activeDirections=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
@@ -259,12 +259,19 @@ function renderResult(item, index) {
     "WAE WEB · "+(item.bookAccess || "Ficha bibliográfica · No implica acceso al texto completo")));
   if (state.type === "videos"){
     const platform=item.platform||"Web";
-    card.append(element("span","tag media-context","Vídeo · Ver en la fuente original"));
+    card.append(element("span","tag media-context",
+      item.playback==="native"||item.playback==="embed"
+        ?"▷ Vídeo reproducible dentro de WAE WEB"
+        :"Vídeo · Consulta en la fuente original"));
     card.append(element("span","tag media-context video-platform",
       platform==="YouTube"?"▶ YouTube":platform==="TikTok"?"♪ TikTok":"▷ "+platform));
   }
   if (item.snippet) card.append(element("p", "snippet", item.snippet));
-  if(state.type==="videos" && /^https:\/\/upload\.wikimedia\.org\//.test(item.mediaUrl||"")){
+  const trustedVideo=state.type==="videos"&&(
+    /^https:\/\/upload\.wikimedia\.org\//.test(item.mediaUrl||"")||
+    item.platform==="Internet Archive"&&/^https:\/\/archive\.org\/download\//.test(item.mediaUrl||"")
+  );
+  if(trustedVideo){
     const stream=element("video","video-native-player");
     stream.controls=true;stream.preload="none";stream.playsInline=true;
     stream.referrerPolicy="no-referrer";
@@ -273,7 +280,7 @@ function renderResult(item, index) {
     const playback=element("p","video-playback-status");
     playback.setAttribute("role","status");
     const play=button("▷ Reproducir aquí",()=>{
-      if(activeInlineVideo && activeInlineVideo!==stream)stopInlineVideo();
+      if(activeInlineVideo && activeInlineVideo!==stream || activeVideoFrame)stopInlineVideo();
       if(stream.hidden){
         stream.hidden=false;stream.src=item.mediaUrl;activeInlineVideo=stream;
         play.textContent="Ⅱ Pausar";
@@ -309,6 +316,29 @@ function renderResult(item, index) {
       play.textContent="Ⅱ Cerrar reproductor";
       message.textContent="Si el autor restringe la reproducción integrada, abre el vídeo original.";
     },"save-button");
+    card.append(play,player,message);
+  }
+  if(state.type==="videos" && ["TikTok","PeerTube"].includes(item.platform) &&
+    (item.platform==="TikTok"&&/^\d{10,25}$/.test(item.videoId||"")||
+     item.platform==="PeerTube"&&safeUrl(item.embedUrl))){
+    const player=element("div","youtube-player-slot video-native-slot");
+    const message=element("p","video-playback-status");
+    message.setAttribute("role","status");
+    const play=button("▶ Reproducir "+item.platform+" aquí",()=>{
+      if(activeVideoFrame && activeVideoFrame.parentElement===player){
+        stopInlineVideo();play.textContent="▶ Reproducir "+item.platform+" aquí";
+        message.textContent="Reproductor cerrado.";return;
+      }
+      stopInlineVideo();
+      try{
+        const frame=createPlatformVideoFrame(item);
+        player.replaceChildren(frame);
+        activeVideoFrame=frame;play.textContent="Ⅱ Cerrar reproductor";
+        message.textContent="Si el propietario o la plataforma restringen este clip, abre la fuente original.";
+      }catch{
+        message.textContent="Reproductor no disponible. Abre la fuente original.";
+      }
+    },"save-button video-primary-play");
     card.append(play,player,message);
   }
   const meta = element("div", "meta-line");
@@ -676,8 +706,10 @@ function renderData(data) {
       (state.imageKind==="all"||item.kind===state.imageKind)&&
       (state.imageOrientation==="all"||item.orientation===state.imageOrientation)&&
       (!state.imageHighRes||Number(item.width)>=1200&&Number(item.height)>=800))
-    :state.type==="videos" && state.videoPlatform!=="all"
-      ?sourceResults.filter(item=>(item.platform||"Web")===state.videoPlatform)
+    :state.type==="videos"
+      ?sourceResults.filter(item=>
+        (state.videoPlatform==="all"||(item.platform||"Web")===state.videoPlatform)&&
+        (!state.videoPlayableOnly||["native","embed"].includes(item.playback)))
       :sourceResults;
   document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
@@ -908,7 +940,7 @@ function renderData(data) {
       if(platforms.length){
         const controls=element("nav","video-platform-filters");
         controls.setAttribute("aria-label","Filtrar vídeos por plataforma");
-        for(const platform of ["all","YouTube","TikTok","Wikimedia Commons","Web"]){
+        for(const platform of ["all","YouTube","TikTok","PeerTube","Internet Archive","Wikimedia Commons","Web"]){
           if(platform!=="all"&&!platforms.includes(platform))continue;
           const amount=platform==="all"?sourceResults.length
             :sourceResults.filter(item=>(item.platform||"Web")===platform).length;
@@ -918,6 +950,14 @@ function renderData(data) {
           },"video-platform-filter");
           control.setAttribute("aria-pressed",String(state.videoPlatform===platform));
           controls.append(control);
+        }
+        const playable=sourceResults.filter(item=>["native","embed"].includes(item.playback)).length;
+        if(playable){
+          const only=button("▶ Ver aquí · "+playable,()=>{
+            state.videoPlayableOnly=!state.videoPlayableOnly;renderData(state.data);
+          },"video-platform-filter video-playable-filter");
+          only.setAttribute("aria-pressed",String(state.videoPlayableOnly));
+          controls.append(only);
         }
         resultsContainer.append(controls);
       }
@@ -929,7 +969,9 @@ function renderData(data) {
         external("https://www.tiktok.com/search?q="+encodeURIComponent(state.query),
           "♪ Buscar en TikTok","link-button")
       );
-      resultsContainer.append(links);
+      const details=element("details","video-original-searches");
+      details.append(element("summary","","Consultar también en plataformas originales"),links);
+      resultsContainer.append(details);
     }
     if(state.type==="all" && state.results.length)
       resultsContainer.append(element("h2","web-results-heading","Resultados web"));
@@ -999,10 +1041,10 @@ function renderData(data) {
     const notice=element("aside","video-coverage-notice");
     notice.setAttribute("role","status");
     notice.append(element("strong","","Cobertura de plataformas limitada"),
-      element("p","",data.videoCoverage.peertubeAvailable
-        ?"Los clips disponibles proceden de PeerTube y Wikimedia Commons con su origen identificado; YouTube y TikTok dependen de sus proveedores."
+      element("p","",data.videoCoverage.peertubeAvailable||data.videoCoverage.archiveAvailable
+        ?"PeerTube, Internet Archive y Wikimedia ofrecen clips propios cuando responden. La recuperación amplia de YouTube y TikTok requiere sus índices."
         :data.videoCoverage.commonsAvailable
-          ?"Los vídeos disponibles proceden de Wikimedia Commons. La cobertura de YouTube y TikTok depende de sus proveedores."
+          ?"Los vídeos recuperados proceden de Wikimedia Commons. YouTube y TikTok requieren índices de búsqueda conectados."
           :"No se recuperaron vídeos de las fuentes disponibles para esta consulta."));
     resultsContainer.prepend(notice);
   }
