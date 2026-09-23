@@ -1,5 +1,6 @@
 import { parseQuery, rankResults, researchBrief } from "./intelligence.mjs";
 import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResults} from "./video-discovery.mjs";
+import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -327,6 +328,10 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
        ["Library of Congress",()=>libraryOfCongress(q)],["DataCite",()=>dataCite(q)]]
     : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
+       // Discovery is a specialist public-link feed; it is not a general
+       // Internet index. Never silently substitute Wikipedia or Wikimedia.
+       ...(page===1 && !spec.source && !spec.site
+         ? [["WAE Discovery",()=>discoverOpenWeb(q)]]:[]),
        // User-specified source operators still allow an explicit encyclopedia
        // lookup; an ordinary web search never silently becomes Wikipedia.
        ...(page===1 && spec.source==="wikipedia"?[["Wikipedia", () => wikipedia(q)]]:[]),
@@ -334,6 +339,10 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   // The default SERP is a WEB search, not a mixed academic/book feed.
   // Crossref, OpenAlex and Europe PMC belong to Investigación; Open Library
   // belongs to Libros. General web coverage depends on a configured index.
+  // The local index is a bounded volatile cache of independently sourced
+  // article-link metadata. It does not contain scraped article bodies.
+  const previous=selected==="all"&&page===1&&!spec.source&&!spec.site
+    ?localWebSearch(q):[];
   const settled = await Promise.allSettled(sources.map(async ([name, fn]) => ({ name, items: await fn() })));
   const errors = [], available = [], results = [];
   let moreFromProviders=false;
@@ -351,6 +360,10 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       ))moreFromProviders=true;
     }
   });
+  if(selected==="all"&&page===1&&!spec.source&&!spec.site && previous.length){
+    results.push(...previous);
+    available.push("WAE Index local");
+  }
   if(selected==="videos"){
     for(const item of results){
       const identity=videoIdentity(item.url);
@@ -387,8 +400,16 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length
     }:null,
     webCoverage: selected === "all"
-      ? (available.some(name => name === "Brave" || name === "Google") ? "general-index" : "limited")
+      ? (available.some(name => name === "Brave" || name === "Google") ? "general-index"
+         : available.some(name=>name==="WAE Discovery"||name==="WAE Index local")
+           ? "specialized":"limited")
       : null,
+    webDiscovery:selected==="all"?{
+      scope:"Hacker News linked pages only",index:webIndexStats(),
+      provider:available.includes("WAE Discovery")?"available":
+        errors.includes("WAE Discovery")?"unavailable":"not_queried",
+      independentlyVerifiedContent:false
+    }:null,
     failedSources: errors, fetchedAt: new Date().toISOString(),
     message: !available.some(s => !s.includes("no configurado"))
       ? (selected==="all"?"No hay un índice web general conectado. WAEWEB no sustituirá Internet con Wikipedia ni Wikimedia."
