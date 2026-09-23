@@ -33,6 +33,7 @@ let state = { query: "", type: "all", results: [], data: null, selectedSource: "
 let activeDirections=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
+let activeVideoReset=null;
 let bookExperience=null, bookGallery=null, bookLoadPromise=null;
 async function loadBookModules(){
   if(bookExperience && bookGallery)return true;
@@ -48,6 +49,9 @@ async function loadBookModules(){
 function stopInlineVideo(){
   if(activeInlineVideo){activeInlineVideo.pause();activeInlineVideo.removeAttribute("src");activeInlineVideo.load();activeInlineVideo=null;}
   if(activeVideoFrame){activeVideoFrame.remove();activeVideoFrame=null;}
+  const reset=activeVideoReset;
+  activeVideoReset=null;
+  reset?.();
 }
 function stopDirections(){activeDirections?.dispose();activeDirections=null;}
 const translator = createTranslator({getJSON,resultsContainer,stats,sourceFilter,answer,weatherSlot,panel});
@@ -206,7 +210,125 @@ function formatDate(value) {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
 }
+// Compact, video-first result cards. The normal result renderer below is
+// retained for web, books and news; video results take this native route.
+function renderCompactVideo(item,index){
+  const url=safeUrl(item.url);
+  if(!url)return null;
+  const platform=item.platform||"Web";
+  const native=(
+    /^https:\/\/upload\.wikimedia\.org\//.test(item.mediaUrl||"")||
+    platform==="Internet Archive"&&/^https:\/\/archive\.org\/download\//.test(item.mediaUrl||"")
+  );
+  const youtube=platform==="YouTube"&&/^[A-Za-z0-9_-]{11}$/.test(item.videoId||"");
+  const thirdParty=platform==="TikTok"&&/^\d{10,25}$/.test(item.videoId||"")||
+    platform==="PeerTube"&&Boolean(safeUrl(item.embedUrl));
+  const playable=native||youtube||thirdParty;
+  const card=element("article","result-card video-result video-card-compact");
+  card.style.animationDelay=Math.min(index*.025,.28)+"s";
+  const preview=playable?button("",startPlayback,"video-compact-preview"):
+    external(url,"","video-compact-preview video-external-preview");
+  preview.setAttribute("aria-label",playable?
+    "Reproducir "+item.title+" aquí":"Abrir "+item.title+" en su sitio original");
+  if(safeUrl(item.image)){
+    const image=element("img","video-compact-thumb");
+    image.src=safeUrl(item.image);image.alt="Vista previa: "+item.title;
+    image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
+    image.addEventListener("error",()=>{
+      image.remove();
+      preview.classList.add("video-no-thumbnail");
+    },{once:true});
+    preview.append(image);
+  }else preview.classList.add("video-no-thumbnail");
+  const overlay=element("span","video-compact-overlay",
+    playable?"▶ Reproducir":"↗ Ver en origen");
+  preview.append(overlay);
+  const frame=element("div","video-compact-player");
+  frame.hidden=true;
+  const head=element("div","video-compact-head");
+  const title=playable
+    ?button(String(item.title||"Vídeo").replace(/\.(?:webm|ogg|ogv|mp4|mov)$/i,"").replace(/_/g," "),
+      startPlayback,"video-compact-title")
+    :external(url,String(item.title||"Vídeo").replace(/\.(?:webm|ogg|ogv|mp4|mov)$/i,"").replace(/_/g," "),
+      "video-compact-title");
+  title.title=item.title||"Vídeo";
+  const source=element("span","video-compact-source",platform);
+  head.append(source,title);
+  const bar=element("div","video-compact-bar");
+  const origin=external(url,"↗ Fuente original","video-compact-origin");
+  const more=element("details","video-compact-more");
+  more.append(element("summary","","⋯ Más"));
+  const options=element("div","video-compact-options");
+  if(item.snippet)options.append(element("p","video-compact-description",item.snippet));
+  if(item.date)options.append(element("span","video-compact-date",formatDate(item.date)));
+  const save=button(workspace.has(url)?"◆ Guardado":"◇ Guardar fuente",()=>{
+    const outcome=workspace.add(item);
+    if(outcome.ok){
+      save.textContent="◆ Guardado";save.disabled=true;
+      stats.textContent=outcome.persisted===false?
+        "Fuente guardada temporalmente.":"Fuente guardada en la biblioteca local.";
+      refreshLibraryCount();
+    }else stats.textContent=outcome.reason;
+  },"video-compact-action");
+  save.disabled=workspace.has(url);
+  options.append(save,button("◎ Explorar en WAE WEB",()=>openBrowser(url),
+    "video-compact-action"));
+  more.append(options);
+  bar.append(origin,more);
+  const status=element("p","video-playback-status video-compact-status");
+  status.hidden=true;status.setAttribute("role","status");
+  const close=button("✕ Cerrar vídeo",()=>stopInlineVideo(),"video-compact-close");
+  close.hidden=true;
+  card.append(preview,frame,head,bar,close,status);
+  function reset(){
+    preview.hidden=false;
+    frame.hidden=true;frame.replaceChildren();
+    close.hidden=true;status.hidden=true;status.textContent="";
+    card.classList.remove("is-playing");
+  }
+  function startPlayback(){
+    if(!playable)return;
+    const already=activeVideoReset===reset;
+    stopInlineVideo();
+    if(already)return;
+    try{
+      let player;
+      if(native){
+        player=element("video","video-native-player video-compact-media");
+        player.controls=true;player.preload="none";player.playsInline=true;
+        player.referrerPolicy="no-referrer";
+        if(safeUrl(item.image))player.poster=safeUrl(item.image);
+        player.src=item.mediaUrl;
+      }else if(youtube)player=createYoutubeFrame(item.videoId,item.title);
+      else player=createPlatformVideoFrame(item);
+      frame.replaceChildren(player);frame.hidden=false;preview.hidden=true;
+      close.hidden=false;card.classList.add("is-playing");
+      activeVideoReset=reset;
+      if(native){
+        activeInlineVideo=player;
+        player.play().catch(()=>{
+          status.hidden=false;
+          status.textContent="No se pudo iniciar aquí; prueba los controles o la fuente original.";
+        });
+        player.addEventListener("error",()=>{
+          status.hidden=false;
+          status.textContent="El archivo no se puede reproducir en este navegador.";
+        });
+      }else{
+        activeVideoFrame=player;
+        status.hidden=false;
+        status.textContent="Si el propietario restringe la inserción, abre la fuente original.";
+      }
+    }catch{
+      reset();
+      status.hidden=false;
+      status.textContent="Reproductor no disponible. Abre la fuente original.";
+    }
+  }
+  return card;
+}
 function renderResult(item, index) {
+  if(state.type==="videos")return renderCompactVideo(item,index);
   const url = safeUrl(item.url);
   if (!url) return null;
   if(state.type==="books" && bookGallery?.renderBookCard){
@@ -991,12 +1113,14 @@ function renderData(data) {
       resultsContainer.append(element("h2","web-results-heading","Resultados web"));
     const displayed=state.type==="all"
       ?state.results.slice(0,state.visibleCount):state.results;
-    const cards=state.type==="books"?element("div","wae-library-grid"):resultsContainer;
+    const cards=state.type==="books"?element("div","wae-library-grid"):
+      state.type==="videos"?element("div","video-results-grid"):resultsContainer;
     displayed.forEach((item, index) => {
       const card = renderResult(item, index);
       if (card) cards.append(card);
     });
-    if(state.type==="books" && cards.children.length)resultsContainer.append(cards);
+    if(["books","videos"].includes(state.type)&&cards.children.length)
+      resultsContainer.append(cards);
     if(state.type==="all" && state.visibleCount<state.results.length){
       const remaining=state.results.length-state.visibleCount;
       const more=button("Mostrar más resultados ("+Math.min(10,remaining)+")",()=>{
