@@ -15,27 +15,37 @@ test("dedupe removes invalid and repeated links", () => {
     { title: "Bad", url: "javascript:alert(1)" }
   ]).length, 1);
 });
-test("federated search attributes real provider data and signals provider failures", async () => {
-  const original = globalThis.fetch;
-  globalThis.fetch = async url => {
-    const name = String(url);
-    if (name.includes("es.wikipedia.org")) return new Response(JSON.stringify({
-      query: { search: [{ title: "Test académico", pageid: 123, snippet: "Contenido <b>rastreable</b>" }] }
-    }), { status: 200 });
-    return new Response("unavailable", { status: 503 });
+test("general web never impersonates an encyclopedia; explicit wiki lookup stays available", async () => {
+  const original=globalThis.fetch;
+  const saved=[process.env.BRAVE_SEARCH_API_KEY,process.env.GOOGLE_SEARCH_API_KEY,process.env.GOOGLE_SEARCH_ENGINE_ID];
+  delete process.env.BRAVE_SEARCH_API_KEY;
+  delete process.env.GOOGLE_SEARCH_API_KEY;
+  delete process.env.GOOGLE_SEARCH_ENGINE_ID;
+  const visited=[];
+  globalThis.fetch=async url=>{
+    visited.push(String(url));
+    if(String(url).includes("es.wikipedia.org"))
+      return new Response(JSON.stringify({query:{search:[
+        {title:"Test académico",pageid:123,snippet:"Contenido <b>rastreable</b>"}
+      ]}}),{status:200});
+    return new Response("unavailable",{status:503});
   };
-  try {
-    const data = await search("concepto prueba sintética");
-    assert.equal(data.results.length, 1);
-    assert.equal(data.results[0].source, "Wikipedia");
-    assert.equal(data.results[0].snippet, "Contenido rastreable");
-    assert.match(data.results[0].url, /curid=123/);
-    assert.ok(data.failedSources.includes("Wikidata"));
-    assert.ok(!data.failedSources.includes("Crossref"));
-    assert.ok(!data.failedSources.includes("OpenAlex"));
+  try{
+    const data=await search("concepto prueba sintética","all",{fresh:true});
+    assert.deepEqual(data.results,[]);
     assert.equal(data.webCoverage,"limited");
+    assert.ok(visited.every(url=>!url.includes("wikipedia.org")&&!url.includes("wikidata.org")));
+    const explicit=await search("concepto prueba sintética source:wikipedia","all",{fresh:true});
+    assert.equal(explicit.results.length,1);
+    assert.equal(explicit.results[0].source,"Wikipedia");
+    assert.equal(explicit.results[0].snippet,"Contenido rastreable");
+    assert.match(explicit.results[0].url,/curid=123/);
     assert.ok(!("estimatedHits" in data));
-  } finally { globalThis.fetch = original; }
+  }finally{
+    globalThis.fetch=original;
+    for(const [k,value] of [["BRAVE_SEARCH_API_KEY",saved[0]],["GOOGLE_SEARCH_API_KEY",saved[1]],["GOOGLE_SEARCH_ENGINE_ID",saved[2]]])
+      if(value===undefined)delete process.env[k];else process.env[k]=value;
+  }
 });
 test("news without configured search does not invent stories", async () => {
   const oldFetch=globalThis.fetch;
