@@ -52,6 +52,7 @@ const files = new Map([
   ["/royalties.js", ["royalties.js", "text/javascript; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/book-experience.js", ["book-experience.js", "text/javascript; charset=utf-8"]],
+  ["/book-gallery.js", ["book-gallery.js", "text/javascript; charset=utf-8"]],
   ["/book-experience.css", ["book-experience.css", "text/css; charset=utf-8"]],
   ["/youtube-player.js", ["youtube-player.js", "text/javascript; charset=utf-8"]],
   ["/browser.js", ["browser.js", "text/javascript; charset=utf-8"]],
