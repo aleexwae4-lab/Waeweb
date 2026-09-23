@@ -6,6 +6,7 @@ import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
 import { createYoutubeFrame, createPlatformVideoFrame } from "/youtube-player.js";
+import { createVoiceReader } from "/voice-reader.js";
 // Book UI is lazy-loaded: a library-module outage cannot disable Web, Videos or Images.
 "use strict";
 const byId = id => document.getElementById(id);
@@ -327,7 +328,61 @@ function renderCompactVideo(item,index){
   }
   return card;
 }
+// News and knowledge receive a compact, attributable reading card. It never
+// implies that a feed snippet or catalog abstract is the complete article.
+function renderInformationCard(item,index){
+  const url=safeUrl(item.url);
+  if(!url)return null;
+  const news=state.type==="news";
+  const card=element("article","result-card wae-information-card "+
+    (news?"news-result":"wae-knowledge-result"));
+  if(news&&index===0)card.classList.add("news-lead");
+  card.style.animationDelay=Math.min(index*.025,.3)+"s";
+  const heading=element("div","wae-information-heading");
+  const source=item.publisher&&news?item.publisher:item.source||"Fuente pública";
+  heading.append(element("span","wae-information-source",source));
+  if(item.date)heading.append(element("time","wae-information-date",
+    (news?"Publicado · ":"")+formatDate(item.date)));
+  else if(news&&item.seenAt)heading.append(element("span","wae-information-date",
+    "Detectado · "+formatDate(item.seenAt)));
+  const title=button(item.title,()=>openBrowser(url),"wae-information-title");
+  title.title="Explorar el documento en WAE WEB";
+  card.append(heading,title);
+  if(safeUrl(item.image)){
+    const image=element("img","wae-information-image");
+    image.src=safeUrl(item.image);image.alt="Imagen de la fuente: "+item.title;
+    image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
+    image.addEventListener("error",()=>image.remove(),{once:true});
+    card.append(image);
+  }
+  if(item.snippet)card.append(element("p","wae-information-snippet",item.snippet));
+  const actions=element("div","wae-information-actions");
+  const play=button("▶ Escuchar",()=>listenToResult(item),"wae-information-listen");
+  play.disabled=!voiceReader.snapshot().available;
+  if(play.disabled)play.title="La síntesis de voz no está disponible en este navegador.";
+  const open=button("◎ Leer aquí",()=>openBrowser(url),"wae-information-open");
+  const more=element("details","wae-information-more");
+  more.append(element("summary","","⋯ Más"));
+  const options=element("div","wae-information-more-content");
+  const original=external(url,"↗ Fuente original","wae-information-link");
+  const copy=button("⧉ Copiar referencia",()=>copyText(
+    [item.title,source,item.date||item.seenAt||"Fecha no informada",url].join("\n")),
+    "wae-information-link");
+  const save=button(workspace.has(url)?"◆ Guardado":"◇ Guardar fuente",()=>{
+    const outcome=workspace.add(item);
+    if(outcome.ok){save.textContent="◆ Guardado";save.disabled=true;refreshLibraryCount();}
+    else stats.textContent=outcome.reason;
+  },"wae-information-link");
+  save.disabled=workspace.has(url);
+  options.append(original,copy,save);
+  more.append(options);
+  actions.append(play,open,more);
+  card.append(actions);
+  return card;
+}
 function renderResult(item, index) {
+  if(["news","knowledge","research"].includes(state.type))
+    return renderInformationCard(item,index);
   if(state.type==="videos")return renderCompactVideo(item,index);
   const url = safeUrl(item.url);
   if (!url) return null;
@@ -524,6 +579,9 @@ function renderResult(item, index) {
     }
   }
   if(state.type==="all"){
+    const listen=button("▶ Escuchar resultado",()=>listenToResult(item),"save-button wae-result-voice");
+    listen.disabled=!voiceReader.snapshot().available;
+    meta.append(listen);
     meta.append(external(url,"↗ Fuente original","save-button"));
     if(url.startsWith("https://")){
       const extract=element("div","web-inline-extract");
@@ -536,7 +594,10 @@ function renderResult(item, index) {
           extract.replaceChildren(
             element("strong","","Extracto de "+(data.title||shortHost(url))),
             element("p","",data.excerpt),
-            element("small","",data.disclaimer));
+            element("small","",data.disclaimer),
+            button("▶ Escuchar este extracto",
+              ()=>readAloud(data.excerpt,"Extracto de "+(data.title||item.title)),
+              "save-button wae-result-voice"));
           preview.textContent="✓ Extracto disponible";
         }catch(error){
           extract.replaceChildren(element("p","","No se pudo leer esta página aquí: "+
@@ -666,16 +727,82 @@ function renderImages(items) {
   });
   return grid;
 }
-function speechSynthesisSafeCancel() {
-  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+// One accessible, shared reader for Noticias, Conocimiento, Investigación
+// and the Web. It voices ONLY text supplied by a real result or preview.
+let voiceDock=null;
+const voiceReader=createVoiceReader({win:window,onChange:updateVoiceDock});
+function updateVoiceDock(snapshot){
+  if(!voiceDock)return;
+  voiceDock.hidden=snapshot.phase==="idle";
+  if(snapshot.phase==="idle")return;
+  byId("wae-voice-title").textContent=snapshot.label||"Lectura de fuentes";
+  byId("wae-voice-status").textContent=
+    (snapshot.phase==="paused"?"Pausado · ":"Leyendo · ")+
+    (snapshot.index+1)+" de "+snapshot.total+" fragmentos";
+  const toggle=byId("wae-voice-toggle");
+  toggle.textContent=snapshot.phase==="paused"?"▶ Continuar":"Ⅱ Pausar";
+  toggle.setAttribute("aria-pressed",String(snapshot.phase==="paused"));
+  const voice=byId("wae-voice-select");
+  const signature=snapshot.voices.map(v=>v.uri).join("|");
+  if(voice.dataset.signature!==signature){
+    const last=voice.value;
+    voice.replaceChildren(new Option("Voz del navegador",""));
+    snapshot.voices.forEach(item=>voice.add(new Option(item.name+" · "+item.lang,item.uri)));
+    voice.dataset.signature=signature;
+    voice.value=snapshot.voiceURI||last;
+  }
+  byId("wae-voice-rate").value=String(snapshot.rate);
 }
-function readAloud(text) {
-  if (!("speechSynthesis" in window)) { stats.textContent = "La lectura por voz no está disponible en este navegador."; return; }
-  if (window.speechSynthesis.speaking) { window.speechSynthesis.cancel(); return; }
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "es-MX"; utterance.rate = 1;
-  window.speechSynthesis.speak(utterance);
+function installVoiceDock(){
+  voiceDock=element("aside","wae-voice-dock");
+  voiceDock.id="wae-voice-dock";
+  voiceDock.hidden=true;
+  voiceDock.setAttribute("aria-label","Lector de voz de WAE WEB");
+  const heading=element("div","wae-voice-heading");
+  const title=element("strong","","Lectura de fuentes");title.id="wae-voice-title";
+  const status=element("span","","");status.id="wae-voice-status";
+  status.setAttribute("role","status");
+  heading.append(title,status);
+  const actions=element("div","wae-voice-actions");
+  const pause=button("Ⅱ Pausar",()=>{
+    const phase=voiceReader.snapshot().phase;
+    if(phase==="paused")voiceReader.resume();
+    else voiceReader.pause();
+  },"wae-voice-toggle");pause.id="wae-voice-toggle";
+  const stop=button("■ Detener",()=>voiceReader.stop(),"wae-voice-stop");
+  const rate=element("select","wae-voice-rate");
+  rate.id="wae-voice-rate";rate.setAttribute("aria-label","Velocidad de lectura");
+  for(const speed of [.75,1,1.15,1.3,1.5])
+    rate.add(new Option(speed+"×",String(speed)));
+  rate.value="1";rate.addEventListener("change",()=>voiceReader.setRate(rate.value));
+  const voice=element("select","wae-voice-select");
+  voice.id="wae-voice-select";voice.setAttribute("aria-label","Voz del navegador");
+  voice.add(new Option("Voz del navegador",""));
+  voice.addEventListener("change",()=>voiceReader.setVoice(voice.value));
+  actions.append(pause,stop,rate,voice);
+  voiceDock.append(heading,actions);
+  document.body.append(voiceDock);
+  window.speechSynthesis?.addEventListener?.("voiceschanged",()=>voiceReader.refresh());
 }
+installVoiceDock();
+function speechSynthesisSafeCancel(){voiceReader.stop();}
+function readAloud(text,title="Panorama de fuentes"){
+  if(!voiceReader.snapshot().available){
+    stats.textContent="Este navegador no ofrece lectura por voz. Prueba uno con síntesis de voz.";
+    return;
+  }
+  voiceReader.play({title,text,lang:"es-MX"});
+}
+function listenToResult(item,label="Escuchar extracto"){
+  const current=voiceReader.snapshot();
+  if(current.phase!=="idle"&&current.label===String(item.title||"Lectura de fuentes").slice(0,100)){
+    if(current.phase==="paused")voiceReader.resume();
+    else voiceReader.pause();
+    return;
+  }
+  readAloud([item.snippet].filter(Boolean).join(" "),item.title||label);
+}
+
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); stats.textContent = "Copiado al portapapeles."; }
   catch { stats.textContent = "No se pudo copiar. Comprueba los permisos del navegador."; }
@@ -721,7 +848,9 @@ function renderSummary(data) {
   const markdown = briefMarkdown(data);
   append(actions,
     button("⧉ Copiar panorama y fuentes", () => copyText(markdown)),
-    button("◖ Leer / detener", () => readAloud(notes.map(n => n.statement).join(". "))),
+    button("▶ Escuchar panorama", () => readAloud(
+      notes.map(n=>n.title+". "+n.statement+". Fuente: "+n.source).join(". "),
+      "Panorama documental")),
     button("◇ Guardar fuentes", () => {
       let saved = 0;
       for (const note of notes) {
@@ -813,6 +942,7 @@ function renderPublicBusiness(item) {
 }
 function renderData(data) {
   stopInlineVideo();
+  speechSynthesisSafeCancel();
   state.data = data;
   const allResults = data.results || [];
   const options = [...new Set(allResults.map(item => item.source).filter(Boolean))].sort();
@@ -955,13 +1085,33 @@ function renderData(data) {
     }
     const reload=button("↻ Actualizar noticias",()=>{void refreshNews();},"news-refresh");
     controls.append(reload);
+    const bulletin=button("▶ Escuchar boletín",()=>{
+      const items=state.results.slice(0,8);
+      const script=items.map((item,i)=>[
+        "Noticia "+(i+1)+": "+item.title,
+        item.snippet||"",
+        "Fuente: "+(item.publisher||item.source||"No identificada"),
+        item.date?"Publicado: "+formatDate(item.date):
+          item.seenAt?"Detectado: "+formatDate(item.seenAt):""
+      ].filter(Boolean).join(". ")).join(". ");
+      readAloud(script,"Boletín de titulares · "+state.query);
+    },"news-bulletin");
+    bulletin.disabled=!voiceReader.snapshot().available||!state.results.length;
+    if(bulletin.disabled)bulletin.title="Sin titulares o voz del navegador no disponible.";
+    controls.append(bulletin);
     header.append(intro,controls);
     const coverage=data.newsCoverage;
     const status=element("p","news-live-status",
       "Consultado: "+(data.fetchedAt?new Date(data.fetchedAt).toLocaleString("es-MX"):"sin hora")+
-      " · "+(coverage?.respondingSources?.length||0)+" fuentes respondieron"+
+      " · "+state.results.length+" titulares de "+new Set(state.results.map(
+        item=>item.publisher||item.source||"Fuente")).size+" medios/fuentes"+
+      " · "+(coverage?.respondingSources?.length||0)+" proveedores respondieron"+
       (data.failedSources?.length?" · "+data.failedSources.length+" sin respuesta":""));
     header.append(status);
+    const note=element("p","news-reading-note",
+      "El boletín lee titulares y extractos recuperados, no artículos completos. "+
+      "Publicado y detectado son fechas distintas; comprueba los detalles en el origen.");
+    header.append(note);
     resultsContainer.append(header);
   }
   if(state.type==="books"){
@@ -1035,8 +1185,10 @@ function renderData(data) {
     const recovered=new Set(state.results.map(item=>item.source));
     overview.append(
       element("span","knowledge-eyebrow","◈ BIBLIOTECA DOCUMENTAL · FUENTES RASTREABLES"),
-      element("h2","","Conocimiento, no resultados de toda Internet"),
-      element("p","","Documentos y fichas recuperados de catálogos independientes. Comprueba el contenido de cada fuente antes de usarlo como evidencia.")
+      element("h2","","Información con fuentes identificables"),
+      element("p","","Enciclopedias, investigaciones y catálogos documentales reunidos "+
+        "para consultar extractos y abrir sus fichas dentro de WAE WEB. "+
+        "Una referencia no equivale a verificación independiente.")
     );
     const totals=element("div","knowledge-metrics");
     totals.append(element("span","tag",state.results.length+" documentos"),
@@ -1045,7 +1197,15 @@ function renderData(data) {
     overview.append(totals);
     if(data.failedSources?.length)overview.append(element("p","knowledge-partial",
       "Algunas fuentes no respondieron: "+data.failedSources.join(", ")+". Los resultados proceden de las que sí respondieron."));
-    overview.append(button("⌕ Buscar en la web",()=>performSearch(state.query,"all"),"link-button"));
+    const actions=element("div","knowledge-reading-actions");
+    actions.append(button("▶ Escuchar resultados",()=>{
+      const script=state.results.slice(0,10).map((item,i)=>(
+        "Fuente "+(i+1)+". "+item.title+". "+(item.snippet||"")+
+        ". Origen: "+(item.source||"no informado"))).join(". ");
+      readAloud(script,"Información · "+state.query);
+    },"link-button"));
+    actions.append(button("⌕ Buscar en la web",()=>performSearch(state.query,"all"),"link-button"));
+    overview.append(actions);
     resultsContainer.append(overview);
   }
   if (state.type === "businesses") {
@@ -1114,12 +1274,14 @@ function renderData(data) {
     const displayed=state.type==="all"
       ?state.results.slice(0,state.visibleCount):state.results;
     const cards=state.type==="books"?element("div","wae-library-grid"):
-      state.type==="videos"?element("div","video-results-grid"):resultsContainer;
+      state.type==="videos"?element("div","video-results-grid"):
+      ["news","knowledge","research"].includes(state.type)
+        ?element("div","wae-reading-grid"):resultsContainer;
     displayed.forEach((item, index) => {
       const card = renderResult(item, index);
       if (card) cards.append(card);
     });
-    if(["books","videos"].includes(state.type)&&cards.children.length)
+    if(["books","videos","news","knowledge","research"].includes(state.type)&&cards.children.length)
       resultsContainer.append(cards);
     if(state.type==="all" && state.visibleCount<state.results.length){
       const remaining=state.results.length-state.visibleCount;

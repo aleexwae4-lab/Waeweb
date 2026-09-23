@@ -57,6 +57,7 @@ const files = new Map([
   ["/book-gallery.js", ["book-gallery.js", "text/javascript; charset=utf-8"]],
   ["/book-experience.css", ["book-experience.css", "text/css; charset=utf-8"]],
   ["/youtube-player.js", ["youtube-player.js", "text/javascript; charset=utf-8"]],
+  ["/voice-reader.js", ["voice-reader.js", "text/javascript; charset=utf-8"]],
   ["/browser.js", ["browser.js", "text/javascript; charset=utf-8"]],
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
   ["/omnibox.js", ["omnibox.js", "text/javascript; charset=utf-8"]],
