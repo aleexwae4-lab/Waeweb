@@ -32,7 +32,7 @@ test("official Library of Congress provider preserves source records, rejects fo
   }finally{globalThis.fetch=old;}
 });
 
-test("knowledge federation recovers seven independently attributed sources, without turning them into web results",async()=>{
+test("knowledge federation recovers eight independently attributed sources, without turning them into web results",async()=>{
   const old=globalThis.fetch;
   const providers=[];
   globalThis.fetch=async url=>{
@@ -61,6 +61,10 @@ test("knowledge federation recovers seven independently attributed sources, with
       {id:"https://www.loc.gov/item/123/",title:"Artificial intelligence archive",
         description:["Archival catalog"],date:"2024"}
     ]};
+    else if(u.hostname==="api.datacite.org")json={data:[
+      {id:"10.1234/wae",attributes:{doi:"10.1234/wae",
+        titles:[{title:"Artificial intelligence dataset"}],publisher:"Archive"}}
+    ]};
     else throw Error("Unexpected index "+u.hostname);
     return new Response(JSON.stringify(json),{status:200});
   };
@@ -69,14 +73,14 @@ test("knowledge federation recovers seven independently attributed sources, with
     assert.equal(data.type,"knowledge");
     assert.equal(data.knowledgeCoverage.generalWebIndex,undefined);
     assert.equal(data.knowledgeCoverage.index,"not_general_web");
-    assert.equal(data.results.length,7);
-    assert.equal(new Set(data.results.map(x=>x.source)).size,7);
-    assert.equal(data.knowledgeCoverage.retrievedSources.length,7);
+    assert.equal(data.results.length,8);
+    assert.equal(new Set(data.results.map(x=>x.source)).size,8);
+    assert.equal(data.knowledgeCoverage.retrievedSources.length,8);
     assert.equal(data.brief.kind,"extractive");
     assert.equal(data.brief.notes.length,7);
     assert.equal(data.webCoverage,null);
     assert.equal(data.failedSources.length,0);
-    assert.equal(providers.length,7);
+    assert.equal(providers.length,8);
     assert.ok(!providers.includes("api.search.brave.com"));
   }finally{globalThis.fetch=old;}
 });
