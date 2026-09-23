@@ -18,6 +18,7 @@ test("Render WAEWEB serves every module/style needed by the native book library"
     ["/","text/html","/book-experience.css"],
     ["/app.js","text/javascript","/book-experience.js"],
     ["/book-experience.js","text/javascript","export function openBookDetail"],
+    ["/book-gallery.js","text/javascript","export function renderBookCard"],
     ["/book-experience.css","text/css",".wae-book-dialog"]
   ]){
     const res=await fetch(origin+path);
