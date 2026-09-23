@@ -37,6 +37,7 @@ export function openBookDetail(item, { workspace, onSaved } = {}) {
   dialog.setAttribute("aria-labelledby", "wae-book-detail-title");
   const heading = text("div", "wae-book-dialog-heading");
   const headingCopy = text("div");
+  headingCopy.id = "wae-book-detail-title";
   headingCopy.append(text("span", "wae-book-eyebrow", "WAE WEB · BIBLIOTECA"),
     text("span", "wae-book-note", "Ficha bibliográfica · No es una oferta de venta"));
   const close = action("✕", () => dialog.close(), "wae-book-dialog-close");
@@ -60,9 +61,9 @@ export function openBookDetail(item, { workspace, onSaved } = {}) {
     text("p", "wae-book-detail-description", item.snippet || "Datos bibliográficos pendientes de confirmar."));
   if (item.date) details.append(text("p", "wae-book-detail-year", "Primera publicación registrada: " + item.date));
   details.append(text("p", "wae-book-detail-warning",
-    "Esta ficha no acredita disponibilidad de lectura, descarga, préstamo o compra. Consulta la edición y sus derechos en el catálogo de origen."));
+    "Esta ficha no acredita disponibilidad de lectura, descarga, préstamo o compra. Consulta las ediciones y sus derechos en el catálogo de origen."));
   const actions = text("div", "wae-book-detail-actions");
-  actions.append(link("↗ Consultar edición en origen", item.url, "wae-book-primary"));
+  actions.append(link("↗ Consultar obra en origen", item.url, "wae-book-primary"));
   if (workspace?.add && workspace?.has) {
     const save = action(workspace.has(item.url) ? "◆ En mi biblioteca" : "◇ Guardar en mi biblioteca", () => {
       const outcome = workspace.add(item);
