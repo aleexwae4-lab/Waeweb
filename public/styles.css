@@ -785,3 +785,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .media-collection-choice .link-button:hover,.media-collection-choice .link-button:focus-visible{background:#366396;border-color:#aed3ff}
 .video-coverage-notice .link-button{display:inline-flex;align-items:center;min-height:44px;margin-top:10px;padding:9px 14px;border:1px solid #648cc0;border-radius:10px;background:#284b77;color:#f4f8ff;text-decoration:none}
 @media(max-width:600px){.media-collection-choice .link-button{width:100%}}
+
+/* RC44 · Provenance-first knowledge atlas: separate from general web SERP. */
+.knowledge-source-overview{display:grid;gap:11px;margin:9px 0 20px;padding:21px 23px;border:1px solid rgba(130,180,246,.45);border-radius:18px;background:linear-gradient(125deg,#112943,#0b172b 75%);color:#eaf3ff;box-shadow:0 14px 38px rgba(4,13,30,.2)}
+.knowledge-source-overview .knowledge-eyebrow{font-size:11px;letter-spacing:.08em;font-weight:800;color:#9ec8ff}
+.knowledge-source-overview h2{font-size:clamp(18px,3vw,25px);line-height:1.28;margin:0}
+.knowledge-source-overview p{font-size:13px;line-height:1.65;color:#c6d5e9;margin:0}
+.knowledge-metrics{display:flex;gap:8px;flex-wrap:wrap;margin:3px 0}
+.knowledge-metrics .tag{font-size:11px;border-color:rgba(150,186,231,.4);background:rgba(75,126,187,.22);padding:7px 10px}
+.knowledge-source-overview .knowledge-partial{color:#f6d7a5;font-size:12px}
+.knowledge-source-overview .link-button,.web-coverage-notice .knowledge-switch{justify-self:start;min-height:44px;border:1px solid rgba(158,199,254,.55);border-radius:11px;background:#254d7b;color:#f2f8ff;padding:10px 15px;font-size:12px;font-weight:800;cursor:pointer}
+.knowledge-source-overview .link-button:hover,.web-coverage-notice .knowledge-switch:hover{background:#35669e}
+.web-coverage-notice .knowledge-switch{display:block;margin-top:12px}
+@media(max-width:600px){.knowledge-source-overview{padding:15px;gap:10px}.knowledge-metrics .tag{flex:1 1 auto}.knowledge-source-overview .link-button,.web-coverage-notice .knowledge-switch{width:100%}}
