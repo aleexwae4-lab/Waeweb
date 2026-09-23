@@ -193,7 +193,7 @@ export async function handler(req, res) {
     publicMode:previewMode() ? "isolated" : "full", 
     revision: (process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA)?.slice(0,12) || null });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
-    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
+    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Google News RSS", "BBC Mundo RSS", "El País RSS", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
     mapsEnabled: true, mapPrecision: "locality_centroid_or_user_coordinates",
     directions: {...routingCapabilities(),addressSearch:addressCapabilities()},
     translator: publicTranslateConfig(),
@@ -204,6 +204,11 @@ export async function handler(req, res) {
       process.env.BRAVE_SEARCH_API_KEY?.trim() ||
       process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID
     ),
+    newsSearch:{mode:"on_demand_federation",windows:["24h","7d","30d"],cacheSeconds:45,
+      refresh:"manual_or_visible_tab",sources:["GDELT","Google News México",
+        "Google News Internacional","BBC Mundo RSS","El País RSS",
+        "Brave (si configurado)","Google Programmable Search (si configurado)"],
+      continuousStreaming:false,publicationTimestampsOnlyWhenProvided:true},
     knowledgeSearch:{mode:"public_federation",generalWebIndex:false,
       sources:["Wikipedia","Wikidata","Crossref","OpenAlex","Europe PMC",
         "Open Library","Library of Congress","DataCite"],generative:false},
@@ -506,8 +511,13 @@ export async function handler(req, res) {
         if(!/^[1-5]$/.test(rawPage))
           return write(res,400,{error:"La página de búsqueda debe estar entre 1 y 5."});
         const collection=u.searchParams.get("collection")||"web";
+        const newsWindow=u.searchParams.get("window")||"7d";
+        if(!["24h","7d","30d"].includes(newsWindow))
+          return write(res,400,{error:"Ventana de noticias no válida."});
+        const force=u.searchParams.get("fresh");
+        if(force!==null&&force!=="1")return write(res,400,{error:"Parámetro fresh inválido."});
         const data = await search(q, u.searchParams.get("type") || "all",
-          {page:Number(rawPage),collection});
+          {page:Number(rawPage),collection,newsWindow,fresh:force==="1"});
         return write(res, data.error ? 400 : 200, data);
       }
       if (u.pathname === "/api/maps") {
