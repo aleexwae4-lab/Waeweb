@@ -529,8 +529,8 @@ function downloadLibrary() {
 }
 function renderPanel(data) {
   panel.replaceChildren();
-  const card = element("section", "panel");
-  card.append(element("h2", "", "◈ Transparencia de búsqueda"));
+  const card = element("details", "panel");
+  card.append(element("summary", "", "Fuentes y detalles de la consulta"));
   card.append(element("p", "", data.type === "businesses"
     ? "Fichas publicadas voluntariamente por sus propietarios. WAE WEB todavía no verifica identidad, titularidad ni información comercial."
     : "Resultados devueltos por proveedores externos; WAE WEB no asigna una cifra global ficticia."));
@@ -576,7 +576,7 @@ function renderData(data) {
   options.forEach(name => sourceFilter.add(new Option(name, name)));
   if (!options.includes(state.selectedSource)) state.selectedSource = "";
   sourceFilter.value = state.selectedSource;
-  sourceFilter.hidden = state.type==="books";
+  sourceFilter.hidden = state.type==="books" || !options.length;
   const sourceResults = state.selectedSource
     ? allResults.filter(item => item.source === state.selectedSource):allResults;
   if(state.type==="videos" && state.videoPlatform!=="all" &&
@@ -631,16 +631,13 @@ function renderData(data) {
     header.append(details);
     resultsContainer.append(header);
   }
-  if(["images","videos"].includes(state.type)&&state.query){
-    const archive=state.mediaCollection==="commons";
+  // An archival catalog is an opt-in research tool, not a primary media result.
+  // Never promote Wikimedia as the next step in a regular video/image query.
+  if(["images","videos"].includes(state.type) && state.mediaCollection==="commons"){
     const pick=element("nav","media-collection-choice");
-    pick.setAttribute("aria-label","Elegir origen de imágenes y vídeos");
-    pick.append(
-      element("span","tag",archive?"Colección: archivo abierto":"Colección: búsqueda web"),
-      button(archive?"← Volver a búsqueda web":"▤ Explorar archivo Wikimedia",()=>{
-        void performSearch(state.query,state.type,true,archive?"web":"commons");
-      },"link-button")
-    );
+    pick.append(button("← Volver a resultados web",()=>{
+      void performSearch(state.query,state.type,true,"web");
+    },"link-button"));
     resultsContainer.append(pick);
   }
   // Weather races with federated search. A late result must not erase an early card.
@@ -648,12 +645,7 @@ function renderData(data) {
   const visible = state.type==="all" ? Math.min(count,state.visibleCount) : count;
   stats.textContent=state.type==="books"
     ? count+" libro"+(count===1?"":"s")+" · Biblioteca WAE WEB"
-    : count===0 && data.message
-    ? "Sin resultados de los índices conectados · "+data.message
-    : (state.type==="all" ? "Mostrando "+visible+" de "+count : count+" resultado"+(count===1?"":"s"))+
-      " · "+(data.webCoverage==="limited"?"Cobertura web limitada · ":
-        data.webCoverage==="specialized"?"Cobertura web especializada · ":"")+
-      (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
+    : count+" resultado"+(count===1?"":"s")+" · WAE WEB";
   renderPanel(data);
   if (["research","knowledge","index"].includes(state.type)) {
     const filteredBrief = state.selectedSource ? {
@@ -706,15 +698,7 @@ function renderData(data) {
         }
         resultsContainer.append(controls);
       }
-      const links=element("nav","video-platform-links");
-      links.setAttribute("aria-label","Búsqueda directa de clips");
-      links.append(
-        external("https://www.youtube.com/results?search_query="+encodeURIComponent(state.query),
-          "▶ Buscar en YouTube","link-button"),
-        external("https://www.tiktok.com/search?q="+encodeURIComponent(state.query),
-          "♪ Buscar en TikTok","link-button")
-      );
-      resultsContainer.append(links);
+      // Only source-backed clips are displayed: no exit links masquerading as hits.
     }
     if(state.type==="all" && state.results.length)
       resultsContainer.append(element("h2","web-results-heading","Resultados web"));
@@ -768,53 +752,7 @@ function renderData(data) {
       empty.append(chips);resultsContainer.append(empty);
     }else resultsContainer.append(renderSearchFallback(state.query,detail));
   }
-  if(state.type==="videos" && state.mediaCollection!=="commons" &&
-    data.videoCoverage && !data.videoCoverage.youtubeApi &&
-    !data.videoCoverage.webIndex){
-    const notice=element("aside","video-coverage-notice");
-    notice.setAttribute("role","status");
-    notice.append(element("strong","","Cobertura de plataformas limitada"),
-      element("p","",data.videoCoverage.peertubeAvailable
-        ?"Mostramos vídeos reales de PeerTube con su origen identificado. La búsqueda integrada de clips de YouTube y TikTok requiere sus proveedores; puedes continuar en esas plataformas mediante los enlaces."
-        :"Los índices de YouTube, Brave y Google no están disponibles. No sustituimos sus vídeos con Wikimedia; usa los botones de búsqueda directa."));
-    resultsContainer.prepend(notice);
-  }
-  if(state.type==="images" && state.mediaCollection!=="commons" &&
-    data.mediaCoverage && !data.mediaCoverage.webIndex && !data.mediaCoverage.openverseAvailable){
-    const notice=element("aside","video-coverage-notice");
-    notice.setAttribute("role","status");
-    notice.append(element("strong","","Sin índice general de imágenes"),
-      element("p","","No hay un proveedor de imágenes web conectado. Wikimedia es un archivo separado: elige «Explorar archivo Wikimedia» si deseas consultar sus fotografías, o busca imágenes en el sitio original."));
-    notice.append(external("https://www.google.com/search?tbm=isch&q="+encodeURIComponent(state.query),
-      "↗ Buscar imágenes en Google","link-button"));
-    resultsContainer.prepend(notice);
-  }
-  if(state.type==="all" && ["limited","specialized"].includes(data.webCoverage)){
-    const specialized=data.webCoverage==="specialized";
-    const notice=element("aside","web-coverage-notice");
-    notice.setAttribute("role","status");
-    const destinations=element("div","web-coverage-actions");
-    const query=encodeURIComponent(state.query);
-    destinations.append(
-      external("https://www.google.com/search?q="+query,
-        "↗ Google","link-button"),
-      external("https://www.bing.com/search?q="+query,
-        "↗ Bing","link-button"),
-      external("https://www.google.com/search?tbm=vid&q="+query,
-        "↗ Vídeos web","link-button")
-    );
-    notice.append(
-      element("strong","",specialized?"Web abierta · índice especializado":"Cobertura web limitada"),
-      element("p","",specialized
-        ?"Los enlaces proceden de artículos publicados en Hacker News y de un índice temporal de sus metadatos. WAEWEB no ha leído ni verificado el contenido de cada sitio. Este conjunto no representa toda Internet."
-        :"No se recuperaron resultados de un índice web general. Las fuentes públicas disponibles no sustituyen la búsqueda de todo Internet. Abre un buscador real para continuar."),
-      destinations
-    );
-    notice.append(button("◈ Consultar fuentes de conocimiento",()=>{
-      void performSearch(state.query,"knowledge");
-    },"knowledge-switch"));
-    resultsContainer.prepend(notice);
-  }
+
 }
 // Pull an actual subsequent page only on explicit user action. Deduplicate
 // between page boundaries; do not re-fetch Wikipedia as a fake second page.
@@ -860,39 +798,26 @@ async function loadMoreWebResults(){
   }
 }
 function renderSearchFallback(query,message){
-  const isUnavailable=/(no disponible|no respondieron|no hay proveedores|api|http|servidor|error|conectar|fall[oó])/i.test(message||"");
-  const card=stateCard(isUnavailable?"Búsqueda temporalmente no disponible":"No encontramos coincidencias",message);
-  const links=element("div","search-fallback-links");
-  const encoded=encodeURIComponent(query);
-  const options={
-    knowledge:[
-      ["https://www.loc.gov/search/?q="+encoded,"↗ Biblioteca del Congreso"],
-      ["https://openlibrary.org/search?q="+encoded,"↗ Open Library"]
-    ],
-    images:[
-      ["https://commons.wikimedia.org/w/index.php?search="+encoded+"&title=Special:MediaSearch&type=image","↗ Imágenes en Wikimedia Commons"],
-      ["https://www.google.com/search?tbm=isch&q="+encoded,"↗ Imágenes en Google"]
-    ],
-    videos:[
-      ["https://www.youtube.com/results?search_query="+encoded,"↗ Vídeos en YouTube"],
-      ["https://www.tiktok.com/search?q="+encoded,"↗ Clips en TikTok"],
-      ["https://commons.wikimedia.org/w/index.php?search="+encoded+"&title=Special:MediaSearch&type=video","↗ Vídeos en Wikimedia Commons"]
-    ],
-    books:[
-      ["https://openlibrary.org/search?q="+encoded,"↗ Buscar en Open Library"],
-      ["https://books.google.com/books?q="+encoded,"↗ Buscar en Google Books"]
-    ],
-    maps:[["https://www.openstreetmap.org/search?query="+encoded,"↗ Buscar en OpenStreetMap"]]
-  };
-  const defaults=[
-    ["https://www.google.com/search?q="+encoded,"↗ Buscar en Google"],
-    ["https://es.wikipedia.org/w/index.php?search="+encoded,"↗ Buscar en Wikipedia"]
-  ];
-  for(const [url,label] of options[state.type]||defaults)links.append(external(url,label,"link-button"));
-  card.append(element("p","research-disclaimer",
-    "Continuar en servicios externos: estos enlaces no representan resultados recuperados por WAEWEB."),links);
+  const noProvider=/(no hay (un )?(índice|proveedores)|no disponible|no respondieron|http|servidor|conectar|fall[oó])/i.test(message||"");
+  const noun=state.type==="videos"?"vídeos":state.type==="images"?"imágenes":
+    state.type==="news"?"noticias":"resultados";
+  const title=noProvider?"No podemos recuperar "+noun+" ahora":"No encontramos "+noun;
+  const detail=noProvider
+    ?"La búsqueda de esta categoría no está disponible en este momento. No mostraremos contenido ajeno como si fuera un resultado."
+    :"Prueba con términos más concretos o cambia la búsqueda.";
+  const card=stateCard(title,detail);
+  const actions=element("div","search-fallback-links");
+  actions.append(button("↻ Reintentar",()=>{
+    void performSearch(query,state.type,false,state.mediaCollection);
+  },"link-button"));
+  if(state.type!=="all" && state.type!=="books")
+    actions.append(button("Buscar en la web",()=>{
+      void performSearch(query,"all");
+    },"link-button"));
+  card.append(actions);
   return card;
 }
+
 async function renderWeather(query, signal, sequence) {
   if (!/^(clima|tiempo|temperatura|pron[oó]stico)\b/i.test(query)) return;
   try {
