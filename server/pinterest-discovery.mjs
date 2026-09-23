@@ -36,7 +36,8 @@ export function labelPinterestImages(items){
     const url=pinterestPinUrl(item.url);
     if(!url||!item.image)return item;
     const origin=item.source==="Brave Search"?"Brave":
-      item.source==="Google Programmable Search"?"Google":null;
+      item.source==="Google Programmable Search"?"Google":
+      item.source==="SearXNG · imágenes"?"SearXNG":null;
     return origin?{...item,url,source:"Pinterest · vía "+origin,
       imagePlatform:"Pinterest",pinId:url.match(/\/pin\/([0-9]+)\//)?.[1],
       discoveryIndex:origin,license:null}:item;
