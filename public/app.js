@@ -301,6 +301,36 @@ function renderResult(item, index) {
   }, "save-button");
   save.disabled = workspace.has(url);
   meta.append(save);
+  if(state.type==="all" && item.hnStory && url.startsWith("https://")){
+    const excerpt=element("p","web-index-excerpt");
+    excerpt.setAttribute("role","status");
+    const crawl=button(item.contentRecovered?"✓ Texto ya indexado":"⌕ Leer e indexar página",async()=>{
+      crawl.disabled=true;
+      crawl.textContent="Leyendo página original…";
+      excerpt.textContent="Comprobando permisos robots.txt y conexión segura.";
+      if(!excerpt.isConnected)card.append(excerpt);
+      try{
+        const data=await getJSON("/api/web-index/read?url="+encodeURIComponent(url));
+        if(!data.contentRecovered)throw new Error("No se recuperó texto verificable.");
+        excerpt.textContent="Texto recuperado del sitio original (no verificado como verdadero): "+
+          (data.snippet||"Sin extracto disponible.");
+        crawl.textContent="✓ Texto indexado";
+        stats.textContent="Página indexada en memoria temporal de WAEWEB.";
+      }catch(error){
+        excerpt.textContent="La página no se indexó: "+error.message+
+          " Puedes abrirla en su sitio original.";
+        crawl.textContent="↻ Reintentar indexación";
+        crawl.disabled=false;
+      }
+    },"save-button web-index-action");
+    crawl.disabled=Boolean(item.contentRecovered);
+    meta.append(crawl);
+    if(item.contentRecovered){
+      excerpt.textContent="Texto previamente recuperado del sitio original, sin verificación independiente: "+
+        (item.snippet||"");
+      card.append(excerpt);
+    }
+  }
   if(state.type !== "all")meta.append(external(url,
     state.type==="videos" && item.platform==="TikTok"?"↗ Ver clip en TikTok":
     state.type==="videos" && item.platform==="YouTube"?"↗ Ver en YouTube":
