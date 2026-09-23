@@ -53,6 +53,31 @@ export async function searxngWeb(query,page=1){
   items.hasMorePage=data.results.length>=10;
   return items;
 }
+// An operator-controlled SearXNG instance can return real image records.
+// Never substitute generic web links or fabricate missing image previews.
+export async function searxngImages(query){
+  const configured=searxngConfig();
+  if(!configured)return null;
+  const url=new URL(configured+"/search");
+  url.search=new URLSearchParams({q:query,format:"json",
+    categories:"images",language:"es",safesearch:"1",pageno:"1"}).toString();
+  const data=await loadJson(url);
+  if(!Array.isArray(data.results))throw Error("searxng_images_invalid_response");
+  return data.results.slice(0,35).flatMap(item=>{
+    const link=safeUrl(item.url);
+    const full=safeUrl(item.img_src);
+    const image=safeUrl(item.thumbnail_src||item.thumbnail||item.img_src);
+    const title=decodeWebText(item.title).slice(0,240);
+    if(!link||!image||!title)return [];
+    const sizes=typeof item.resolution==="string"
+      ?item.resolution.match(/^\s*(\d{2,6})\s*[x×]\s*(\d{2,6})\s*$/i):null;
+    const width=sizes?Number(sizes[1]):null,height=sizes?Number(sizes[2]):null;
+    return [{title,url:link,snippet:decodeWebText(item.content),
+      source:"SearXNG · imágenes",date:null,image,
+      fullImage:full,width,height,mime:null,license:null,
+      provenance:typeof item.engine==="string"?item.engine.slice(0,70):null}];
+  });
+}
 const TECH=/\b(?:javascript|typescript|python|react|node(?:\.js)?|linux|android|sql|html|css|api|github|git|programaci[oó]n|codigo|c[oó]digo|backend|frontend|servidor|error|bug|docker|postgres|supabase|vercel|render|prisma|npm|web|desarrollo|development)\b/i;
 export const technicalWebQuery=(query,site=null,source=null)=>
   ["stackoverflow","superuser","mdn"].includes(source)||

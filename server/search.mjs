@@ -6,7 +6,7 @@ import {NEWS_WINDOWS,normalizeNewsDate,newsFeedSources,rankNewsResults} from "./
 import {rankImageResults} from "./image-intelligence.mjs";
 import {pinterestQuery,verifiedPinterestImages,labelPinterestImages}
   from "./pinterest-discovery.mjs";
-import {searxngWeb,technicalWebQuery,stackExchangeWeb,mdnWeb} from "./web-providers.mjs";
+import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb} from "./web-providers.mjs";
 import {registerWebHits} from "./web-preview.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
@@ -393,6 +393,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
        : [...(!pinterestOnly?[
           ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")],
           ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")],
+          ["SearXNG · imágenes",()=>searxngImages(spec.site?q+" site:"+spec.site:q)],
           ...(!spec.site?[["Openverse",()=>openverseImages(q)]]:[]),
           ...(!spec.site || platformAllowed("commons.wikimedia.org")
             ? [["Wikimedia Commons",()=>wikimediaImages(q)]]:[])
@@ -401,7 +402,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
            ["Pinterest · Brave",async()=>verifiedPinterestImages(
              await braveSearch(pinterestQuery(q),"images"),"Brave")],
            ["Pinterest · Google",async()=>verifiedPinterestImages(
-             await googleSearch(pinterestQuery(q),"images"),"Google")]
+             await googleSearch(pinterestQuery(q),"images"),"Google")],
+           ["Pinterest · SearXNG",async()=>verifiedPinterestImages(
+             await searxngImages(pinterestQuery(q)),"SearXNG")]
          ]:[])])
     : selected === "news"
     ? [["GDELT · prensa", () => gdeltNews(q,newsWindow)],
@@ -545,9 +548,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       pinterest:{
         mode:"indexed_public_pins",officialApi:false,
         hits:imageRanked.results.filter(item=>item.imagePlatform==="Pinterest").length,
-        discoveredVia:["Pinterest · Brave","Pinterest · Google"]
+        discoveredVia:["Pinterest · Brave","Pinterest · Google","Pinterest · SearXNG"]
           .filter(name=>available.includes(name)),
-        unconfigured:["Pinterest · Brave","Pinterest · Google"]
+        unconfigured:["Pinterest · Brave","Pinterest · Google","Pinterest · SearXNG"]
           .filter(name=>available.includes(name+" no configurado")),
         notGuaranteed:true
       },
@@ -558,6 +561,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }:null,
     mediaCoverage:["videos","images"].includes(selected)?{
       webIndex:available.some(name=>name==="Brave"||name==="Google"||
+        name==="SearXNG · imágenes"||
         /^(Brave|Google) · /.test(name) && !name.endsWith(" no configurado")),
       archive:archive,
       commonsAvailable:available.some(name=>name==="Wikimedia Commons"||name==="Wikimedia Commons · Video"),

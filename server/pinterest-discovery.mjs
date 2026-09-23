@@ -45,7 +45,8 @@ export function labelPinterestImages(items){
     if(!url||!preview)return item;
     const origin=item.source==="Brave Search"?"Brave":
       item.source==="Google Programmable Search"?"Google":
-      item.source==="Openverse · imágenes abiertas"?"Openverse":null;
+      item.source==="Openverse · imágenes abiertas"?"Openverse":
+      item.source==="SearXNG · imágenes"?"SearXNG":null;
     return origin?{...item,image:preview,url,source:"Pinterest · vía "+origin,
       imagePlatform:"Pinterest",pinId:url.match(/\/pin\/([0-9]+)\//)?.[1],
       discoveryIndex:origin,license:null}:item;
