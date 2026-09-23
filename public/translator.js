@@ -234,10 +234,38 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
         if(bytes>config.maxBytes)throw new Error("El servicio admite "+config.maxBytes+
           " bytes; reduce el texto o utiliza el motor local.");
         status.textContent="Traduciendo mediante "+labelProvider(config)+"…";
-        result=await bounded(()=>getJSON("/api/translate",signal,{
-          method:"POST",headers:{"content-type":"application/json"},
-          body:JSON.stringify({text,source:from.value,target:to.value})
-        }),TRANSLATE_TIMEOUT_MS,signal);
+        try{
+          result=await bounded(()=>getJSON("/api/translate",signal,{
+            method:"POST",headers:{"content-type":"application/json"},
+            body:JSON.stringify({text,source:from.value,target:to.value})
+          }),TRANSLATE_TIMEOUT_MS,signal);
+        }catch(providerError){
+          const quota=/HTTP 429|límite|limite|cuota|quota/i.test(providerError.message||"");
+          if(!quota||engine!=="auto"||!localAvailable()||from.value==="auto")
+            throw providerError;
+          // Provider quotas cannot be bypassed. Retry locally only when the
+          // browser itself exposes its native translation API and the user
+          // selected Automatico. Never invent a "successful" translation.
+          status.textContent="El proveedor alcanzó su cuota. Probando traducción local…";
+          try{
+            const availability=typeof globalThis.Translator.availability==="function"?
+              await bounded(()=>globalThis.Translator.availability({
+                sourceLanguage:from.value,targetLanguage:to.value}),3500,signal):
+              "available";
+            if(availability==="unavailable")throw Error("Par no disponible");
+            const local=await bounded(()=>globalThis.Translator.create({
+              sourceLanguage:from.value,targetLanguage:to.value
+            }),TRANSLATE_TIMEOUT_MS,signal);
+            try{
+              result={translatedText:await bounded(
+                ()=>local.translate(text),TRANSLATE_TIMEOUT_MS,signal),
+                provider:"motor local del navegador",detectedLanguage:null};
+            }finally{local.destroy?.();}
+          }catch{
+            throw new Error("El proveedor gratuito alcanzó su cuota y el motor local "+
+              "no está disponible para estos idiomas. Tu texto no se perdió.");
+          }
+        }
       }
       if(id!==sequence||!root.isConnected)return;
       if(typeof result.translatedText!=="string"||!result.translatedText.trim())

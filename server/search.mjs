@@ -4,6 +4,7 @@ import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
 import {googleBooks, projectGutenberg, congressBooks, internetArchiveBooks, BOOK_SOURCES} from "./book-providers.mjs";
 import {NEWS_WINDOWS,normalizeNewsDate,newsFeedSources,rankNewsResults} from "./news.mjs";
 import {rankImageResults} from "./image-intelligence.mjs";
+import {flickrPublicImages} from "./flickr-images.mjs";
 import {pinterestQuery,verifiedPinterestImages,labelPinterestImages}
   from "./pinterest-discovery.mjs";
 import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb} from "./web-providers.mjs";
@@ -394,7 +395,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
           ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "images")],
           ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "images")],
           ["SearXNG · imágenes",()=>searxngImages(spec.site?q+" site:"+spec.site:q)],
-          ...(!spec.site?[["Openverse",()=>openverseImages(q)]]:[]),
+          ...(!spec.site?[["Openverse",()=>openverseImages(q)],
+            ["Flickr · fotos públicas",()=>flickrPublicImages(q)]]:[]),
           ...(!spec.site || platformAllowed("commons.wikimedia.org")
             ? [["Wikimedia Commons",()=>wikimediaImages(q)]]:[])
          ]:[]),
@@ -566,7 +568,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       archive:archive,
       commonsAvailable:available.some(name=>name==="Wikimedia Commons"||name==="Wikimedia Commons · Video"),
       providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length,
-      openverseAvailable:available.includes("Openverse")
+      openverseAvailable:available.includes("Openverse"),
+      flickrAvailable:available.includes("Flickr · fotos públicas")
     }:null,
     videoCoverage: selected==="videos"?{
       youtubeApi:available.includes("YouTube"),
