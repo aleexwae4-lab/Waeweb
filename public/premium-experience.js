@@ -99,7 +99,12 @@ document.addEventListener("keydown", event => {
   const slash = event.key === "/" && !event.ctrlKey && !event.metaKey &&
     !isPremiumTypingTarget(event.target);
   if (!ctrlK && !slash) return;
-  if (document.querySelector("dialog[open]") && !dialog.open) return;
+  // Do not redirect keyboard focus behind an open native dialog.
+  if (dialog.open) {
+    if (ctrlK) { event.preventDefault(); commandSearch.focus(); }
+    return;
+  }
+  if (document.querySelector("dialog[open]")) return;
   event.preventDefault();
   if (ctrlK) openPalette();
   else focusSearch();
