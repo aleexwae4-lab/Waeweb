@@ -101,7 +101,7 @@ test("public media API rejects archive misuse and returns honest zero video resu
 test("search UI separates open archive from platform search, including history and empty state",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(app,/Wikimedia Commons/);
-  assert.match(app,/Volver a resultados web/);
+  assert.match(app,/Todos los resultados/);
   assert.match(app,/collection=commons/);
   assert.match(app,/state\.results\.some\(item=>safeUrl\(item\.url\)&&safeUrl\(item\.image\)\)/);
   assert.doesNotMatch(app,/Sin índice general de imágenes/);
