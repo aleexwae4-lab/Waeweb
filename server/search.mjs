@@ -2,6 +2,7 @@ import { parseQuery, rankResults, researchBrief } from "./intelligence.mjs";
 import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResults} from "./video-discovery.mjs";
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
 import {googleBooks, projectGutenberg, congressBooks, internetArchiveBooks, BOOK_SOURCES} from "./book-providers.mjs";
+import {NEWS_WINDOWS,normalizeNewsDate,newsFeedSources,rankNewsResults} from "./news.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -271,17 +272,23 @@ export async function libraryOfCongress(query) {
       urlAllowed(cover)?cover:null)];
   });
 }
-export async function gdeltNews(query){
+export async function gdeltNews(query,window="7d"){
   const u=new URL("https://api.gdeltproject.org/api/v2/doc/doc");
   u.search=new URLSearchParams({query,mode:"artlist",format:"json",
-    maxrecords:"15",timespan:"1week"}).toString();
+    maxrecords:"40",timespan:{"24h":"1d","7d":"1week","30d":"1month"}[window]||"1week",
+    sort:"datedesc"}).toString();
   const data=await json(u);
-  return (data.articles||[]).map(item=>
-    result(item.title||"",item.url,
+  return (data.articles||[]).map(item=>{
+    const entry=result(item.title||"",item.url,
       [item.domain,item.language].filter(Boolean).join(" · "),
-      "GDELT · prensa",typeof item.seendate==="string"?item.seendate:null,
-      urlAllowed(item.socialimage)?item.socialimage:null)
-  ).filter(item=>item.title&&urlAllowed(item.url));
+      "GDELT · prensa",null,
+      urlAllowed(item.socialimage)?item.socialimage:null);
+    // GDELT seendate indicates discovery, NOT the publication timestamp.
+    entry.seenAt=normalizeNewsDate(item.seendate);
+    entry.newsDateKind="detected";
+    entry.publisher=typeof item.domain==="string"?item.domain:null;
+    return entry;
+  }).filter(item=>item.title&&urlAllowed(item.url));
 }
 export function dedupe(items) {
   const seen = new Set();
@@ -299,7 +306,7 @@ export function dedupe(items) {
   });
 }
 const cache = new Map();
-export async function search(query, type = "all", { fresh = false, page = 1, collection = "web" } = {}) {
+export async function search(query, type = "all", { fresh = false, page = 1, collection = "web", newsWindow = "7d" } = {}) {
   const spec = parseQuery(normalizeQuery(query));
   const q = spec.query;
   if (spec.errors.length) return { error: spec.errors.join(" ") };
@@ -307,6 +314,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   const selected = ["all", "images", "news", "videos", "research", "knowledge", "books"].includes(type) ? type : "all";
   if(!Number.isInteger(page)||page<1||page>5)
     return {error:"La página de búsqueda debe estar entre 1 y 5."};
+  if(selected==="news" && !Object.hasOwn(NEWS_WINDOWS,newsWindow))
+    return {error:"Ventana de noticias no válida. Usa 24h, 7d o 30d."};
   if(page>1 && selected!=="all")
     return {error:"La paginación adicional solo está disponible para la búsqueda web."};
   if(!["web","commons"].includes(collection) ||
@@ -315,7 +324,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   // Commons enriches regular media results alongside independent providers.
   // The legacy explicit archive API remains available without a separate UI.
   const archive=collection==="commons" || spec.source==="wikimedia";
-  const key = selected + ":" + page + ":" + collection + ":" + spec.input.toLocaleLowerCase("es");
+  const key = selected + ":" + page + ":" + collection + ":" +
+    (selected==="news"?newsWindow+":":"") + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
   if (!fresh && cached && cached.expires > Date.now()) return cached.value;
   const videoQuery=spec.site?q+" site:"+spec.site:q;
@@ -342,7 +352,10 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
           ...(!spec.site || platformAllowed("commons.wikimedia.org")
             ? [["Wikimedia Commons",()=>wikimediaImages(q)]]:[])])
     : selected === "news"
-    ? [["GDELT · prensa", () => gdeltNews(q)], ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "news")], ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
+    ? [["GDELT · prensa", () => gdeltNews(q,newsWindow)],
+       ...(!spec.site?newsFeedSources(q,newsWindow):[]),
+       ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q, "news")],
+       ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q, "news")]]
     : selected === "videos"
     ? archive
       ? [["Wikimedia Commons · Video", () => wikimediaVideos(q)]]
@@ -427,6 +440,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, page,
+    newsWindow:selected==="news"?newsWindow:null,
     bookCoverage:selected==="books"?{
       configuredSources:BOOK_SOURCES,
       retrievedSources:available.filter(name=>!name.endsWith(" no configurado")),
@@ -440,9 +454,19 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }:null, mediaCollection: ["images","videos"].includes(selected)
       ? (archive?"commons":"web"):null,
     hasMore: selected==="all" && moreFromProviders,
-    results: rankResults(selected==="videos"
-      ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected),
+    results: selected==="news"
+      ?rankNewsResults(rankResults(dedupe(results),spec,selected),q,newsWindow)
+      :rankResults(selected==="videos"
+        ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected),
     sources: available,
+    newsCoverage:selected==="news"?{
+      mode:"on_demand",window:newsWindow,
+      configuredSources:sources.map(([name])=>name),
+      respondingSources:available.filter(name=>!name.endsWith(" no configurado")),
+      unavailableSources:errors,
+      noPublicationDate:results.filter(item=>!item.date).length,
+      liveGuarantee:false
+    }:null,
     mediaCoverage:["videos","images"].includes(selected)?{
       webIndex:available.some(name=>name==="Brave"||name==="Google"||
         /^(Brave|Google) · /.test(name) && !name.endsWith(" no configurado")),
@@ -485,7 +509,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   // the cache. A legitimate zero-hit response from a reachable source may cache.
   if (!errors.length && available.some(name => !name.endsWith(" no configurado"))) {
     if (cache.size > 200) cache.clear();
-    cache.set(key, { value: payload, expires: Date.now() + (selected === "news" ? 60000 : 300000) });
+    cache.set(key, { value: payload, expires: Date.now() + (selected === "news" ? 45000 : 300000) });
   }
   return payload;
 }
