@@ -547,7 +547,8 @@ function renderData(data) {
   stats.textContent=count===0 && data.message
     ? "Sin resultados de los índices conectados · "+data.message
     : (state.type==="all" ? "Mostrando "+visible+" de "+count : count+" resultado"+(count===1?"":"s"))+
-      " · "+(data.webCoverage==="limited"?"Cobertura web limitada · ":"")+
+      " · "+(data.webCoverage==="limited"?"Cobertura web limitada · ":
+        data.webCoverage==="specialized"?"Cobertura web especializada · ":"")+
       (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
   renderPanel(data);
   if (["research","knowledge","index"].includes(state.type)) {
@@ -670,7 +671,8 @@ function renderData(data) {
       "↗ Buscar imágenes en Google","link-button"));
     resultsContainer.prepend(notice);
   }
-  if(state.type==="all" && data.webCoverage==="limited"){
+  if(state.type==="all" && ["limited","specialized"].includes(data.webCoverage)){
+    const specialized=data.webCoverage==="specialized";
     const notice=element("aside","web-coverage-notice");
     notice.setAttribute("role","status");
     const destinations=element("div","web-coverage-actions");
@@ -684,8 +686,10 @@ function renderData(data) {
         "↗ Vídeos web","link-button")
     );
     notice.append(
-      element("strong","","Cobertura web limitada"),
-      element("p","","No se recuperaron resultados de un índice web general. Las fuentes públicas disponibles no sustituyen la búsqueda de todo Internet. Abre un buscador real para continuar."),
+      element("strong","",specialized?"Web abierta · índice especializado":"Cobertura web limitada"),
+      element("p","",specialized
+        ?"Los enlaces proceden de artículos publicados en Hacker News y de un índice temporal de sus metadatos. WAEWEB no ha leído ni verificado el contenido de cada sitio. Este conjunto no representa toda Internet."
+        :"No se recuperaron resultados de un índice web general. Las fuentes públicas disponibles no sustituyen la búsqueda de todo Internet. Abre un buscador real para continuar."),
       destinations
     );
     notice.append(button("◈ Consultar fuentes de conocimiento",()=>{
