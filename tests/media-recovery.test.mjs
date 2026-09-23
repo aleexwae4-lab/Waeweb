@@ -19,6 +19,7 @@ test("keyless Openverse offers genuine non-Wikimedia images with attributed orig
     const hosts=[];
     globalThis.fetch=async input=>{
       const u=new URL(input);hosts.push(u.hostname);
+      if(u.hostname==="commons.wikimedia.org")return new Response(JSON.stringify({query:{pages:{}}}),{status:200});
       assert.equal(u.hostname,"api.openverse.org");
       assert.equal(u.pathname,"/v1/images/");
       return new Response(JSON.stringify({results:[
@@ -37,13 +38,14 @@ test("keyless Openverse offers genuine non-Wikimedia images with attributed orig
     assert.equal(data.results.length,1);
     assert.equal(data.mediaCoverage.openverseAvailable,true);
     assert.equal(data.mediaCoverage.webIndex,false);
-    assert.equal(hosts.includes("commons.wikimedia.org"),false);
+    assert.equal(hosts.includes("commons.wikimedia.org"),true);
   });
 });
 test("keyless PeerTube delivers real videos without claiming they came from YouTube",async()=>{
   await noPaidIndex(async()=>{
     globalThis.fetch=async input=>{
       const u=new URL(input);
+      if(u.hostname==="commons.wikimedia.org")return new Response(JSON.stringify({query:{pages:{}}}),{status:200});
       assert.equal(u.hostname,"sepiasearch.org");
       assert.equal(u.pathname,"/api/v1/search/videos");
       return new Response(JSON.stringify({data:[
