@@ -3,7 +3,7 @@ import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResul
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
 import {googleBooks, projectGutenberg, congressBooks, internetArchiveBooks, BOOK_SOURCES} from "./book-providers.mjs";
 import {NEWS_WINDOWS,normalizeNewsDate,newsFeedSources,rankNewsResults} from "./news.mjs";
-import {rankImageResults,imageIntent} from "./image-intelligence.mjs";
+import {rankImageResults} from "./image-intelligence.mjs";
 import {pinterestQuery,verifiedPinterestImages,labelPinterestImages}
   from "./pinterest-discovery.mjs";
 import {searxngImages} from "./web-providers.mjs";
@@ -368,8 +368,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   const pinterestOnly=selected==="images"&&spec.source==="pinterest";
   const pinterestAllowed=selected==="images"&&!archive&&
     (!spec.site||spec.site==="pinterest.com"||spec.site.endsWith(".pinterest.com"))&&
-    (!spec.source||spec.source==="pinterest")&&
-    true; // Every ordinary image query attempts real pin discovery, not only selected keywords.
+    (!spec.source||spec.source==="pinterest");
+  // Every ordinary image query attempts real pin discovery, not only selected keywords.
   const platformAllowed=host=>!spec.site||
     host===spec.site||host.endsWith("."+spec.site)||
     spec.site.endsWith("."+host);
