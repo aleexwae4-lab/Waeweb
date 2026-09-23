@@ -6,6 +6,7 @@ import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
 import { createYoutubeFrame } from "/youtube-player.js";
+import { isBookWork, openBookDetail } from "/book-experience.js";
 "use strict";
 const byId = id => document.getElementById(id);
 const hero = byId("hero");
@@ -197,26 +198,30 @@ function renderResult(item, index) {
   const url = safeUrl(item.url);
   if (!url) return null;
   const card = element("article", "result-card");
+  const nativeBook = state.type === "books" && isBookWork(item);
+  if(nativeBook) card.classList.add("wae-native-book");
   if(state.type==="all")card.classList.add("web-result");
   card.style.animationDelay = Math.min(index * .035, .5) + "s";
   const row = element("div", "source-row");
   const avatar = element("span", "source-avatar",
-    (state.type==="all"?shortHost(url):item.source||"?").slice(0,1).toUpperCase());
+    nativeBook ? "▤" : (state.type==="all"?shortHost(url):item.source||"?").slice(0,1).toUpperCase());
   const labels = element("div");
   append(labels,
-    element("div","source-label",state.type==="all"?shortHost(url):item.source||"Fuente"),
-    element("div","source-url",displayResultUrl(url)));
+    element("div","source-label",nativeBook?"Biblioteca WAE WEB":state.type==="all"?shortHost(url):item.source||"Fuente"),
+    element("div","source-url",nativeBook?"Catálogo bibliográfico · Origen: "+item.source:displayResultUrl(url)));
   row.append(avatar, labels);
   // General web results open the actual destination, like a conventional
   // SERP. The separate WAEWEB action keeps integrated browsing available.
   const directVideo=state.type==="videos" &&
     (item.platform==="YouTube"||item.platform==="TikTok");
-  const title = state.type === "all"
+  const title = nativeBook
+    ? button(item.title, () => openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "result-title browser-result-title")
+    : state.type === "all"
     ? external(url,item.title,"result-title web-result-title")
     : directVideo
       ? external(url,item.title,"result-title browser-result-title")
       : button(item.title, () => openBrowser(url), "result-title browser-result-title");
-  title.title = state.type === "all" || directVideo
+  title.title = nativeBook ? "Ver ficha bibliográfica en Biblioteca WAE WEB" : state.type === "all" || directVideo
     ? "Abrir sitio original: "+shortHost(url)
     : "Navegar en WAEWEB: "+shortHost(url);
   if ((state.type === "books" || state.type === "videos" || item.source === "Open Library") && safeUrl(item.image)) {
@@ -230,7 +235,8 @@ function renderResult(item, index) {
     card.append(cover);
   }
   append(card, row, title);
-  if (state.type === "books") card.append(element("span", "tag media-context", "Ficha bibliográfica · Comprueba edición y disponibilidad en origen"));
+  if (state.type === "books") card.append(element("span", "tag media-context",
+    "WAE WEB · "+(item.bookAccess || "Ficha bibliográfica · No implica acceso al texto completo")));
   if (state.type === "videos"){
     const platform=item.platform||"Web";
     card.append(element("span","tag media-context","Vídeo · Ver en la fuente original"));
@@ -289,7 +295,12 @@ function renderResult(item, index) {
   if (item.date) meta.append(element("span", "tag", formatDate(item.date)));
   if (state.type==="all" && item.source)
     meta.append(element("span","source-engine","Índice: "+item.source));
-  if(!directVideo)meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Explorar dentro", () => openBrowser(url), "save-button"));
+  if(nativeBook) {
+    meta.append(button("▤ Ficha WAE", () => openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "save-button"));
+    meta.append(external(url, "↗ Catálogo original", "save-button"));
+  } else if(!directVideo) {
+    meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Explorar dentro", () => openBrowser(url), "save-button"));
+  }
   const save = button(workspace.has(url) ? "◆ Guardado" : "◇ Guardar fuente", () => {
     const outcome = workspace.add(item);
     if (outcome.ok) {
@@ -559,6 +570,40 @@ function renderData(data) {
     :sourceResults;
   document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
+  if(state.type==="books"){
+    const coverage=data.bookCoverage;
+    const header=element("section","wae-book-coverage");
+    header.setAttribute("aria-label","Bibliotecas conectadas");
+    header.append(element("span","wae-book-eyebrow","WAE WEB · BIBLIOTECA UNIVERSAL"),
+      element("h2","","Un catálogo. Múltiples bibliotecas."));
+    const summary=element("p","",
+      "Resultados bibliográficos recuperados: "+allResults.length+
+      " · Catálogos consultados: "+(coverage?.retrievedSources?.length||0)+
+      " de "+(coverage?.configuredSources?.length||0)+".");
+    header.append(summary);
+    const picker=element("div","wae-book-provider-filters");
+    const providers=["",...(coverage?.configuredSources||[])];
+    for(const provider of providers){
+      const count=provider?allResults.filter(item=>item.source===provider).length:allResults.length;
+      const buttonLabel=(provider||"Todas las bibliotecas")+" · "+count;
+      const chip=button(buttonLabel,()=>{
+        state.selectedSource=provider;
+        sourceFilter.value=provider;
+        renderData(data);
+      },"wae-book-provider-chip");
+      chip.setAttribute("aria-pressed",String(state.selectedSource===provider));
+      picker.append(chip);
+    }
+    header.append(picker);
+    if(coverage?.failedSources?.length){
+      header.append(element("p","wae-book-coverage-warning",
+        "Algunos catálogos no respondieron: "+coverage.failedSources.join(", ")+
+        ". Los registros de las otras fuentes siguen disponibles."));
+    }
+    header.append(element("p","wae-book-coverage-foot",
+      "Los registros son metadatos; la lectura, préstamo o descarga dependen de los titulares y del país."));
+    resultsContainer.append(header);
+  }
   if(["images","videos"].includes(state.type)&&state.query){
     const archive=state.mediaCollection==="commons";
     const pick=element("nav","media-collection-choice");
@@ -1099,7 +1144,7 @@ function showEmptyCategory(type,push=true){
     images:["Imágenes web","Busca imágenes de proveedores conectados; Wikimedia Commons se consulta como archivo abierto aparte.",["Jalisco","Arquitectura mexicana"]],
     news:["Noticias","Artículos recientes de medios disponibles, con enlaces originales.",["Inteligencia artificial","México"]],
     videos:["Vídeos de plataformas","Busca clips reales de YouTube y TikTok mediante los proveedores conectados. El archivo Wikimedia es una colección distinta.",["Tecnología","Naturaleza"]],
-    books:["Libros","Explora fichas bibliográficas y autores.",["Ciencia","Historia de México"]],
+    books:["Biblioteca WAE WEB","Explora Open Library, Google Books, Library of Congress, Project Gutenberg e Internet Archive desde fichas propias. El acceso a cada obra depende de sus derechos.",["Ciencia","Historia de México"]],
     index:["Índice privado","Conecta una bóveda autorizada para consultar documentos.",[]],
     businesses:["Negocios","Busca empresas publicadas voluntariamente.",[]]
   };

@@ -14,7 +14,7 @@ test("provider outages do not poison search cache; reachable zero hits may cache
     });
   };
   try{
-    const q="waeweb-rc7-cache-outage-retry-fixture";
+    const q="waeweb-rc7-cache-outage-retry-fixture source:openlibrary";
     const first=await search(q,"books");
     assert.deepEqual(first.failedSources,["Open Library"]);
     assert.deepEqual(first.sources,[]);

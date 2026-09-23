@@ -12,13 +12,13 @@ export function parseQuery(raw) {
   const siteMatch = input.match(/(?:^|\s)site:([a-z0-9.-]+\.[a-z]{2,})(?=\s|$)/i);
   const afterMatch = input.match(/(?:^|\s)after:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
   const beforeMatch = input.match(/(?:^|\s)before:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
-  const sourceMatch = input.match(/(?:^|\s)source:(wikipedia|crossref|openalex|openlibrary|google|wikimedia|wikidata|europepmc|gdelt)(?=\s|$)/i);
+  const sourceMatch = input.match(/(?:^|\s)source:(wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt)(?=\s|$)/i);
   const excludes = [...input.matchAll(/(?:^|\s)-([\p{L}\p{N}]{2,})(?=\s|$)/gu)].map(x => fold(x[1])).slice(0, 8);
   const phrases = [...input.matchAll(/"([^"]{2,80})"/g)].map(x => fold(x[1])).slice(0, 3);
   const query = input
     .replace(/(?:^|\s)site:[a-z0-9.-]+\.[a-z]{2,}(?=\s|$)/gi, " ")
     .replace(/(?:^|\s)(?:after|before):\d{4}(?:-\d{2}-\d{2})?(?=\s|$)/gi, " ")
-    .replace(/(?:^|\s)source:(?:wikipedia|crossref|openalex|openlibrary|google|wikimedia|wikidata|europepmc|gdelt)(?=\s|$)/gi, " ")
+    .replace(/(?:^|\s)source:(?:wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt)(?=\s|$)/gi, " ")
     .replace(/(?:^|\s)-[\p{L}\p{N}]{2,}(?=\s|$)/gu, " ")
     .replace(/"/g, " ")
     .replace(/\s+/g, " ").trim();
@@ -36,6 +36,8 @@ export function parseQuery(raw) {
   };
 }
 const sourceName = source => fold(source || "");
+const SOURCE_ALIASES = {googlebooks:"google books",loc:"library of congress",
+  gutenberg:"project gutenberg",internetarchive:"internet archive"};
 function dateComparable(value) {
   if (!value) return null;
   if (/^\d{4}$/.test(value)) return value + "-01-01";
@@ -50,7 +52,8 @@ function hostMatch(url, domain) {
 }
 function eligible(item, spec) {
   if (spec.site && !hostMatch(item.url, spec.site)) return false;
-  if (spec.source && !sourceName(item.source).replace(/\s+/g,"").includes(spec.source)) return false;
+  if (spec.source && !sourceName(item.source).replace(/\s+/g,"")
+    .includes((SOURCE_ALIASES[spec.source] || spec.source).replace(/\s+/g,""))) return false;
   const searchable = fold([item.title, item.snippet].join(" "));
   if (spec.excludes.some(term => new RegExp("(^|[^\\p{L}\\p{N}])" + term + "([^\\p{L}\\p{N}]|$)", "u").test(searchable))) return false;
   if (spec.phrases.some(phrase => !searchable.includes(phrase))) return false;

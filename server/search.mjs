@@ -1,6 +1,7 @@
 import { parseQuery, rankResults, researchBrief } from "./intelligence.mjs";
 import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResults} from "./video-discovery.mjs";
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
+import {googleBooks, projectGutenberg, congressBooks, internetArchiveBooks, BOOK_SOURCES} from "./book-providers.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -289,7 +290,17 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   const platformAllowed=host=>!spec.site||
     host===spec.site||host.endsWith("."+spec.site)||
     spec.site.endsWith("."+host);
-  const sources = selected === "books" ? [["Open Library", () => openLibrary(q)]]
+  const bookSources = [
+    ["Open Library", () => openLibrary(q)],
+    ["Google Books", () => googleBooks(q)],
+    ["Library of Congress", () => congressBooks(q)],
+    ["Project Gutenberg", () => projectGutenberg(q)],
+    ["Internet Archive", () => internetArchiveBooks(q)]
+  ];
+  const bookSourceFilter = {openlibrary:"Open Library",googlebooks:"Google Books",
+    loc:"Library of Congress",gutenberg:"Project Gutenberg",internetarchive:"Internet Archive"};
+  const sources = selected === "books" ? (spec.source
+    ? bookSources.filter(([name]) => name === bookSourceFilter[spec.source]) : bookSources)
     : selected === "images"
     ? (archive
        ? [["Wikimedia Commons", () => wikimediaImages(q)]]
@@ -376,7 +387,13 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   }
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
-    type: selected, page, knowledgeCoverage:selected==="knowledge"?{
+    type: selected, page,
+    bookCoverage:selected==="books"?{
+      configuredSources:BOOK_SOURCES,
+      retrievedSources:available.filter(name=>!name.endsWith(" no configurado")),
+      failedSources:errors, resultCountBySource:Object.fromEntries(
+        BOOK_SOURCES.map(name=>[name,results.filter(item=>item.source===name).length]))
+    }:null, knowledgeCoverage:selected==="knowledge"?{
       kind:"federated_public_sources", index:"not_general_web",
       configuredSources:sources.map(([name])=>name),
       retrievedSources:available.filter(name=>!name.endsWith(" no configurado")),
