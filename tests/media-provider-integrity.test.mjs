@@ -58,6 +58,7 @@ test("open archive is opt-in and never leaks into general or platform results",a
 });
 test("public media API rejects archive misuse and returns honest zero video results",async()=>{
   await withoutIndexes(async()=>{
+    const nativeFetch=globalThis.fetch;
     globalThis.fetch=()=>{throw Error("Unexpected public provider request");};
     const server=http.createServer((req,res)=>handler(req,res).catch(error=>{
       res.statusCode=500;res.end(error.message);
@@ -65,13 +66,13 @@ test("public media API rejects archive misuse and returns honest zero video resu
     try{
       await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
       const base="http://127.0.0.1:"+server.address().port;
-      const result=await fetch(base+"/api/search?q=YouTube&type=videos");
+      const result=await nativeFetch(base+"/api/search?q=YouTube&type=videos");
       assert.equal(result.status,200);
       const json=await result.json();
       assert.equal(json.results.length,0);
       assert.equal(json.mediaCollection,"web");
       assert.equal(json.videoCoverage.webIndex,false);
-      const bad=await fetch(base+"/api/search?q=YouTube&type=all&collection=commons");
+      const bad=await nativeFetch(base+"/api/search?q=YouTube&type=all&collection=commons");
       assert.equal(bad.status,400);
     }finally{if(server.listening)await new Promise(resolve=>server.close(resolve));}
   });
