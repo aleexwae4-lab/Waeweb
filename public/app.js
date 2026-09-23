@@ -28,7 +28,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all" };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", mediaCollection: "web" };
 let activeDirections=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
@@ -103,10 +103,12 @@ function goHome() {
   history.pushState({}, "", location.pathname);
   scrollTo({ top: 0, behavior: "smooth" });
 }
-function updateAddress(query, type) {
+function updateAddress(query, type, collection="web") {
   const u = new URL(location.href);
-  u.search = new URLSearchParams({ q: query, type }).toString();
-  history.pushState({ query, type }, "", u);
+  const params=new URLSearchParams({ q: query, type });
+  if(["images","videos"].includes(type)&&collection==="commons")params.set("collection","commons");
+  u.search=params.toString();
+  history.pushState({ query, type, collection }, "", u);
 }
 async function getJSON(path, signal, request = {}) {
   const headers = { accept: "application/json", ...request.headers };
@@ -527,6 +529,18 @@ function renderData(data) {
     :sourceResults;
   document.querySelector(".image-lightbox")?.remove();
   resultsContainer.replaceChildren();
+  if(["images","videos"].includes(state.type)&&state.query){
+    const archive=state.mediaCollection==="commons";
+    const pick=element("nav","media-collection-choice");
+    pick.setAttribute("aria-label","Elegir origen de imágenes y vídeos");
+    pick.append(
+      element("span","tag",archive?"Colección: archivo abierto":"Colección: búsqueda web"),
+      button(archive?"← Volver a búsqueda web":"▤ Explorar archivo Wikimedia",()=>{
+        void performSearch(state.query,state.type,true,archive?"web":"commons");
+      },"link-button")
+    );
+    resultsContainer.append(pick);
+  }
   // Weather races with federated search. A late result must not erase an early card.
   const count = state.results.length;
   const visible = state.type==="all" ? Math.min(count,state.visibleCount) : count;
@@ -547,7 +561,7 @@ function renderData(data) {
     const grid = renderImages(state.results);
     if (grid.children.length) resultsContainer.append(grid);
   } else {
-    if(state.type==="videos" && state.query){
+    if(state.type==="videos" && state.query && state.mediaCollection!=="commons"){
       const platforms=[...new Set(sourceResults.map(item=>item.platform||"Web"))];
       if(platforms.length){
         const controls=element("nav","video-platform-filters");
@@ -604,8 +618,9 @@ function renderData(data) {
   // case the gallery is empty and must still show the honest fallback.
   // Navigation/filter controls are not clips: an empty video query must
   // still show its real zero-result state and direct-platform alternatives.
-  const hasResults=state.type==="images"||state.type==="businesses"
-    ?resultsContainer.children.length>0
+  const hasResults=state.type==="images"
+    ?state.results.some(item=>safeUrl(item.url)&&safeUrl(item.image))
+    :state.type==="businesses"?state.results.length>0
     :state.results.some(item=>safeUrl(item.url));
   if (!hasResults) {
     const detail = data.warning || data.message ||
@@ -614,12 +629,23 @@ function renderData(data) {
         : "No hubo coincidencias de las fuentes disponibles. Modifica los términos e inténtalo nuevamente.");
     resultsContainer.append(renderSearchFallback(state.query,detail));
   }
-  if(state.type==="videos" && data.videoCoverage && !data.videoCoverage.youtubeApi &&
+  if(state.type==="videos" && state.mediaCollection!=="commons" &&
+    data.videoCoverage && !data.videoCoverage.youtubeApi &&
     !data.videoCoverage.webIndex){
     const notice=element("aside","video-coverage-notice");
     notice.setAttribute("role","status");
     notice.append(element("strong","","Cobertura de plataformas limitada"),
       element("p","","Los índices de YouTube, Brave y Google no están disponibles en esta consulta. Solo aparecen clips recuperados de fuentes que sí respondieron. Puedes continuar en YouTube o TikTok mediante sus botones de búsqueda."));
+    resultsContainer.prepend(notice);
+  }
+  if(state.type==="images" && state.mediaCollection!=="commons" &&
+    data.mediaCoverage && !data.mediaCoverage.webIndex){
+    const notice=element("aside","video-coverage-notice");
+    notice.setAttribute("role","status");
+    notice.append(element("strong","","Sin índice general de imágenes"),
+      element("p","","No hay un proveedor de imágenes web conectado. Wikimedia es un archivo separado: elige «Explorar archivo Wikimedia» si deseas consultar sus fotografías, o busca imágenes en el sitio original."));
+    notice.append(external("https://www.google.com/search?tbm=isch&q="+encodeURIComponent(state.query),
+      "↗ Buscar imágenes en Google","link-button"));
     resultsContainer.prepend(notice);
   }
   if(state.type==="all" && data.webCoverage==="limited"){
@@ -1024,7 +1050,7 @@ function showEmptyCategory(type,push=true){
   resultsContainer.replaceChildren(card);
   if(push)history.pushState({type},"",location.pathname+"?type="+encodeURIComponent(type));
 }
-async function performSearch(query, type = "all", push = true) {
+async function performSearch(query, type = "all", push = true, collection = "web") {
   stopInlineVideo();
   stopDirections();
   translator.hide();sourceFilter.hidden=false;
@@ -1061,9 +1087,10 @@ async function performSearch(query, type = "all", push = true) {
   state.selectedSource = "";
   state.visibleCount = 10;
   state.page = 1; state.loadingMore = false; state.videoPlatform = "all";
+  state.mediaCollection = collection==="commons"?"commons":"web";
   hero.hidden = true; resultsView.hidden = false;
   heroInput.value = q; resultsInput.value = q; setTab(type);
-  if (push) updateAddress(q, type);
+  if (push) updateAddress(q, type, state.mediaCollection);
   if (type === "maps") { await renderMap(q,signal,sequence); return; }
   if (type === "index" && !readerEnabled) {
     stats.textContent="Índice privado desactivado en esta vista.";
@@ -1090,7 +1117,8 @@ async function performSearch(query, type = "all", push = true) {
       ? "/api/index/search?q=" + encodeURIComponent(q)
       : type === "businesses"
         ? "/api/businesses/public?q=" + encodeURIComponent(q)
-        : "/api/search?q=" + encodeURIComponent(q) + "&type=" + encodeURIComponent(type);
+        : "/api/search?q=" + encodeURIComponent(q) + "&type=" + encodeURIComponent(type) +
+          (["videos","images"].includes(type) && state.mediaCollection==="commons"?"&collection=commons":"");
     if (type === "index" && !vaultToken) {
       resultsContainer.replaceChildren(stateCard("Índice privado", "Conecta tu bóveda para buscar documentos autorizados."));
       openVaultDialog();
@@ -1215,10 +1243,20 @@ window.addEventListener("popstate", () => {
   hideBrowser();
   const params = new URLSearchParams(location.search);
   const q = params.get("q");
-  if (q) runOmnibox(q, params.get("type") || "all", false);
+  if (q) {
+    const type=params.get("type")||"all";
+    const collection=params.get("collection")==="commons"?"commons":"web";
+    if(["images","videos"].includes(type))void performSearch(q,type,false,collection);
+    else runOmnibox(q,type,false);
+  }
   else if(params.get("type")==="translate")renderTranslator(false);
   else { stopDirections();translator.hide();state.controller?.abort(); state.sequence++; hero.hidden = false; resultsView.hidden = true; }
 });
 const params = new URLSearchParams(location.search);
-if (params.get("q")) runOmnibox(params.get("q"), params.get("type") || "all", false);
+if (params.get("q")) {
+  const type=params.get("type")||"all";
+  if(["images","videos"].includes(type))
+    void performSearch(params.get("q"),type,false,params.get("collection")==="commons"?"commons":"web");
+  else runOmnibox(params.get("q"),type,false);
+}
 else if(params.get("type")==="translate")renderTranslator(false);
