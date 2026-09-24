@@ -64,7 +64,7 @@ test("repository intent recognizes specific programming topics without capturing
     ["repositorios de Python SQLite","Python SQLite"],
     ["GitHub repos React","React"],
     ["React repositories","React"],
-    ["source code for Docker","for Docker"]
+    ["source code for Docker","Docker"]
   ])assert.equal(repositoryIntentTerms(query),terms,query);
   for(const query of ["GitHub","repositorios","GitHub repositorios",
     "React tutorial","Mercado Libre México","JavaScript noticias",
