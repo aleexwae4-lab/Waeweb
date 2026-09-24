@@ -137,6 +137,28 @@ if(!ready){
     "HTTP",earlyWeb.status,"count",earlyRows?.length??null,
     "status",earlyWeb.body?.sourceStatus);
   if(!earlyValid)process.exitCode=1;
+  // Focused technical intent can surface independently attributed public
+  // documentation and Q&A alongside story links. A transient outage of an
+  // optional source must not be mistaken for a fabricated successful query.
+  const technical=await request("/api/search?quick=1&type=all&q="+
+    encodeURIComponent("react hooks"));
+  const technicalRows=technical.body?.results||[];
+  const validTechnical=technical.ok&&technical.marker&&
+    technical.body?.kind==="specialist_web_preview"&&
+    technical.body?.scope==="public_technical_and_story_links"&&
+    technical.body?.completeSearch===false&&
+    technical.body?.generalIndexes?.length===0&&
+    technicalRows.length<=6&&
+    Array.isArray(technical.body?.retrievedSources)&&
+    Array.isArray(technical.body?.failedSources)&&
+    technicalRows.every(item=>
+      ["Hacker News · web abierta","WAE Index local · HN",
+       "MDN Web Docs · documentación","Stack Overflow · comunidad"].includes(item.source)&&
+      /^https:\/\//.test(item.url||""));
+  console.log(validTechnical?"LIVE PASS":"LIVE FAIL","early technical web",
+    "HTTP",technical.status,"count",technicalRows.length,
+    "sources",technical.body?.retrievedSources?.join(",")||"none");
+  if(!validTechnical)process.exitCode=1;
   // Guard against the reported regression on the ACTUAL public server:
   // searching a named website must return a usable first-page destination,
   // not only a wiki entity or a random repository with that name.
