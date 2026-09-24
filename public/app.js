@@ -1616,8 +1616,35 @@ function renderData(data) {
     if(state.type==="all" && state.visibleCount<state.results.length){
       const remaining=state.results.length-state.visibleCount;
       const more=button("Mostrar más resultados ("+Math.min(10,remaining)+")",()=>{
-        state.visibleCount+=10;
-        renderData(state.data);
+        // Reveal only the next already-retrieved cards. A full render would
+        // detach an open source excerpt and stop the user's voice playback.
+        const start=state.visibleCount;
+        const end=Math.min(start+10,state.results.length);
+        let lastCard=null;
+        for(let index=start;index<end;index++){
+          const card=renderResult(state.results[index],index);
+          if(card){resultsContainer.insertBefore(card,more);lastCard=card;}
+        }
+        state.visibleCount=end;
+        const count=state.results.length;
+        stats.textContent=end===count
+          ?count+" resultado"+(count===1?"":"s")
+          :end+" de "+count+" resultados";
+        const left=count-end;
+        if(left){
+          more.textContent="Mostrar más resultados ("+Math.min(10,left)+")";
+          more.setAttribute("aria-label","Mostrar "+Math.min(10,left)+
+            " resultados web adicionales ya recuperados");
+        }else if(!state.selectedSource && state.data?.hasMore){
+          const next=button("Buscar más páginas web",()=>
+            void loadMoreWebResults(),"web-results-more");
+          next.setAttribute("aria-label","Consultar la siguiente página del proveedor web");
+          more.replaceWith(next);
+          next.focus({preventScroll:true});
+        }else{
+          more.remove();
+          lastCard?.querySelector(".result-title")?.focus({preventScroll:true});
+        }
       },"web-results-more");
       more.setAttribute("aria-label","Mostrar "+Math.min(10,remaining)+" resultados web adicionales ya recuperados");
       resultsContainer.append(more);
