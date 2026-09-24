@@ -680,7 +680,7 @@ function renderResult(item, index) {
   // The HN indexing disclaimer is not a page excerpt. Showing it on every
   // result made the search appear repetitive and implied useful page content.
   if(item.snippet && !(state.type==="all" &&
-    /^Enlace publicado por la comunidad de Hacker News; contenido del sitio original no verificado por WAEWEB\\.?$/i.test(item.snippet.trim())))
+    /^Enlace publicado por la comunidad de Hacker News; contenido del sitio original no verificado por WAEWEB\.?$/i.test(item.snippet.trim())))
     card.append(element("p", "snippet", item.snippet));
   const trustedVideo=state.type==="videos"&&(
     /^https:\/\/upload\.wikimedia\.org\//.test(item.mediaUrl||"")||
