@@ -358,7 +358,7 @@ const cache = new Map();
 // for technical intent, source-attributed documentation/questions. Never a
 // general Internet index or synthetic domain. Advanced filters are deferred
 // to the complete search so provisional cards cannot contradict them.
-const FAST_TECHNICAL=/\b(?:javascript|typescript|python|react|node(?:\.js)?|html|css|docker|postgres(?:ql)?|sqlite|sql|npm|prisma|linux|programaci[oó]n|c[oó]digo|backend|frontend)\b/i;
+const FAST_TECHNICAL=/\b(?:javascript|typescript|python|react|node(?:\.js)?|html|css|docker|postgres(?:ql)?|sqlite|sql|npm|prisma|linux|programaci[oó]n|c[oó]digo|backend|frontend|web)\b/i;
 export async function quickOpenWeb(query){
   const spec=parseQuery(normalizeQuery(query));
   const q=spec.query;
