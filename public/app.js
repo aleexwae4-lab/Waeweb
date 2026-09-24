@@ -3,7 +3,7 @@ import { openBrowser, hideBrowser } from "/browser.js";
 import {siteVisitMode} from "/browser-core.js";
 import {mergeWebPageResponse} from "/web-page-merge.js";
 import { classifyOmnibox } from "/omnibox.js";
-import { osmEmbedUrl, osmPlaceUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
+import { osmEmbedUrl, osmPlaceUrl, osmSearchUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
 import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
@@ -1815,9 +1815,9 @@ function createMapQuickSearch(initial="") {
   form.setAttribute("role","search");
   const input=element("input","map-search-input");
   input.type="search";input.name="place";input.maxLength=180;
-  input.autocomplete="off";input.placeholder="Ciudad, negocio, calle o coordenadas";
+  input.autocomplete="off";input.placeholder="Ciudad, región o latitud,longitud";
   input.value=initial;
-  input.setAttribute("aria-label","Buscar ciudad, negocio, calle o coordenadas");
+  input.setAttribute("aria-label","Buscar localidad o coordenadas; las direcciones y negocios dependen del proveedor configurado");
   const search=element("button","map-search-submit","Buscar");
   search.type="submit";
   const locate=button("⌖ Mi ubicación",()=>{
@@ -1853,14 +1853,25 @@ function createMapQuickSearch(initial="") {
   });
   return form;
 }
-function showDirectionsWithoutLocality(){
+function createMapDirectionsDisclosure(directions){
+  const disclosure=element("details","map-directions-disclosure");
+  disclosure.append(element("summary","","↗ Cómo llegar · origen y destino"),
+    directions.root);
+  return disclosure;
+}
+function showDirectionsWithoutLocality({query="",message=""}={}){
   stopDirections();
   const map=createNativeMap();
   const stage=map.root;
   const section=element("section","map-explorer");
-  section.append(element("h2","","Explora el mapa"),createMapQuickSearch());
-  const footnote=element("p","map-attribution",
-    "WAEWEB Mapas · cartografía © OpenStreetMap contributors · búsqueda precisa si hay proveedor configurado.");
+  section.append(element("h2","","Explora el mapa"),createMapQuickSearch(query));
+  if(query){
+    const empty=element("div","map-no-match");
+    empty.append(element("strong","","No encontramos una ubicación precisa para «"+query+"»."),
+      element("p","",message||"El motor conectado puede buscar localidades, pero no garantiza calles o sucursales."));
+    empty.append(external(osmSearchUrl(query),"↗ Buscar «"+query+"» en OpenStreetMap","map-action map-original"));
+    section.append(empty);
+  }
   const directions=createDirections({getJSON,element,button,external,copyText,
     onDestinationSelect:place=>{
       if(!validMapPlace(place))return;
@@ -1869,8 +1880,12 @@ function showDirectionsWithoutLocality(){
     onRoute:route=>map.setRoute(route.geometry)
   });
   activeDirections=directions;
-  section.append(stage,footnote,directions.root);
-  section.append(external("https://www.openstreetmap.org/#map=5/23.6/-102.5",
+  section.append(stage,createMapDirectionsDisclosure(directions));
+  const credits=element("details","map-credits");
+  credits.append(element("summary","","Cartografía y disponibilidad"),
+    element("p","","© OpenStreetMap contributors. El mapa general no demuestra que exista una sucursal o dirección concreta."));
+  section.append(credits);
+  if(!query)section.append(external("https://www.openstreetmap.org/#map=5/23.6/-102.5",
     "↗ Abrir mapa original","link-button"));
   resultsContainer.append(section);
 }
@@ -1879,13 +1894,8 @@ function renderMapPlaces(data) {
   const places = Array.isArray(data.results) ? data.results.filter(validMapPlace) : [];
   resultsContainer.replaceChildren();
   if (!places.length) {
-    const card = stateCard("No se encontró el lugar",data.message ||
-      "La geocodificación no encontró localidades con ese nombre. Prueba con una ciudad o coordenadas.");
-    card.append(external("https://www.openstreetmap.org/search?query=" + encodeURIComponent(state.query),
-      "↗ Ver más ubicaciones en el mapa original","link-button"));
-    resultsContainer.append(card);
-    stats.textContent = "Sin coincidencias geográficas · " + data.source;
-    showDirectionsWithoutLocality();
+    stats.textContent = "Sin coincidencias verificadas · " + data.source;
+    showDirectionsWithoutLocality({query:state.query,message:data.message});
     return;
   }
 
@@ -1893,13 +1903,13 @@ function renderMapPlaces(data) {
   const heading = element("div","map-heading");
   const headText = element("div");
   append(headText,element("span","tag","WAEWEB · MAPAS"),
-    element("h2","","Explorar " + data.query),
+    element("h2","",data.precision==="coordinate"?"Punto en el mapa":places[0].name),
     element("p","map-description",data.precision === "coordinate"
       ? "Punto indicado por coordenadas. No equivale a una dirección postal verificada."
       : data.precision === "address_or_place"
         ? "Coincidencias de direcciones y lugares; selecciona el punto correcto antes de trazar una ruta."
         : "Localidades geocodificadas. El marcador representa un centro aproximado, no una dirección exacta."));
-  const mapSearch=createMapQuickSearch();
+  const mapSearch=createMapQuickSearch(data.query);
   const mapSearchInput=mapSearch.querySelector("input");
   const newSearch=button("⌕ Otro lugar",()=>{mapSearchInput.focus();mapSearchInput.scrollIntoView({behavior:"smooth",block:"center"});},"small-action");
   heading.append(headText,newSearch);
@@ -1972,9 +1982,12 @@ function renderMapPlaces(data) {
   }
   const details=element("div","map-place");
   details.append(placeTitle,placeDetail,coords,toolbar);
-  section.append(stage,details,footnote);
+  section.append(stage,details);
   if(places.length>1)section.append(element("h3","map-picks-title","Elegir ubicación"),picks);
-  section.append(directions.root);
+  section.append(createMapDirectionsDisclosure(directions));
+  const credits=element("details","map-credits");
+  credits.append(element("summary","","Cartografía y precisión"),footnote);
+  section.append(credits);
   resultsContainer.append(section);
   directions.setDestination(places[selected]);
   mapOverride=null;
@@ -1989,7 +2002,7 @@ async function renderMap(query,signal,sequence) {
     panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
     state.data=null;state.results=[];state.selectedSource="";
     renderMapPlaces({
-      query,source:"Coordenadas en tu dispositivo",precision:"coordinate",
+      query,source:"Coordenadas introducidas",precision:"coordinate",
       results:[{id:"local-coordinates",name:"Punto indicado por coordenadas",
         detail:"Coordenadas introducidas por el usuario · sin dirección verificada",
         ...point,precision:"coordinate"}]
@@ -2029,11 +2042,8 @@ async function renderMap(query,signal,sequence) {
   } catch(error) {
     if(error.name==="AbortError"||sequence!==state.sequence)return;
     stats.textContent="Mapa no disponible";
-    const card=stateCard("No se pudo mostrar el mapa",error.message);
-    card.append(external("https://www.openstreetmap.org/search?query="+encodeURIComponent(query),
-      "↗ Abrir búsqueda en el mapa original","link-button"));
-    resultsContainer.replaceChildren(card);
-    showDirectionsWithoutLocality();
+    resultsContainer.replaceChildren();
+    showDirectionsWithoutLocality({query,message:"El proveedor no respondió. Puedes buscar este lugar directamente en OpenStreetMap."});
   }
 }
 let newsRefreshPending=false;
