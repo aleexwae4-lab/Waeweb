@@ -87,7 +87,8 @@ function requestPublic(url, address, maxBytes = MAX_BYTES) {
     req.on("error", error => done(error));
   });
 }
-async function guardedFetch(input, { resolver = dns.lookup, transport = requestPublic, redirects = 2 } = {}) {
+async function guardedFetch(input, { resolver = dns.lookup, transport = requestPublic,
+  redirects = 2, returnRedirect = false } = {}) {
   let url = safeReaderUrl(input);
   const seen = new Set();
   for (let attempt = 0; attempt <= redirects; attempt++) {
@@ -96,6 +97,9 @@ async function guardedFetch(input, { resolver = dns.lookup, transport = requestP
     const address = await publicEndpoint(url, resolver);
     const result = await transport(url, address);
     if ([301, 302, 303, 307, 308].includes(result.status)) {
+      // The document reader, not the HTTP transport, verifies target robots
+      // and domain scope before permitting the next hop.
+      if (returnRedirect) return { ...result, url: url.href };
       if (!result.location || attempt === redirects) reject("redirect_limit", "Demasiadas redirecciones.");
       url = safeReaderUrl(new URL(result.location, url).href);
       continue;
@@ -192,7 +196,8 @@ export async function readPage(input, options = {}) {
     // Check the final path too: an allowed /article may redirect to a
     // robots-disallowed /private route on the same public host.
     await checkRobots(url, options);
-    response = await guardedFetch(url.href, { ...options, redirects: 0 });
+    response = await guardedFetch(url.href, { ...options, redirects: 0,
+      returnRedirect: true });
     if (![301, 302, 303, 307, 308].includes(response.status)) break;
     if (!response.location || hop === 2)
       reject("redirect_limit", "La página excedió el límite de redirecciones.");
