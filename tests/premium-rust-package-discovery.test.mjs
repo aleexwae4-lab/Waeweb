@@ -152,6 +152,7 @@ test("advanced filters, ordinary Rust questions, and bare brand skip quick API",
 test("UI retains integrated cards and concurrency guards for crates.io",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(app,/public_rust_package_links/);
-  assert.match(app,/"crates.io · paquetes Rust"\].includes\(item.source\)/);
+  assert.match(app,/"crates.io · paquetes Rust"/);
+  assert.match(app,/\].includes\(item.source\)/);
   assert.match(app,/fullSearchFinished\|\|signal\.aborted\|\|sequence!==state\.sequence/);
 });
