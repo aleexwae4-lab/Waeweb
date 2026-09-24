@@ -10,6 +10,7 @@ import {previewWebHit,registerWebHits} from "./web-preview.mjs";
 import {wikipediaIntroduction,EncyclopediaError} from "./encyclopedia.mjs";
 import {searxngConfig} from "./web-providers.mjs";
 import { findPlaces, MapsError } from "./maps.mjs";
+import {findPoi,PoiError} from "./poi.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
 import {searchAddress,addressCapabilities,GeocodeError} from "./geocode.mjs";
 import {translateText,publicTranslateConfig,TranslateError} from "./translate.mjs";
@@ -104,6 +105,18 @@ function crawlLimited(req){
   }
   old.count++;return old.count>4;
 }
+const poiRate=new Map();
+function poiLimited(req){
+  const ip=process.env.TRUST_PROXY==="true"
+    ?(req.headers["x-forwarded-for"]||"").split(",")[0].trim()||req.socket.remoteAddress
+    :req.socket.remoteAddress||"unknown";
+  const now=Date.now(),previous=poiRate.get(ip);
+  if(!previous||now>previous.until){
+    if(poiRate.size>5000)poiRate.clear();
+    poiRate.set(ip,{count:1,until:now+60000});return false;
+  }
+  previous.count++;return previous.count>8;
+}
 const translationRate = new Map();
 function translationLimited(req){
   const ip=process.env.TRUST_PROXY==="true"
@@ -184,7 +197,7 @@ export async function handler(req, res) {
            (req.method==="POST" && ["/api/translate","/api/directions"].includes(u.pathname))) ||
         !([ "/api/translate","/api/directions" ].includes(u.pathname) ||
           ["/api/health","/api/capabilities","/api/search",
-           "/api/weather","/api/maps","/api/places","/api/marketplace",
+           "/api/weather","/api/maps","/api/poi","/api/places","/api/marketplace",
            "/api/web-index/read","/api/web/preview",
            "/api/encyclopedia/summary",
            "/api/translate/capabilities","/api/directions/capabilities"].includes(u.pathname))))
@@ -202,6 +215,9 @@ export async function handler(req, res) {
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Google News RSS", "BBC Mundo RSS", "El País RSS", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
     mapsEnabled: true, mapPrecision: "locality_centroid_or_user_coordinates",
+    businessPoi:{provider:"OpenStreetMap · Overpass",mode:"explicit_bounded_search",
+      maxRadiusMeters:6500,requiresZoneOrSelectedCoordinates:true,
+      liveHoursVerified:false,communityData:true},
     directions: {...routingCapabilities(),addressSearch:addressCapabilities()},
     translator: publicTranslateConfig(),
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
@@ -591,6 +607,16 @@ export async function handler(req, res) {
         const data = await findPlaces(u.searchParams.get("q") || "");
         return write(res, 200, data);
       }
+      if (u.pathname === "/api/poi") {
+        if (!["GET","HEAD"].includes(req.method))
+          return write(res,405,{error:"Solo lectura GET."},{allow:"GET, HEAD"});
+        if(poiLimited(req))return write(res,429,{
+          error:"Demasiadas consultas de comercios. Intenta nuevamente en un minuto.",
+          code:"poi_rate_limit"},{"retry-after":"60"});
+        const lat=u.searchParams.get("lat"),lon=u.searchParams.get("lon");
+        const point=lat!==null&&lon!==null?{latitude:Number(lat),longitude:Number(lon)}:{};
+        return write(res,200,await findPoi(u.searchParams.get("q")||"",point));
+      }
       if (u.pathname === "/api/weather") {
         const q = u.searchParams.get("place") || "";
         if (q.length > 180) return write(res, 400, { error: "La localidad supera 180 caracteres." });
@@ -606,6 +632,7 @@ export async function handler(req, res) {
           ...(error.retryAfterSeconds?{retryAfterSeconds:error.retryAfterSeconds}:{})},
         error.retryAfterSeconds?{"retry-after":String(error.retryAfterSeconds)}:{});
       if (error instanceof MapsError) return write(res, error.status, { error: error.message, code: error.code });
+      if (error instanceof PoiError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof BillingError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof MarketplaceError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof MarketMediaError) return write(res,error.status,{error:"Fotografía no disponible o inválida.",code:error.code});
