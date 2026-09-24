@@ -383,11 +383,9 @@ export async function quickOpenWeb(query){
     registerWebHits(hits);
     return {...base,results:hits,sourceStatus:"local_cache"};
   }
-  const feeds=[["Hacker News",()=>discoverOpenWeb(q)],
-    ...(technical?[
+  const feeds=[...(technical?[["Hacker News",()=>discoverOpenWeb(q)],
       ["Stack Overflow",()=>stackExchangeWeb(q,"stackoverflow")],
-      ["MDN Web Docs",()=>mdnWeb(q)]
-    ]:[]),
+      ["MDN Web Docs",()=>mdnWeb(q)]]:[]),
     ...(repoTerms&&!/\bgitlab\b/i.test(q)?[["GitHub · repositorios públicos",()=>githubPublicRepositories(repoTerms)]]:[]),
     ...(gitlabTerms?[[GITLAB_SOURCE,()=>gitlabPublicRepositories(gitlabTerms)]]:[]),
     ...(crateTerms?[[CRATES_SOURCE,()=>rustPublicCrates(crateTerms)]]:[]),
@@ -563,7 +561,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
          ? [["npm · paquetes publicados",()=>npmPublicPackages(npmPackageIntentTerms(q))]]:[]),
        // Discovery is a specialist public-link feed; it is not a general
        // Internet index. Wikipedia and Wikidata enrich, not replace, web hits.
-       ...(page===1 && !spec.source && !spec.site
+       ...(page===1 && !spec.source && !spec.site && technicalWebQuery(q,spec.site,spec.source)
          ? [["WAE Discovery",()=>discoverOpenWeb(q)]]:[]),
        // Add a bounded number of encyclopedia entries on the first page;
        // other real web providers retain their own relevance and provenance.
