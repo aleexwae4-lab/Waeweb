@@ -3,6 +3,7 @@ import { openBrowser, hideBrowser } from "/browser.js";
 import {siteVisitMode} from "/browser-core.js";
 import {mergeWebPageResponse} from "/web-page-merge.js";
 import { classifyOmnibox } from "/omnibox.js";
+import {nearbyIntent} from "/local-intent.js";
 import { osmEmbedUrl, osmPlaceUrl, osmSearchUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
 import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
@@ -1905,7 +1906,7 @@ function renderMapPlaces(data) {
   const heading = element("div","map-heading");
   const headText = element("div");
   append(headText,element("span","tag","WAEWEB · MAPAS"),
-    element("h2","",data.precision==="coordinate"?"Punto en el mapa":places[0].name),
+    element("h2","",data.nearby?"Lugares cercanos · "+(nearbyIntent(data.query)?.label||"Resultados"):data.precision==="coordinate"?"Punto en el mapa":places[0].name),
     element("p","map-description",data.precision === "coordinate"
       ? "Punto indicado por coordenadas. No equivale a una dirección postal verificada."
       : data.precision === "address_or_place"
@@ -1948,7 +1949,7 @@ function renderMapPlaces(data) {
   let selected = 0, zoom = data.precision === "coordinate" ? 3 : 2;
   let mapOverride=null,shownPlace=null;
   const options = places.map((place,index)=>{
-    const label = place.name + (place.detail ? " · " + place.detail : "");
+    const label = place.name + (Number.isFinite(place.distanceMeters)?" · "+place.distanceMeters+" m":"") + (place.detail ? " · " + place.detail : "");
     const choice = button(label,()=>select(index),"map-pick");
     choice.setAttribute("aria-pressed","false");
     picks.append(choice);
@@ -1995,6 +1996,63 @@ function renderMapPlaces(data) {
   directions.setDestination(places[selected]);
   mapOverride=null;
   refresh();
+}
+async function renderNearby(query,signal,sequence){
+  const intent=nearbyIntent(query);
+  if(!intent)return;
+  stopDirections();
+  panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
+  state.data=null;state.results=[];state.selectedSource="";
+  sourceFilter.hidden=true;
+  resultsContainer.replaceChildren();
+  const intro=element("section","map-explorer");
+  intro.append(element("span","tag","WAEWEB · NEGOCIOS CERCANOS"),
+    element("h2","",intent.label+" cerca de ti"),
+    element("p","map-description",
+      "Usaremos tu ubicación solo si lo autorizas, para consultar puntos registrados en OpenStreetMap. "+
+      "No se almacena en tu cuenta ni sustituye la verificación de una sucursal."));
+  const feedback=element("p","map-search-status","Se requiere tu permiso de ubicación.");
+  feedback.setAttribute("role","status");
+  const find=button("⌖ Buscar cerca de mí",()=>void locate(),"map-action map-locate");
+  intro.append(find,feedback);
+  resultsContainer.append(intro);
+  stats.textContent="Búsqueda local · "+intent.label;
+  async function locate(){
+    if(signal.aborted||sequence!==state.sequence)return;
+    if(!navigator.geolocation){
+      feedback.textContent="Tu navegador no permite usar ubicación. Puedes buscar el lugar en Mapas.";
+      return;
+    }
+    find.disabled=true;feedback.textContent="Solicitando ubicación autorizada…";
+    navigator.geolocation.getCurrentPosition(async position=>{
+      if(signal.aborted||sequence!==state.sequence)return;
+      const {latitude,longitude}=position.coords;
+      if(!Number.isFinite(latitude)||!Number.isFinite(longitude)){
+        find.disabled=false;feedback.textContent="No recibimos coordenadas válidas.";return;
+      }
+      feedback.textContent="Consultando negocios reales registrados en OpenStreetMap…";
+      try{
+        const data=await getJSON("/api/nearby?q="+encodeURIComponent(query)+
+          "&lat="+encodeURIComponent(latitude.toFixed(6))+
+          "&lon="+encodeURIComponent(longitude.toFixed(6)),signal);
+        if(signal.aborted||sequence!==state.sequence)return;
+        renderMapPlaces({...data,nearby:true});
+      }catch(error){
+        if(signal.aborted||sequence!==state.sequence)return;
+        find.disabled=false;
+        feedback.textContent="El índice geográfico no respondió. "+
+          (error?.message||"Puedes volver a intentar.");
+        stats.textContent="Búsqueda local temporalmente no disponible";
+      }
+    },error=>{
+      if(signal.aborted||sequence!==state.sequence)return;
+      find.disabled=false;
+      feedback.textContent=error.code===1
+        ?"Permiso de ubicación denegado. No mostraremos negocios ficticios; puedes habilitarlo desde tu navegador."
+        :"No se pudo obtener tu ubicación. Revisa GPS o vuelve a intentar.";
+    },{enableHighAccuracy:false,timeout:12000,maximumAge:60000});
+  }
+  void locate();
 }
 async function renderMap(query,signal,sequence) {
   // Coordinates supplied by the user can render without /api/maps. A deployment
@@ -2204,6 +2262,7 @@ async function performSearch(query, type = "all", push = true, collection = "web
   heroInput.value = q; resultsInput.value = q; setTab(type);
   if (push) updateAddress(q, type, state.mediaCollection);
   if (type === "maps") { await renderMap(q,signal,sequence); return; }
+  if(type==="all"&&nearbyIntent(q)){await renderNearby(q,signal,sequence);return;}
   if (type === "index" && !readerEnabled) {
     stats.textContent="Índice privado desactivado en esta vista.";
     panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
