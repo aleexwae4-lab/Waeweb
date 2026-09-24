@@ -96,11 +96,11 @@ if(!ready){
       "HTTP",instant.status,"host",actualHost);
     if(!valid)process.exitCode=1;
   }
-  // The remote early lookup must expose genuine P856 provenance when it
+  // Duolingo is deliberately absent from the curated navigation directory.\n  // The remote early lookup must expose genuine P856 provenance when it
   // succeeds. Wikidata may time out or have no record: do not fail live CI
   // merely for an independent external-source outage.
   const unknown=await request("/api/search?nav=1&type=all&q="+
-    encodeURIComponent("Spotify oficial"));
+    encodeURIComponent("Duolingo oficial"));
   const candidate=unknown.body?.site;
   const dynamicGood=unknown.ok&&unknown.marker&&
     unknown.body?.kind==="named_site_preview"&&
