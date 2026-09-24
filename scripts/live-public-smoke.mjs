@@ -60,6 +60,8 @@ if(!ready){
       r.body.includes("Panorama de fuentes para esta búsqueda")&&
       r.body.includes("wae-source-panorama")&&
       r.body.includes("renderSummary(data)")&&
+      r.body.includes("function createWebSourceReader(item,url)")&&
+      r.body.includes("▤ Leer aquí")&&
       r.body.includes("function encyclopediaWidget(item)")&&
       r.body.includes("/api/encyclopedia/summary?pageid=")],
     ["/book-gallery.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("renderBookCard")],

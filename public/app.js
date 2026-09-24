@@ -510,6 +510,87 @@ function renderInformationCard(item,index){
   card.append(actions,reading);
   return card;
 }
+// Native web reading lives in each organic result; no third-party iframe is
+// required to inspect the indexed excerpt or an explicitly requested preview.
+function createWebSourceReader(item,url){
+  const slot=element("section","wae-web-source-reader");
+  slot.hidden=true;
+  slot.setAttribute("role","region");
+  slot.setAttribute("aria-label","Lectura web: "+item.title);
+  const source=item.source||"Fuente pública";
+  slot.append(element("p","wae-web-reader-label","EXTRACTO Y PROCEDENCIA"),
+    element("p","wae-web-reader-note",
+      item.snippet
+        ?"El fragmento anterior procede del resultado de búsqueda; no es el artículo completo."
+        :"Este resultado no aportó un extracto; consulta la fuente original."),
+    element("p","wae-web-reader-source",
+      "Fuente: "+source+" · "+shortHost(url)+
+      (item.date?" · "+formatDate(item.date):"")));
+  let recovered=null;
+  const status=element("p","wae-web-reader-status");
+  status.setAttribute("role","status");
+  const body=element("div","wae-web-reader-body");
+  body.hidden=true;
+  const actions=element("div","wae-web-reader-actions");
+  if(url.startsWith("https://")){
+    const recover=button("▤ Recuperar texto original",async()=>{
+      if(recovered){
+        body.hidden=!body.hidden;
+        recover.textContent=body.hidden?"▤ Mostrar texto":"▤ Ocultar texto";
+        return;
+      }
+      recover.disabled=true;
+      recover.textContent="Consultando…";
+      status.textContent="Comprobando la disponibilidad del sitio y sus permisos de lectura.";
+      try{
+        const data=await getJSON("/api/web/preview?url="+encodeURIComponent(url),
+          state.controller?.signal);
+        const canonical=new URL(url);canonical.hash="";
+        if(data?.kind!=="source_excerpt"||data.url!==canonical.href||
+          typeof data.excerpt!=="string"||data.excerpt.length<30)
+          throw new Error("No se recibió texto verificable del origen.");
+        if(!slot.isConnected)return;
+        recovered=data.excerpt;
+        const listen=button("▶ Escuchar",()=>readAloud(recovered,
+          "Fuente web · "+(data.title||item.title)),"wae-web-reader-action");
+        listen.disabled=!voiceReader.snapshot().available;
+        body.replaceChildren(
+          element("p","wae-web-reader-recovered",data.excerpt),
+          element("small","wae-web-reader-disclaimer",
+            data.disclaimer||"Extracto del sitio original; consulta la fuente."),
+          listen,
+          button("⧉ Copiar extracto",()=>copyText(
+            [data.title||item.title,data.url,recovered].join("\n")),
+            "wae-web-reader-action"));
+        body.hidden=false;
+        recover.textContent="▤ Ocultar texto";
+        status.textContent="Texto recuperado del origen. "+
+          (data.hasMore?"La página contiene más contenido.":"Consulta el sitio para más contexto.");
+      }catch(error){
+        if(error?.name==="AbortError"||!slot.isConnected)return;
+        status.textContent="No se pudo recuperar texto: "+error.message+
+          ". Se conserva el fragmento inicial y el enlace original.";
+        recover.textContent="↻ Reintentar lectura";
+      }finally{recover.disabled=false;}
+    },"wae-web-reader-action wae-web-reader-recover");
+    actions.append(recover);
+  }
+  actions.append(button("◎ Navegar dentro",()=>openBrowser(url),
+      "wae-web-reader-action"),
+    external(url,"↗ Fuente original","wae-web-reader-action"));
+  slot.append(actions,status,body);
+  const control=button("▤ Leer aquí",()=>toggle(),
+    "save-button wae-web-read-toggle");
+  control.setAttribute("aria-expanded","false");
+  function toggle(){
+    const open=slot.hidden;
+    slot.hidden=!open;
+    control.textContent=open?"✕ Cerrar lectura":"▤ Leer aquí";
+    control.setAttribute("aria-expanded",String(open));
+    return open;
+  }
+  return {slot,control,toggle};
+}
 function renderResult(item, index) {
   if(["news","knowledge","research"].includes(state.type))
     return renderInformationCard(item,index);
@@ -539,10 +620,12 @@ function renderResult(item, index) {
   // access to the original page when it disallows embedded browsing.
   const directVideo=state.type==="videos" &&
     (item.platform==="YouTube"||item.platform==="TikTok");
+  let webReadingToggle=null;
+  let webReadingSlot=null;
   const title = nativeBook
     ? button(item.title, () => bookExperience.openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "result-title browser-result-title")
     : state.type === "all"
-    ? button(item.title,()=>openBrowser(url),"result-title web-result-title")
+    ? button(item.title,()=>webReadingToggle?.(),"result-title web-result-title")
     : state.type==="videos"
       ? button(item.title,()=>{
           const player=card.querySelector(".video-primary-play");
@@ -551,6 +634,7 @@ function renderResult(item, index) {
         },"result-title browser-result-title")
       : button(item.title, () => openBrowser(url), "result-title browser-result-title");
   title.title = nativeBook ? "Ver ficha bibliográfica en Biblioteca WAE WEB"
+    : state.type==="all" ? "Leer el resultado dentro de WAE WEB"
     : state.type==="videos" ? "Reproducir dentro de WAE WEB si el origen lo permite"
     : "Navegar en WAEWEB: "+shortHost(url);
   if ((state.type === "books" || state.type === "videos" ||
@@ -664,7 +748,7 @@ function renderResult(item, index) {
   if(nativeBook) {
     meta.append(button("▤ Ficha WAE", () => bookExperience.openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "save-button"));
     meta.append(external(url, "↗ Catálogo original", "save-button"));
-  } else if(!directVideo) {
+  } else if(!directVideo && state.type!=="all") {
     meta.append(button(state.type === "videos" ? "▷ Explorar vídeo" : state.type === "books" ? "▤ Ver ficha" : "◎ Explorar dentro", () => openBrowser(url), "save-button"));
   }
   const save = button(workspace.has(url) ? "◆ Guardado" : "◇ Guardar fuente", () => {
@@ -709,36 +793,19 @@ function renderResult(item, index) {
     }
   }
   if(state.type==="all"){
-    const listen=button("▶ Escuchar resultado",()=>listenToResult(item),"save-button wae-result-voice");
+    const reader=createWebSourceReader(item,url);
+    webReadingSlot=reader.slot;
+    webReadingToggle=()=>{
+      const open=reader.toggle();
+      title.setAttribute("aria-expanded",String(open));
+    };
+    title.setAttribute("aria-expanded","false");
+    meta.append(reader.control);
+    const listen=button("▶ Escuchar",()=>listenToResult(item),
+      "save-button wae-result-voice");
     listen.disabled=!voiceReader.snapshot().available;
     meta.append(listen);
-    meta.append(external(url,"↗ Fuente original","save-button"));
-    if(url.startsWith("https://")){
-      const extract=element("div","web-inline-extract");
-      extract.setAttribute("role","status");
-      const preview=button("▤ Leer extracto aquí",async()=>{
-        preview.disabled=true;
-        preview.textContent="Consultando página…";
-        try{
-          const data=await getJSON("/api/web/preview?url="+encodeURIComponent(url));
-          extract.replaceChildren(
-            element("strong","","Extracto de "+(data.title||shortHost(url))),
-            element("p","",data.excerpt),
-            element("small","",data.disclaimer),
-            button("▶ Escuchar este extracto",
-              ()=>readAloud(data.excerpt,"Extracto de "+(data.title||item.title)),
-              "save-button wae-result-voice"));
-          preview.textContent="✓ Extracto disponible";
-        }catch(error){
-          extract.replaceChildren(element("p","","No se pudo leer esta página aquí: "+
-            error.message+" Puedes explorarla dentro de WAE WEB o abrir la fuente original."));
-          preview.textContent="↻ Reintentar extracto";
-          preview.disabled=false;
-        }
-      },"save-button web-excerpt-action");
-      meta.append(preview);
-      card.append(extract);
-    }
+    meta.append(external(url,"↗ Origen","save-button"));
   }
   if(state.type !== "all")meta.append(external(url,
     state.type==="videos" && item.platform==="TikTok"?"↗ Ver clip en TikTok":
@@ -748,6 +815,7 @@ function renderResult(item, index) {
     meta.append(button("⌕ Leer e indexar", () => requestRead(url), "save-button"));
   }
   card.append(meta);
+  if(webReadingSlot)card.append(webReadingSlot);
   if(state.type==="all"){
     const encyclopedia=encyclopediaWidget(item);
     if(encyclopedia)card.append(encyclopedia);
