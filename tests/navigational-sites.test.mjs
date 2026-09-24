@@ -71,8 +71,8 @@ test("Wikidata API search resolves entity detail before emitting official URL",a
     assert.equal(rows.length,1);
     assert.equal(rows[0].url,"https://github.com/");
     assert.equal(rows[0].provenanceUrl,"https://www.wikidata.org/wiki/Q364");
-    assert.equal(called.length,2);
-    assert.equal(called[1].searchParams.get("ids"),"Q364");
+    assert.equal(called.length,3);
+    assert.equal(called[2].searchParams.get("ids"),"Q364");
   }finally{globalThis.fetch=old;}
 });
 test("source-backed website outranks the encyclopaedia and repository for navigational query",()=>{
@@ -143,5 +143,5 @@ test("native result cards visit site with explicit provenance; no full-web claim
   assert.match(app,/◎ Visitar sitio/);
   assert.match(app,/ⓘ Procedencia/);
   assert.match(app,/Índice web general no configurado/);
-  assert.match(app,/Sin Brave, Google o SearXNG configurados no existe cobertura/);
+  assert.match(app,/La búsqueda web amplia requiere que Brave, Google o SearXNG esté configurado y responda/);
 });
