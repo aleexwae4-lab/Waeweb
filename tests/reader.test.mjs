@@ -75,7 +75,7 @@ test("reader fails closed for mixed DNS and site robots deny before requesting a
   }), { code: "robots_disallowed" });
   assert.equal(mocks.seen.length, 1);
 });
-test("redirects are rejected instead of allowing destination robots bypass", async () => {
+test("redirects to unrelated sites are rejected instead of allowing destination robots bypass", async () => {
   const calls = [];
   const transport = async (url, address) => {
     calls.push(url.href);
@@ -84,8 +84,9 @@ test("redirects are rejected instead of allowing destination robots bypass", asy
   };
   await assert.rejects(() => readPage("https://reader-test-four.org/public", {
     resolver: mockedResolver, transport
-  }), { code: "redirect_limit" });
+  }), { code: "redirected_origin" });
   assert.equal(calls.length, 2);
+  assert.ok(!calls.some(url=>url.includes("another-site.org")));
 });
 test("index is bounded, searchable, source-attributed, and never claims persistence", () => {
   const store = new Map();
