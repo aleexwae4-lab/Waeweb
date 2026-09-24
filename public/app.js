@@ -1207,8 +1207,17 @@ function renderPublicBusiness(item) {
   }
   const url = safeUrl(item.website);
   if (url?.startsWith("https://")) {
-    card.append(button("◎ Abrir sitio", () => openBrowser(url), "link-button"));
-    card.append(external(url, "↗ Sitio web original", "link-button"));
+    // A blocked iframe is not navigation: take the visitor to the actual
+    // website instead of showing a fake browser panel and a duplicate CTA.
+    const restricted=siteVisitMode(url,window.waeDesktop?.isNative===true)==="original";
+    if(restricted)card.append(external(url,"↗ Visitar sitio web","link-button"));
+    else{
+      card.append(button("◎ Abrir sitio",()=>openBrowser(url),"link-button"));
+      const more=element("details","business-website-more");
+      more.append(element("summary","","⋯ Más"),
+        external(url,"↗ Sitio web original","link-button"));
+      card.append(more);
+    }
   }
   return card;
 }
