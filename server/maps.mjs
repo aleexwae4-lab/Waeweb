@@ -3,6 +3,8 @@
 // respect the public service policy; production scale should use a self-hosted
 // instance or another OSM-compatible endpoint. No paid API is required.
 const cache=new Map();
+const inflight=new Map();
+let nextPublicSlot=0;
 const TTL_MS=30*60_000;
 const COORDS=/^\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*[,;]\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*$/;
 const HEADERS={accept:"application/json","user-agent":"WAEWEB/1.0 (https://github.com/aleexwae4-lab/Waeweb)"};
@@ -36,13 +38,22 @@ function normalizeNominatim(item,index){
     importance:finite(item.importance)?Number(item.importance):null,
     boundingBox:Array.isArray(item.boundingbox)?item.boundingbox.map(Number).filter(Number.isFinite):null};
 }
-async function nominatim(query){
+async function nominatim(query,transport=fetch){
   const base=(process.env.WAE_NOMINATIM_URL||"https://nominatim.openstreetmap.org").trim().replace(/\/+$/,"");
   let endpoint;try{endpoint=new URL(base+"/search");}catch{throw new MapsError("El motor geográfico no está configurado correctamente.",503,"map_config_invalid");}
   endpoint.search=new URLSearchParams({q:query,format:"jsonv2",addressdetails:"1",namedetails:"1",limit:"20",
     "accept-language":"es-MX,es,en",dedupe:"1",countrycodes:process.env.WAE_MAP_COUNTRY_CODES||"mx"}).toString();
   let response;
-  try{response=await fetch(endpoint,{headers:HEADERS,signal:AbortSignal.timeout(6000),redirect:"error"});}
+  try{
+    // Nominatim's public endpoint: at most one request/second per process.
+    // This does not enforce a global limit across multiple serverless instances.
+    if(endpoint.hostname==="nominatim.openstreetmap.org" && transport===globalThis.fetch){
+      const slot=Math.max(Date.now(),nextPublicSlot);
+      nextPublicSlot=slot+1100;
+      if(slot>Date.now())await new Promise(resolve=>setTimeout(resolve,slot-Date.now()));
+    }
+    response=await transport(endpoint,{headers:HEADERS,signal:AbortSignal.timeout(6000),redirect:"error"});
+  }
   catch{throw new MapsError("No se pudo consultar el índice geográfico de OpenStreetMap.",502,"map_source_unavailable");}
   if(response.status===429)throw new MapsError("El índice geográfico está limitando solicitudes. Intenta nuevamente en unos segundos.",429,"map_rate_limited");
   if(!response.ok)throw new MapsError("El índice geográfico no respondió correctamente.",502,"map_source_unavailable");
@@ -55,18 +66,26 @@ async function nominatim(query){
     if(seen.has(key))return false;seen.add(key);return true;
   }).slice(0,12);
 }
-export async function findPlaces(input,{fresh=false}={}){
+export async function findPlaces(input,{fresh=false,transport=fetch}={}){
   if(typeof input!=="string"||input.length>180)throw new MapsError("La consulta geográfica supera 180 caracteres.");
   const query=sanitize(input);if(query.length<2)throw new MapsError("Escribe un lugar, negocio, dirección o dos coordenadas.");
   const pair=mapCoordinates(query);
   if(pair)return {query,source:"Coordenadas proporcionadas",precision:"coordinate",results:[{id:"coordinates",name:"Ubicación por coordenadas",detail:"Punto indicado por el usuario · sin dirección verificada",...pair,precision:"coordinate"}]};
   const key=query.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
-  const old=cache.get(key);if(!fresh&&old&&old.expires>Date.now())return old.value;
-  const results=await nominatim(query);
+  const shared=transport===globalThis.fetch;
+  const old=shared?cache.get(key):null;if(!fresh&&old&&old.expires>Date.now())return old.value;
+  if(shared && inflight.has(key))return inflight.get(key);
+  const task=(async()=>{
+  const results=await nominatim(query,transport);
   const value={query,source:"OpenStreetMap · Nominatim",precision:"mixed",
     attribution:"Datos © colaboradores de OpenStreetMap · ODbL. Nominatim localiza direcciones, lugares y POI indexados.",
     results,message:results.length?null:"No se encontraron coincidencias. Añade colonia, ciudad o estado para precisar la búsqueda.",
     capabilities:{addresses:true,namedPlaces:true,businesses:true,poi:true,routing:false,
       note:"Las rutas se resuelven por el módulo de direcciones. Para búsquedas masivas de categorías se integrará Overpass con caché."}};
-  if(cache.size>500)cache.clear();cache.set(key,{value,expires:Date.now()+(results.length?TTL_MS:90_000)});return value;
+  if(shared){if(cache.size>500)cache.clear();cache.set(key,{value,expires:Date.now()+(results.length?TTL_MS:90_000)});}
+  return value;
+  })();
+  if(!shared)return task;
+  inflight.set(key,task);
+  try{return await task;}finally{if(inflight.get(key)===task)inflight.delete(key);}
 }
