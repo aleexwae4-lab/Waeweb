@@ -1090,3 +1090,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .wae-reading-more{display:block;width:min(100%,410px);margin:14px auto 3px;min-height:40px;padding:8px 15px;border:1px solid rgba(154,197,248,.48);border-radius:24px;background:linear-gradient(125deg,#18375c,#1b2b4b);color:#e4f1ff;font-size:12px;font-weight:750}
 .wae-reading-more:hover{border-color:#b5d7ff;background:#285381}
 @media(max-width:600px){.wae-information-reading{padding:9px 10px}.wae-information-card.is-reading .wae-information-snippet{font-size:12px}.wae-reading-more{min-height:40px;margin-top:10px}}
+
+/* WAE WEB · verified source-excerpt recovery for News and Knowledge. */
+.wae-reading-recovery{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:9px 0 3px;padding:10px 0 9px;border-top:1px solid rgba(149,189,239,.19);width:100%;min-width:0}
+.wae-reading-recovery-toggle{border:1px solid rgba(138,197,255,.55);border-radius:9px;padding:8px 12px;min-height:37px;background:linear-gradient(120deg,#254f7b,#1f3f69);color:#edf6ff;font-size:11px;font-weight:760;text-align:left;max-width:100%}
+.wae-reading-recovery-toggle:disabled{opacity:.58;cursor:wait}
+.wae-reading-recovery-status{margin:0;font-size:11px;line-height:1.5;color:#a9c2e2;max-width:100%;overflow-wrap:anywhere}
+.wae-reading-recovery-status:empty{display:none}
+.wae-reading-recovery-body{width:100%;min-width:0;display:flex;flex-direction:column;gap:8px}
+.wae-reading-recovery-body[hidden]{display:none!important}
+.wae-reading-recovery-text{margin:0;padding:11px 12px;border-left:2px solid #83b8ff;border-radius:0 8px 8px 0;background:rgba(13,35,61,.72);color:#edf5ff;font-size:12px;line-height:1.8;overflow-wrap:anywhere;white-space:pre-wrap;max-width:100%}
+.wae-reading-recovery-disclaimer{display:block;font-size:10px;line-height:1.5;color:#a9bedb}
+.wae-reading-recovery-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.wae-reading-recovery-actions .wae-information-link{min-height:36px}
+@media(max-width:600px){.wae-reading-recovery{padding:8px 0;gap:6px}.wae-reading-recovery-text{padding:9px 10px;font-size:12px}.wae-reading-recovery-toggle{padding:7px 10px}}
