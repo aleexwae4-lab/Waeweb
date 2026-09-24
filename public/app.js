@@ -457,7 +457,19 @@ function renderInformationCard(item,index){
         const copy=button("⧉ Copiar extracto",()=>copyText(
           [data.title||item.title,data.url,sourceExcerpt].join("\n")),
           "wae-information-link");
-        tools.append(listen,copy);
+        const capture=button("◇ Guardar extracto",()=>{
+          const saved=workspace.capture({...item,url,source:item.source||"Fuente",
+            title:data.title||item.title,snippet:sourceExcerpt,
+            evidenceKind:"source_excerpt",fetchedAt:data.fetchedAt});
+          if(saved.ok){
+            capture.textContent="◆ Extracto guardado";capture.disabled=true;
+            refreshLibraryCount();
+            recoveryStatus.textContent=saved.persisted===false
+              ?"Extracto guardado temporalmente en esta sesión; almacenamiento local bloqueado."
+              :"Extracto original guardado en Biblioteca WAE WEB.";
+          }else recoveryStatus.textContent=saved.reason;
+        },"wae-information-link");
+        tools.append(listen,copy,capture);
         recoveryBody.append(tools);
         recoveryBody.hidden=false;
         recoveryStatus.textContent="Extracto original recuperado. "+
@@ -562,7 +574,20 @@ function createWebSourceReader(item,url){
           listen,
           button("⧉ Copiar extracto",()=>copyText(
             [data.title||item.title,data.url,recovered].join("\n")),
-            "wae-web-reader-action"));
+            "wae-web-reader-action"),
+          button("◇ Guardar extracto",function captureSource(){
+            const saved=workspace.capture({...item,url,source:item.source||"Fuente",
+              title:data.title||item.title,snippet:recovered,
+              evidenceKind:"source_excerpt",fetchedAt:data.fetchedAt});
+            if(saved.ok){
+              const control=body.querySelector(".wae-web-capture");
+              control.textContent="◆ Extracto guardado";control.disabled=true;
+              refreshLibraryCount();
+              status.textContent=saved.persisted===false
+                ?"Extracto guardado temporalmente; almacenamiento local bloqueado."
+                :"Extracto original guardado en Biblioteca WAE WEB.";
+            }else status.textContent=saved.reason;
+          },"wae-web-reader-action wae-web-capture"));
         body.hidden=false;
         recover.textContent="▤ Ocultar texto";
         status.textContent="Texto recuperado del origen. "+
