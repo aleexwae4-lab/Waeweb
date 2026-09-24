@@ -1,4 +1,5 @@
 import {nearbyIntent} from "../public/local-intent.js";
+import {searchNativeNearby} from "./native-poi.mjs";
 export class NearbyError extends Error {
   constructor(message,status=400){super(message);this.status=status;}
 }
@@ -18,6 +19,12 @@ export async function searchNearby({query,latitude,longitude},transport=fetch){
     latitude===""||longitude===""||!Number.isFinite(lat)||!Number.isFinite(lon)||
     Math.abs(lat)>90||Math.abs(lon)>180)
     throw new NearbyError("Necesitamos una ubicación autorizada y válida.");
+  // A populated owned index answers immediately without any upstream request.
+  const native=searchNativeNearby({query,latitude:lat,longitude:lon});
+  if(native)return native;
+  // Migration escape hatch. Strict native-only mode never contacts Overpass.
+  if(process.env.WAE_NEARBY_EXTERNAL_FALLBACK==="false")
+    throw new NearbyError("El índice geográfico nativo aún no tiene datos. Importa un extracto OSM de tu región.",503);
   const key=[intent.category,lat.toFixed(3),lon.toFixed(3)].join(":");
   const cached=cache.get(key);
   if(cached&&cached.expires>Date.now())return {...cached.value,query};
