@@ -12,6 +12,11 @@ export function cleanEntry(input) {
     source: String(input.source || "Fuente").slice(0, 100),
     snippet: String(input.snippet || "").slice(0, 1200),
     date: input.date ? String(input.date).slice(0, 30) : null,
+    evidenceKind: input.evidenceKind === "source_excerpt" ? "source_excerpt" : "search_snippet",
+    fetchedAt: input.evidenceKind === "source_excerpt" &&
+      typeof input.fetchedAt === "string" &&
+      !Number.isNaN(Date.parse(input.fetchedAt)) ?
+      new Date(input.fetchedAt).toISOString() : null,
     savedAt: typeof input.savedAt === "string" && /^\d{4}-\d{2}-\d{2}T/.test(input.savedAt) ? input.savedAt.slice(0, 40) : new Date().toISOString()
   };
 }
@@ -41,6 +46,22 @@ export function createWorkspace(storage = globalThis.localStorage) {
       const persisted = persist(next);
       return { ok: true, persisted, size: next.length };
     },
+    capture(input) {
+      // Updating a previously saved hit must never create a duplicate or
+      // silently turn an unavailable preview into a purported source excerpt.
+      if (input?.evidenceKind !== "source_excerpt" ||
+          String(input?.snippet || "").trim().length < 30)
+        return { ok: false, reason: "Sin extracto original recuperado." };
+      const entry = cleanEntry(input);
+      if (!entry) return { ok: false, reason: "Fuente no válida." };
+      const list = read();
+      const previous = list.find(item => item.url === entry.url);
+      if (previous) entry.savedAt = previous.savedAt;
+      const next = [entry, ...list.filter(item => item.url !== entry.url)]
+        .slice(0, MAX_ITEMS);
+      const persisted = persist(next);
+      return { ok: true, persisted, updated: Boolean(previous), size: next.length };
+    },
     remove(url) {
       const next = read().filter(item => item.url !== url);
       return persist(next);
@@ -59,7 +80,12 @@ export function asMarkdown(entries, title = "Biblioteca de investigación WAE WE
       "- Fuente: " + entry.source,
       "- URL: " + safeUrl,
       "- Fecha publicada: " + (entry.date || "No informada"),
-      "- Guardado: " + (entry.savedAt || "No informado"), "",
+      "- Guardado: " + (entry.savedAt || "No informado"),
+      "- Tipo: " + (entry.evidenceKind === "source_excerpt"
+        ? "Extracto recuperado de la página original"
+        : "Fragmento del resultado de búsqueda"),
+      ...(entry.evidenceKind === "source_excerpt"
+        ? ["- Recuperado: " + (entry.fetchedAt || "Fecha no informada")] : []), "",
       entry.snippet, "");
   }
   return rows.join("\n");
