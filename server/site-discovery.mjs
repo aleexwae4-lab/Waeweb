@@ -6,7 +6,7 @@ const fold=value=>String(value??"").normalize("NFD")
   .replace(/\s+/g," ").trim();
 // Only explicit navigation verbs, not broad question semantics, remove
 // conversational filler before exact-match brand or entity lookup.
-const NAV_VERB=/^(?:(?:quiero|necesito|deseo)\s+(?:ir\s+a|visitar|abrir|entrar\s+(?:a|en)|acceder\s+a|navegar\s+a|buscar)|(?:llevame|dirigeme)\s+a|(?:abre|visita|entra\s+(?:a|en)|accede\s+a|navega\s+a)|ir\s+a|visitar|abrir|entrar\s+a|buscar)\s+/;
+const NAV_VERB=/^(?:(?:quiero|necesito|deseo)\s+(?:ir\s+a(?:l)?|visitar|abrir|entrar\s+(?:a(?:l)?|en)|acceder\s+a(?:l)?|navegar\s+a(?:l)?|buscar)|(?:llevame|dirigeme)\s+a(?:l)?|(?:abre|visita|entra\s+(?:a(?:l)?|en)|accede\s+a(?:l)?|navega\s+a(?:l)?)|ir\s+a(?:l)?|visitar|abrir|entrar\s+a(?:l)?|buscar)\s+/;
 const NAV_PAGE=/^(?:(?:la|el)\s+)?(?:portal\s+oficial|sitio\s+web|sitio\s+oficial|sitio|pagina\s+web|pagina\s+oficial|pagina|web\s+oficial|web|oficial)\s+(?:de\s+|del\s+|la\s+|el\s+)?/;
 export function navigationalName(query){
   const raw=fold(query);
@@ -19,6 +19,12 @@ export function navigationalName(query){
   // questions require explicit website intent before requesting P856.
   const institution=/^(?:instituto|universidad|secretaria|ministerio|gobierno|museo|hospital|fundacion|diario oficial|university|national|world health)\b/.test(name);
   const longName=explicit||institution;
+  // Unqualified multiword topical searches are not requests to visit a site.
+  // Preserve exact named directory brands (e.g. Mercado Libre, Google Maps)
+  // and explicit navigation for unknown multiword institutions/organizations.
+  const directoryName=DIRECTORY.some(([,url,,aliases])=>aliases.includes(name)||
+    fold(new URL(url).hostname.replace(/^www\./,""))===name.replace(/^www\./,""));
+  if(!longName&&name.includes(" ")&&!directoryName)return null;
   if(!name||name.split(/\s+/).length>(longName?9:4)||
     name.length>(longName?100:60)||
     !/^[\p{L}\p{N} .&+-]+$/u.test(name))return null;
