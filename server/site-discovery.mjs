@@ -164,8 +164,10 @@ export function wikidataOfficialSites(query){
     ()=>{if(inFlightSites.get(name)===task)inFlightSites.delete(name);});
   return task;
 }
-async function loadWikidataOfficialSites(query){
-  const name=navigationalName(query);
+async function loadWikidataOfficialSites(name){
+  // The public entry point has already validated the original navigation
+  // intent. Re-parsing its normalized multiword name would discard valid
+  // explicit website requests as if they were free-form topic searches.
   if(!name)return [];
   // Query the two Wikidata name indexes concurrently: an institution can
   // have no Spanish search entry even when its English label is an exact
