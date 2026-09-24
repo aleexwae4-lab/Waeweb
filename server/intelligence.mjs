@@ -102,7 +102,7 @@ export function scoreResult(item, query, type = "all") {
     if (normalizedQuery && title === normalizedQuery) score += 18;
     let host="";try{host=new URL(item.url).hostname.toLowerCase().replace(/^www\./,"");}catch{}
     const trusted=/^(?:github\.com|wikipedia\.org|wikidata\.org|openai\.com|microsoft\.com|apple\.com|mozilla\.org|developer\.mozilla\.org|gob\.mx|unam\.mx)$/.test(host)||/\.gob\.mx$|\.edu$|\.edu\.mx$/.test(host);
-    if(trusted)score+=4;
+    if(trusted && !/(?:^|\.)(?:wikidata|wikipedia)\.org$/.test(host))score+=4;
     if(/(?:^|\.)(?:blogspot\.com|wordpress\.com)$/.test(host))score-=1;
     const spam=/(?:casino|apuestas|viagra|crypto giveaway|descarga gratis crack|click here)/i.test([item.title,item.snippet].join(" "));
     if(spam)score-=20;
