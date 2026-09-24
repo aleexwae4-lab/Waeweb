@@ -159,6 +159,30 @@ if(!ready){
     "HTTP",technical.status,"count",technicalRows.length,
     "sources",technical.body?.retrievedSources?.join(",")||"none");
   if(!validTechnical)process.exitCode=1;
+  // Public repository intent never fabricates a Github URL or web-index coverage.
+  const codePreview=await request("/api/search?quick=1&type=all&q="+
+    encodeURIComponent("repositorios React"));
+  const codeRows=codePreview.body?.results||[];
+  const repositories=codeRows.filter(item=>item.source==="GitHub · repositorios públicos");
+  const codeValid=codePreview.ok&&codePreview.marker&&
+    codePreview.body?.kind==="specialist_web_preview"&&
+    codePreview.body?.scope==="public_code_and_story_links"&&
+    codePreview.body?.completeSearch===false&&
+    Array.isArray(codePreview.body?.generalIndexes)&&
+    codePreview.body.generalIndexes.length===0&&
+    Array.isArray(codePreview.body?.results)&&codeRows.length<=8&&
+    repositories.every(item=>{
+      try{
+        const u=new URL(item.url),parts=u.pathname.split("/").filter(Boolean);
+        return u.protocol==="https:"&&u.hostname==="github.com"&&
+          parts.length===2&&parts.every(p=>/^[a-z0-9_.-]+$/i.test(p))&&
+          item.indexedScope==="repository_metadata_only";
+      }catch{return false;}
+    });
+  console.log(codeValid?"LIVE PASS":"LIVE FAIL","progressive repositories",
+    "HTTP",codePreview.status,"repos",repositories.length,
+    "githubFailed",codePreview.body?.failedSources?.includes("GitHub · repositorios públicos")||false);
+  if(!codeValid)process.exitCode=1;
   // Guard against the reported regression on the ACTUAL public server:
   // searching a named website must return a usable first-page destination,
   // not only a wiki entity or a random repository with that name.
