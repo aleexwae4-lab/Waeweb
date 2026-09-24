@@ -46,7 +46,8 @@ export function parsePoiQuery(value){
   const explicit=Boolean(match)||/^(?:negocio|comercio|sucursal|tienda de)\s+/i.test(term);
   const brand=category?null:term.replace(/^(?:negocio|comercio|sucursal|tienda de)\s+/i,"").trim();
   if(!category&&!brands.test(key)&&!explicit)return null;
-  if(locality.length>90||brand?.length>70||!category&&brand.length<2)return null;
+  if(locality.length>90||brand?.length>70||!category&&brand.length<2||
+    brand&&/[;{}\\]/.test(brand))return null;
   return {query,term:category?category.label:brand,locality,
     category:category?{...category}:null,brand:category?null:brand};
 }
