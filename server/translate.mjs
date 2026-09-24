@@ -6,8 +6,33 @@ const languages = Object.freeze({
   ru:"Ruso",hi:"Hindi",nl:"Neerlandés",tr:"Turco"
 });
 export const languageOptions = Object.entries(languages).map(([code,name])=>({code,name}));
+const QUOTA_DEFAULT_SECONDS=300, QUOTA_MAX_SECONDS=600;
+let quota={provider:null,until:0};
+const remainingQuota=provider=>quota.provider===provider
+  ?Math.max(0,Math.ceil((quota.until-Date.now())/1000)):0;
+function quotaSeconds(header){
+  const parsed=Number(header);
+  if(Number.isFinite(parsed)&&parsed>=0)return Math.max(30,Math.min(QUOTA_MAX_SECONDS,Math.ceil(parsed)));
+  const date=Date.parse(String(header||""));
+  if(Number.isFinite(date))return Math.max(30,Math.min(QUOTA_MAX_SECONDS,
+    Math.ceil((date-Date.now())/1000)));
+  return QUOTA_DEFAULT_SECONDS;
+}
+function pauseProvider(provider,seconds=QUOTA_DEFAULT_SECONDS){
+  const wait=Math.max(30,Math.min(QUOTA_MAX_SECONDS,seconds));
+  quota={provider,until:Date.now()+wait*1000};
+  return new TranslateError("provider_quota",
+    "El servicio externo alcanzó su cuota. Intenta de nuevo más tarde o usa traducción local.",429,wait);
+}
+// In-process breaker (one instance only), never persisted and never used to
+// claim that the upstream quota has recovered. Tests can reset it explicitly.
+export function resetTranslationCooldown(){quota={provider:null,until:0};}
+
 export class TranslateError extends Error {
-  constructor(code,message,status=400){super(message);this.code=code;this.status=status;}
+  constructor(code,message,status=400,retryAfterSeconds=0){
+    super(message);this.code=code;this.status=status;
+    this.retryAfterSeconds=retryAfterSeconds;
+  }
 }
 export function translatorConfig() {
   const requested=(process.env.WAE_TRANSLATE_PROVIDER||"mymemory").trim().toLowerCase();
@@ -30,7 +55,10 @@ export function translatorConfig() {
 }
 export function publicTranslateConfig() {
   const {provider,available,autoDetect,maxBytes}=translatorConfig();
-  return {provider,available,autoDetect,maxBytes,languages:languageOptions,
+  const retryAfterSeconds=available?remainingQuota(provider):0;
+  return {provider,available:available&&!retryAfterSeconds,
+    configured:available,quotaLimited:retryAfterSeconds>0,retryAfterSeconds,
+    autoDetect,maxBytes,languages:languageOptions,
     privacy:"El texto se envía al proveedor externo únicamente cuando pulsas Traducir. No introduzcas datos confidenciales."};
 }
 function validate(payload,config) {
@@ -54,8 +82,10 @@ function validate(payload,config) {
 async function jsonResponse(url,options) {
   let response,body;
   try {
-    response=await fetch(url,{...options,redirect:"error",signal:AbortSignal.timeout(9000)});
-    if(response.status===429)throw new TranslateError("provider_quota","El proveedor alcanzó su límite de uso. Inténtalo más tarde.",429);
+    const {provider,...requestOptions}=options;
+    response=await fetch(url,{...requestOptions,redirect:"error",signal:AbortSignal.timeout(9000)});
+    if(response.status===429)throw pauseProvider(options.provider,
+      quotaSeconds(response.headers.get("retry-after")));
     if(!response.ok)throw new TranslateError("provider_unavailable","El proveedor de traducción no respondió correctamente.",502);
     body=await response.text();
     if(body.length>150000)throw new TranslateError("invalid_provider_response","Respuesta del proveedor demasiado grande.",502);
@@ -70,12 +100,16 @@ export async function translateText(payload) {
   if(!config.available)throw new TranslateError("translator_unavailable",
     "El motor de traducción está desactivado o no está configurado.",503);
   const {text,source,target}=validate(payload,config);
+  const retryAfterSeconds=remainingQuota(config.provider);
+  if(retryAfterSeconds)throw new TranslateError("provider_quota",
+    "El proveedor alcanzó su cuota. Prueba el motor local o inténtalo más tarde.",429,
+    retryAfterSeconds);
   if(config.provider==="mymemory"){
     const url=new URL("https://api.mymemory.translated.net/get");
     url.search=new URLSearchParams({q:text,langpair:source+"|"+target}).toString();
-    const data=await jsonResponse(url,{headers:{accept:"application/json"}});
+    const data=await jsonResponse(url,{provider:"mymemory",headers:{accept:"application/json"}});
     if(Number(data.responseStatus)===429 || /quota|daily limit/i.test(String(data.responseDetails||"")))
-      throw new TranslateError("provider_quota","Se alcanzó el límite gratuito del traductor.",429);
+      throw pauseProvider("mymemory");
     if(Number(data.responseStatus)!==200 || typeof data.responseData?.translatedText!=="string" ||
        !data.responseData.translatedText.trim())
       throw new TranslateError("provider_unavailable","El proveedor no devolvió una traducción válida.",502);
@@ -88,7 +122,8 @@ export async function translateText(payload) {
   const body={q:text,source,target,format:"text"};
   if(key)body.api_key=key;
   const data=await jsonResponse(url,{
-    method:"POST",headers:{"content-type":"application/json",accept:"application/json"},
+    provider:"libretranslate",method:"POST",
+    headers:{"content-type":"application/json",accept:"application/json"},
     body:JSON.stringify(body)
   });
   if(typeof data.translatedText!=="string" || !data.translatedText.trim())
