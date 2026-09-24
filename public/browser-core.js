@@ -22,7 +22,7 @@ export function browserPresentation(value){
   const restricted=["youtube.com","youtu.be","tiktok.com","facebook.com",
     "instagram.com","openai.com","chatgpt.com","pinterest.com",
     "accounts.google.com","google.com","x.com","twitter.com",
-    "github.com","mercadolibre.com.mx","mercadolibre.com",
+    "github.com","gob.mx","mercadolibre.com.mx","mercadolibre.com",
     "linkedin.com","whatsapp.com"];
   const externalFirst=restricted.some(domain=>host===domain||host.endsWith("."+domain))||
     /^google\.[a-z]{2,}(?:\.[a-z]{2,})?$/.test(host);
