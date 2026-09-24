@@ -184,6 +184,7 @@ export async function handler(req, res) {
           ["/api/health","/api/capabilities","/api/search",
            "/api/weather","/api/maps","/api/places","/api/marketplace",
            "/api/web-index/read","/api/web/preview",
+           "/api/encyclopedia/summary",
            "/api/translate/capabilities","/api/directions/capabilities"].includes(u.pathname))))
     return write(res,503,{error:"Vista previa: cuentas, pagos y APIs privadas desactivados.",
       previewMode:true});
@@ -220,7 +221,8 @@ export async function handler(req, res) {
     webSearch:{generalIndexes:["Brave Search","Google Programmable Search","SearXNG"],
       optionalSearxngConfigured:Boolean(searxngConfig()),
       publicSpecialists:["Hacker News","Stack Overflow","Super User","MDN Web Docs",
-        "Wikipedia","Wikidata"],
+        "GitHub · repositorios públicos","Wikipedia","Wikidata"],
+      encyclopediaIntroduction:"on_demand_wikipedia_es_only",
       inlinePreview:"recent_results_only_robots_compliant",generalIndexRequiredForBroadCoverage:true},
     webDiscovery:{mode:"HN_linked_page_metadata",provider:"Hacker News / Algolia",
       generalWebIndex:false,persistence:"memory_only",
