@@ -1,7 +1,7 @@
 // OpenStreetMap Overpass POI discovery. No paid API, no user-supplied query language.
 const cache=new Map(),pending=new Map(),TTL=10*60_000;
 const CATEGORIES=Object.freeze({
-  oxxo:{label:"OXXO",filters:['["name"~"^OXXO(?: |$)",i]','["brand"~"^OXXO$",i]']},
+  oxxo:{label:"OXXO",filters:['["name"~"^OXXO( |$)",i]','["brand"~"^OXXO$",i]']},
   bancos:{label:"Bancos",filters:['["amenity"="bank"]']},
   cajeros:{label:"Cajeros",filters:['["amenity"="atm"]']},
   cines:{label:"Cines",filters:['["amenity"="cinema"]']},
