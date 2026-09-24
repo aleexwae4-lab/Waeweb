@@ -95,13 +95,13 @@ test("technical early preview reuses in-flight calls with full federated search"
 
 test("navigation and unrelated queries never trigger early technical crawling",async()=>fixture(async seen=>{
   const generic=await quickOpenWeb("GitHub");
-  assert.equal(generic.scope,"hacker_news_story_links");
+  assert.equal(generic.scope,"verified_local_web_links_only");
   const generic2=await quickOpenWeb("mercado libre mexico");
-  assert.equal(generic2.scope,"hacker_news_story_links");
+  assert.equal(generic2.scope,"verified_local_web_links_only");
   assert.equal(seen.filter(u=>u.hostname==="api.stackexchange.com"||
     u.hostname==="developer.mozilla.org").length,0);
-  assert.ok(generic.results.every(item=>item.source==="Hacker News · web abierta"||
-    item.source==="WAE Index local · HN"));
+  assert.ok(generic.results.every(item=>item.source!=="Hacker News · web abierta"));
+  assert.ok(generic2.results.every(item=>item.source!=="Hacker News · web abierta"));
 }));
 
 test("advanced filters defer all early sources to complete search",async()=>fixture(async seen=>{
