@@ -83,7 +83,7 @@ export function rankImageResults(items,query){
     // Broad public photo feeds are useful only when their visible metadata
     // actually matches the query. This prevents attractive but unrelated
     // photos from filling the first screen when a general image index is absent.
-    .filter(entry=>!queryTerms.length||entry.lexicalHits>0||entry.score>=7)
+    .filter(entry=>!String(entry.item.source||"").startsWith("Flickr")||!queryTerms.length||entry.lexicalHits>0||entry.score>=7)
     .sort((a,b)=>b.score-a.score||b.lexicalHits-a.lexicalHits||a.index-b.index);
   for(const {item} of sorted){
     const asset=imageCanonical(item.fullImage||item.image),url=imageCanonical(item.url);
