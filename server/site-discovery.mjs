@@ -17,7 +17,7 @@ export function navigationalName(query){
   const name=raw.replace(NAV_VERB,"").replace(NAV_PAGE,"").replace(suffix,"").trim();
   // Long institution names can be searched directly; other long, topical
   // questions require explicit website intent before requesting P856.
-  const institution=/^(?:instituto|universidad|secretaria|ministerio|gobierno|museo|hospital|fundacion|university|national|world health)\b/.test(name);
+  const institution=/^(?:instituto|universidad|secretaria|ministerio|gobierno|museo|hospital|fundacion|diario oficial|university|national|world health)\b/.test(name);
   const longName=explicit||institution;
   if(!name||name.split(/\s+/).length>(longName?9:4)||
     name.length>(longName?100:60)||
