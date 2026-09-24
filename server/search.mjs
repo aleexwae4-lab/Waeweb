@@ -359,6 +359,13 @@ const cache = new Map();
 // general Internet index or synthetic domain. Advanced filters are deferred
 // to the complete search so provisional cards cannot contradict them.
 const FAST_TECHNICAL=/\b(?:javascript|typescript|python|react|node(?:\.js)?|html|css|docker|postgres(?:ql)?|sqlite|sql|npm|prisma|linux|programaci[oó]n|c[oó]digo|backend|frontend)\b/i;
+// A community's linked stories are useful for explicit tech/repository searches,
+// but are NOT a broad web index or a fallback for arbitrary everyday queries.
+const specialistStoryIntent=q=>FAST_TECHNICAL.test(q)||
+  Boolean(repositoryIntentTerms(q)||rustPackageIntentTerms(q)||
+    npmPackageIntentTerms(q)||gitlabRepositoryIntentTerms(q))||
+  /\b(?:hacker\s*news|news\.ycombinator\.com)\b/i.test(q);
+const isStoryLink=item=>item?.source==="Hacker News · web abierta";
 export async function quickOpenWeb(query){
   const spec=parseQuery(normalizeQuery(query));
   const q=spec.query;
@@ -367,21 +374,25 @@ export async function quickOpenWeb(query){
   const npmTerms=npmPackageIntentTerms(q);
   const gitlabTerms=gitlabRepositoryIntentTerms(q);
   const technical=FAST_TECHNICAL.test(q);
+  const specialist=specialistStoryIntent(q);
   const base={kind:"specialist_web_preview",query:q,
     scope:repoTerms?"public_code_and_story_links":
       crateTerms?"public_rust_package_links":
-      technical?"public_technical_and_story_links":"hacker_news_story_links",
+      technical?"public_technical_and_story_links":
+      specialist?"public_specialist_story_links":"verified_local_web_links_only",
     completeSearch:false,generalIndexes:[],results:[]};
   if(spec.errors.length||q.length<2||spec.site||spec.source||
     spec.after||spec.before||spec.excludes.length||spec.phrases.length)
     return {...base,sourceStatus:"not_applicable"};
   const previous=localWebSearch(q);
-  // A local-only fast return is safe for ordinary searches; for technical
-  // intent, add independent documentation even if a few old HN links exist.
-  if(!technical&&!repoTerms&&!crateTerms&&!npmTerms&&!gitlabTerms&&previous.length>=3){
-    const hits=rankResults(dedupe(previous),spec,"all").slice(0,4);
+  if(!specialist){
+    // No Hacker News network request, dated community links or fake general
+    // coverage during the early stage of an everyday web search.
+    const hits=rankResults(dedupe(previous.filter(item=>!isStoryLink(item))),
+      spec,"all").slice(0,4);
     registerWebHits(hits);
-    return {...base,results:hits,sourceStatus:"local_cache"};
+    return {...base,results:hits,
+      sourceStatus:hits.length?"local_cache":"not_applicable"};
   }
   const feeds=[["Hacker News",()=>discoverOpenWeb(q)],
     ...(technical?[
@@ -563,7 +574,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
          ? [["npm · paquetes publicados",()=>npmPublicPackages(npmPackageIntentTerms(q))]]:[]),
        // Discovery is a specialist public-link feed; it is not a general
        // Internet index. Wikipedia and Wikidata enrich, not replace, web hits.
-       ...(page===1 && !spec.source && !spec.site
+       ...(page===1 && !spec.source && !spec.site && specialistStoryIntent(q)
          ? [["WAE Discovery",()=>discoverOpenWeb(q)]]:[]),
        // Add a bounded number of encyclopedia entries on the first page;
        // other real web providers retain their own relevance and provenance.
@@ -577,7 +588,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   // The local index is a bounded volatile cache of independently sourced
   // article-link metadata. It does not contain scraped article bodies.
   const previous=selected==="all"&&page===1&&!spec.source&&!spec.site
-    ?localWebSearch(q):[];
+    ?localWebSearch(q).filter(item=>specialistStoryIntent(q)||!isStoryLink(item)):[];
   const settled = await Promise.allSettled(sources.map(async ([name, fn]) => ({ name, items: await fn() })));
   const errors = [], available = [], results = [];
   const generalIndexDiagnosis=selected==="all"?diagnoseWebIndexes(sources,settled):null;
@@ -721,7 +732,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
            ? "specialized":"limited")
       : null,
     webDiscovery:selected==="all"?{
-      scope:"Hacker News linked pages only",index:webIndexStats(),
+      scope:specialistStoryIntent(q)?"Hacker News linked pages only":
+        "Not queried for general web intent",index:webIndexStats(),
       provider:available.includes("WAE Discovery")?"available":
         errors.includes("WAE Discovery")?"unavailable":"not_queried",
       independentlyVerifiedContent:false

@@ -17,7 +17,7 @@ export function navigationalName(query){
   const name=raw.replace(NAV_VERB,"").replace(NAV_PAGE,"").replace(suffix,"").trim();
   // Long institution names can be searched directly; other long, topical
   // questions require explicit website intent before requesting P856.
-  const institution=/^(?:instituto|universidad|secretaria|ministerio|gobierno|museo|hospital|fundacion|university|national|world health)\b/.test(name);
+  const institution=/^(?:instituto|universidad|secretaria|ministerio|gobierno|museo|hospital|fundacion|diario oficial|university|national|world health)\b/.test(name);
   const longName=explicit||institution;
   if(!name||name.split(/\s+/).length>(longName?9:4)||
     name.length>(longName?100:60)||
@@ -62,9 +62,15 @@ const DIRECTORY=[
   ["GitLab","https://gitlab.com/","Plataforma de proyectos y repositorios de software",["gitlab"]],
   ["Pinterest","https://www.pinterest.com/","Colecciones y descubrimiento visual",["pinterest"]],
   ["OpenAI","https://openai.com/","Sitio de la organización de inteligencia artificial",["openai"]],
+  ["ChatGPT","https://chatgpt.com/","Asistente de inteligencia artificial",["chatgpt","chat gpt"]],
+  ["Wikipedia en español","https://es.wikipedia.org/","Enciclopedia colaborativa en español",["wikipedia","wikipedia español","wikipedia en español"]],
   ["NASA","https://www.nasa.gov/","Portal de la agencia espacial de Estados Unidos",["nasa"]],
   ["Amazon México","https://www.amazon.com.mx/","Comercio electrónico · sitio de México",["amazon mexico","amazon mx","amazon"]],
   ["UNAM","https://www.unam.mx/","Universidad Nacional Autónoma de México",["unam"]],
+  ["Gobierno de México","https://www.gob.mx/","Portal oficial de servicios e información del gobierno federal",["gob mx","gob.mx","gobierno de mexico","gobierno mexico"]],
+  ["INEGI","https://www.inegi.org.mx/","Estadística y geografía de México",["inegi"]],
+  ["Diario Oficial de la Federación","https://www.dof.gob.mx/","Publicación oficial de disposiciones federales",["dof","diario oficial de la federacion"]],
+  ["Universidad de Guadalajara","https://www.udg.mx/","Portal de la Universidad de Guadalajara",["udg","universidad de guadalajara"]],
   ["Canva","https://www.canva.com/","Diseño visual y plantillas",["canva"]],
   ["Figma","https://www.figma.com/","Diseño de interfaces y colaboración",["figma"]],
   ["Stack Overflow","https://stackoverflow.com/","Comunidad de desarrollo de software",["stack overflow","stackoverflow"]],
@@ -73,6 +79,12 @@ const DIRECTORY=[
   ["GitHub Docs","https://docs.github.com/","Documentación de GitHub",["github docs","documentacion github"]],
   ["Docker Hub","https://hub.docker.com/","Registro público de imágenes de contenedores",["docker hub"]],
   ["Google Maps","https://www.google.com/maps","Mapas y lugares",["google maps"]],
+  ["Mercado Pago México","https://www.mercadopago.com.mx/","Servicios de pago digital",["mercado pago","mercadopago","mercado pago mexico"]],
+  ["Microsoft","https://www.microsoft.com/es-mx/","Software y servicios",["microsoft"]],
+  ["Apple México","https://www.apple.com/mx/","Tecnología y dispositivos",["apple","apple mexico"]],
+  ["Netflix","https://www.netflix.com/mx/","Películas y series",["netflix"]],
+  ["Zoom","https://zoom.us/","Videoconferencias",["zoom"]],
+  ["Notion","https://www.notion.so/","Organización y productividad",["notion"]],
   ["Spotify","https://open.spotify.com/","Música y podcasts",["spotify"]],
   ["Telegram","https://telegram.org/","Mensajería",["telegram"]],
   ["IMSS","https://www.imss.gob.mx/","Instituto Mexicano del Seguro Social",["imss"]],
@@ -81,8 +93,9 @@ const DIRECTORY=[
 export function directorySites(query){
   const name=navigationalName(query);
   if(!name)return [];
+  const exactHost=name.replace(/^www\./,"");
   return DIRECTORY.filter(([,url,,aliases])=>aliases.includes(name)||
-    fold(new URL(url).hostname.replace(/^www\./,""))===name)
+    fold(new URL(url).hostname.replace(/^www\./,""))===exactHost)
     .map(([title,url,description])=>({
       title,url,snippet:description+" · Enlace del directorio WAE WEB; disponibilidad no comprobada en tiempo real.",
       source:"WAE WEB · directorio navegacional",date:null,image:null,

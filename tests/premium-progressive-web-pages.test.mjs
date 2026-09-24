@@ -31,7 +31,7 @@ async function serve(fn){
     await fn("http://127.0.0.1:"+server.address().port);
   }finally{if(server.listening)await new Promise(resolve=>server.close(resolve));}
 }
-test("quick endpoint yields source-attributed actual page links, not Wikipedia or a general index",async()=>withFetcher(async native=>{
+test("ordinary quick search does not market specialist story links as general web coverage",async()=>withFetcher(async native=>{
   let calls=0;
   globalThis.fetch=async(url,...args)=>{
     if(String(url).startsWith("http://127.0.0.1:"))return native(url,...args);
@@ -46,20 +46,17 @@ test("quick endpoint yields source-attributed actual page links, not Wikipedia o
     assert.equal(response.headers.get("x-waeweb-api"),"1");
     const data=await response.json();
     assert.equal(data.kind,"specialist_web_preview");
-    assert.equal(data.scope,"hacker_news_story_links");
+    assert.equal(data.scope,"verified_local_web_links_only");
     assert.equal(data.completeSearch,false);
     assert.deepEqual(data.generalIndexes,[]);
-    assert.equal(data.sourceStatus,"retrieved");
-    assert.equal(data.results.length,1);
-    assert.equal(data.results[0].url,"https://www.example.org/progressive/guide");
-    assert.equal(data.results[0].source,"Hacker News · web abierta");
-    assert.equal(data.results[0].hnStory,"https://news.ycombinator.com/item?id=987654");
+    assert.equal(data.sourceStatus,"not_applicable");
+    assert.deepEqual(data.results,[]);
     assert.ok(!("entireWebIndexed" in data));
   });
-  assert.equal(calls,1);
+  assert.equal(calls,0);
 }));
 
-test("federation and early pages coalesce one HN request per concurrent query",async()=>withFetcher(async()=>{
+test("ordinary early pages and federation do not request HN as a web index",async()=>withFetcher(async()=>{
   let calls=0;
   globalThis.fetch=async url=>{
     const u=new URL(url);
@@ -78,9 +75,10 @@ test("federation and early pages coalesce one HN request per concurrent query",a
   const [early,all]=await Promise.all([
     quickOpenWeb(q),search(q,"all",{fresh:true})
   ]);
-  assert.equal(calls,1);
-  assert.equal(early.results[0].url,"https://www.example.org/progressive/guide");
-  assert.ok(all.results.some(item=>item.url===early.results[0].url));
+  assert.equal(calls,0);
+  assert.deepEqual(early.results,[]);
+  assert.equal(early.sourceStatus,"not_applicable");
+  assert.ok(!all.results.some(item=>item.source==="Hacker News · web abierta"));
   assert.equal(early.completeSearch,false);
   assert.equal(all.type,"all");
 }));
@@ -121,7 +119,7 @@ test("early source outage never invents a page and leaves complete search indepe
   assert.equal(data.kind,"specialist_web_preview");
   assert.equal(data.completeSearch,false);
   assert.deepEqual(data.results,[]);
-  assert.equal(data.sourceStatus,"unavailable");
+  assert.equal(data.sourceStatus,"not_applicable");
 }));
 
 test("progressive UI protects search races and keeps actual source links on later failure",()=>{
