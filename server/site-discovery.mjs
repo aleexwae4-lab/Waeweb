@@ -6,11 +6,18 @@ const fold=value=>String(value??"").normalize("NFD")
   .replace(/\s+/g," ").trim();
 export function navigationalName(query){
   const raw=fold(query);
-  if(!raw||raw.length>85||/["]|(?:^|\s)(?:site:|source:|after:|before:)/.test(raw))
+  if(!raw||raw.length>120||/["]|(?:^|\s)(?:site:|source:|after:|before:)/.test(raw))
     return null;
-  const name=raw.replace(/^(?:ir a|visitar|abrir|entrar a|buscar|sitio web|sitio oficial|pagina web|pagina oficial|web oficial|web|pagina|oficial)\s+(?:de\s+|del\s+|la\s+|el\s+)?/,"")
-    .replace(/\s+(?:pagina oficial|sitio oficial|web oficial)$/,"").trim();
-  if(!name||name.split(/\s+/).length>4||name.length>60||
+  const prefix=/^(?:ir a|visitar|abrir|entrar a|buscar|portal oficial|sitio web|sitio oficial|sitio|pagina web|pagina oficial|web oficial|web|pagina|oficial)\s+(?:de\s+|del\s+|la\s+|el\s+)?/;
+  const suffix=/\s+(?:pagina oficial|sitio oficial|web oficial|pagina web|sitio web|oficial)$/;
+  const explicit=prefix.test(raw)||suffix.test(raw);
+  const name=raw.replace(prefix,"").replace(suffix,"").trim();
+  // Long institution names can be searched directly; other long, topical
+  // questions require explicit website intent before requesting P856.
+  const institution=/^(?:instituto|universidad|secretaria|ministerio|gobierno|museo|hospital|fundacion|university|national|world health)\b/.test(name);
+  const longName=explicit||institution;
+  if(!name||name.split(/\s+/).length>(longName?9:4)||
+    name.length>(longName?100:60)||
     !/^[\p{L}\p{N} .&+-]+$/u.test(name))return null;
   return name;
 }
@@ -28,17 +35,22 @@ export function publicSiteUrl(value){
 }
 const DIRECTORY=[
   ["GitHub","https://github.com/","Plataforma para proyectos y repositorios de software",["github"]],
-  ["Mercado Libre México","https://www.mercadolibre.com.mx/","Comercio electrónico · sitio de México",["mercado libre","mercadolibre","mercado livre"]],
+  ["Mercado Libre México","https://www.mercadolibre.com.mx/","Comercio electrónico · sitio de México",["mercado libre","mercadolibre","mercado livre","mercado libre mexico","mercado libre mx","mercadolibre mexico","mercadolibre mx"]],
   ["Facebook","https://www.facebook.com/","Red social",["facebook","fb"]],
   ["Instagram","https://www.instagram.com/","Red social y contenido visual",["instagram"]],
   ["TikTok","https://www.tiktok.com/","Red social de vídeo",["tiktok","tik tok"]],
   ["YouTube","https://www.youtube.com/","Plataforma de vídeos",["youtube","you tube"]],
   ["LinkedIn","https://www.linkedin.com/","Red profesional",["linkedin"]],
-  ["X","https://x.com/","Red social anteriormente Twitter",["twitter","x twitter"]],
+  ["X","https://x.com/","Red social anteriormente Twitter",["x","twitter","x twitter"]],
   ["WhatsApp","https://www.whatsapp.com/","Mensajería",["whatsapp","whats app"]],
   ["Reddit","https://www.reddit.com/","Comunidades y discusión",["reddit"]],
   ["Google","https://www.google.com/","Buscador web",["google"]],
-  ["GitLab","https://gitlab.com/","Plataforma de proyectos y repositorios de software",["gitlab"]]
+  ["GitLab","https://gitlab.com/","Plataforma de proyectos y repositorios de software",["gitlab"]],
+  ["Pinterest","https://www.pinterest.com/","Colecciones y descubrimiento visual",["pinterest"]],
+  ["OpenAI","https://openai.com/","Sitio de la organización de inteligencia artificial",["openai"]],
+  ["NASA","https://www.nasa.gov/","Portal de la agencia espacial de Estados Unidos",["nasa"]],
+  ["Amazon México","https://www.amazon.com.mx/","Comercio electrónico · sitio de México",["amazon mexico","amazon mx","amazon"]],
+  ["UNAM","https://www.unam.mx/","Universidad Nacional Autónoma de México",["unam"]]
 ];
 export function directorySites(query){
   const name=navigationalName(query);

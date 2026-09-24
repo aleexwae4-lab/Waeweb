@@ -19,7 +19,12 @@ async function request(path,method="GET"){
 test("instant lookup returns actual named destinations without any network provider",async()=>{
   for(const [q,host]of [["GitHub","github.com"],
     ["Mercado Libre","mercadolibre.com.mx"],
-    ["Instagram","instagram.com"]]){
+    ["Instagram","instagram.com"],
+    ["Mercado Libre México","mercadolibre.com.mx"],
+    ["sitio oficial de GitHub","github.com"],
+    ["Pinterest oficial","pinterest.com"],
+    ["página oficial de NASA","nasa.gov"],
+    ["X","x.com"]]){
     const hit=await request("/api/search?type=all&nav=1&q="+encodeURIComponent(q));
     assert.equal(hit.status,200);
     assert.equal(hit.api,"1");

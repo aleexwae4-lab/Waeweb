@@ -355,8 +355,11 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   const spec = parseQuery(normalizeQuery(query));
   const q = spec.query;
   if (spec.errors.length) return { error: spec.errors.join(" ") };
-  if (q.length < 2) return { error: "Escribe al menos dos caracteres de búsqueda además de los filtros." };
   const selected = ["all", "images", "news", "videos", "research", "knowledge", "books"].includes(type) ? type : "all";
+  // X is an exact, known website name, not permission to run arbitrary
+  // one-character searches on external providers.
+  if (q.length < 2 && !(selected==="all"&&directorySites(q).length))
+    return { error: "Escribe al menos dos caracteres de búsqueda además de los filtros." };
   if(!Number.isInteger(page)||page<1||page>5)
     return {error:"La página de búsqueda debe estar entre 1 y 5."};
   if(selected==="news" && !Object.hasOwn(NEWS_WINDOWS,newsWindow))

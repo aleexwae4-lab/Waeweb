@@ -554,7 +554,7 @@ export async function handler(req, res) {
         if(nav==="1"){
           if(req.method!=="GET"&&req.method!=="HEAD")
             return write(res,405,{error:"Solo lectura GET."},{allow:"GET, HEAD"});
-          const site=q.length>=2?directorySites(q)[0]||null:null;
+          const site=directorySites(q)[0]||null;
           return write(res,200,{kind:"named_site_preview",query:q,site,
             scope:"known_named_sites_only",completeSearch:false});
         }

@@ -2091,7 +2091,7 @@ async function performSearch(query, type = "all", push = true, collection = "web
   if(type==="translate"){renderTranslator(push);return;}
   hideBrowser();
   const q = query.trim().slice(0, 180);
-  if (q.length < 2) {
+  if (q.length < 2 && !(type==="all"&&q.toLowerCase()==="x")) {
     if (type === "maps") {
       state.controller?.abort(); state.sequence++;
       state.type = "maps"; state.query = "";

@@ -79,7 +79,10 @@ if(!ready){
   // The instant endpoint must provide a real site without waiting for
   // federated external providers. This is not a completed web search.
   for(const [query,host] of [["GitHub","github.com"],
-    ["Mercado Libre","mercadolibre.com.mx"],["Instagram","instagram.com"]]){
+    ["Mercado Libre","mercadolibre.com.mx"],["Instagram","instagram.com"],
+    ["Mercado Libre México","mercadolibre.com.mx"],
+    ["GitHub oficial","github.com"],["Pinterest oficial","pinterest.com"],
+    ["X","x.com"]]){
     const instant=await request("/api/search?nav=1&type=all&q="+encodeURIComponent(query));
     let actualHost=null;
     try{actualHost=new URL(instant.body?.site?.url).hostname.replace(/^www\./,"");}
@@ -98,7 +101,8 @@ if(!ready){
   // not only a wiki entity or a random repository with that name.
   for(const [query,expectedHost] of [
     ["github","github.com"],["Mercado Libre","mercadolibre.com.mx"],
-    ["instagram","instagram.com"]
+    ["instagram","instagram.com"],["Mercado Libre México","mercadolibre.com.mx"],
+    ["X","x.com"]
   ]){
     const navigation=await request("/api/search?q="+encodeURIComponent(query)+
       "&type=all&fresh=1");
