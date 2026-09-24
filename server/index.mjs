@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
 import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
 import {previewWebHit} from "./web-preview.mjs";
+import {wikipediaIntroduction,EncyclopediaError} from "./encyclopedia.mjs";
 import {searxngConfig} from "./web-providers.mjs";
 import { findPlaces, MapsError } from "./maps.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
@@ -522,6 +523,15 @@ export async function handler(req, res) {
           code:"crawl_rate_limit"},{"retry-after":"60"});
         return write(res,200,await previewWebHit(url));
       }
+      if (u.pathname === "/api/encyclopedia/summary") {
+        if(req.method!=="GET")return write(res,405,{error:"Solo lectura GET."},{allow:"GET"});
+        const pageid=u.searchParams.get("pageid")||"";
+        // Separate bounded quota from user-requested, robots-checked web previews.
+        if(crawlLimited(req))return write(res,429,{
+          error:"Demasiadas lecturas enciclopédicas. Intenta en un minuto.",
+          code:"crawl_rate_limit"},{"retry-after":"60"});
+        return write(res,200,await wikipediaIntroduction(pageid));
+      }
       if (u.pathname === "/api/search") {
         const q = u.searchParams.get("q") || "";
         if (q.length > 180) return write(res, 400, { error: "La consulta supera 180 caracteres." });
@@ -562,6 +572,7 @@ export async function handler(req, res) {
       if (error instanceof MarketplaceTrustError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof AccountError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof ReaderError) return write(res, 422, { error: error.message, code: error.code });
+      if (error instanceof EncyclopediaError) return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof VaultError) return write(res, 503, { error: error.message, code: error.code });
       return write(res, 502, { error: "La fuente externa no respondió. Prueba nuevamente." });
     }

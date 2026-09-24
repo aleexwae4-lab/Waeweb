@@ -12,13 +12,13 @@ export function parseQuery(raw) {
   const siteMatch = input.match(/(?:^|\s)site:([a-z0-9.-]+\.[a-z]{2,})(?=\s|$)/i);
   const afterMatch = input.match(/(?:^|\s)after:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
   const beforeMatch = input.match(/(?:^|\s)before:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
-  const sourceMatch = input.match(/(?:^|\s)source:(wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt|searxng|stackoverflow|superuser|mdn|pinterest)(?=\s|$)/i);
+  const sourceMatch = input.match(/(?:^|\s)source:(wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt|searxng|stackoverflow|superuser|mdn|github|pinterest)(?=\s|$)/i);
   const excludes = [...input.matchAll(/(?:^|\s)-([\p{L}\p{N}]{2,})(?=\s|$)/gu)].map(x => fold(x[1])).slice(0, 8);
   const phrases = [...input.matchAll(/"([^"]{2,80})"/g)].map(x => fold(x[1])).slice(0, 3);
   const query = input
     .replace(/(?:^|\s)site:[a-z0-9.-]+\.[a-z]{2,}(?=\s|$)/gi, " ")
     .replace(/(?:^|\s)(?:after|before):\d{4}(?:-\d{2}-\d{2})?(?=\s|$)/gi, " ")
-    .replace(/(?:^|\s)source:(?:wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt|searxng|stackoverflow|superuser|mdn|pinterest)(?=\s|$)/gi, " ")
+    .replace(/(?:^|\s)source:(?:wikipedia|crossref|openalex|openlibrary|googlebooks|google|loc|gutenberg|internetarchive|wikimedia|wikidata|europepmc|gdelt|searxng|stackoverflow|superuser|mdn|github|pinterest)(?=\s|$)/gi, " ")
     .replace(/(?:^|\s)-[\p{L}\p{N}]{2,}(?=\s|$)/gu, " ")
     .replace(/"/g, " ")
     .replace(/\s+/g, " ").trim();
