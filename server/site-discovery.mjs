@@ -1,0 +1,112 @@
+// Navigational sites are NOT a replacement for a general web index.
+// Directory entries are a small, explicitly curated fallback; arbitrary
+// organisations are discovered only from Wikidata P856 source records.
+const fold=value=>String(value??"").normalize("NFD")
+  .replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("es")
+  .replace(/\s+/g," ").trim();
+export function navigationalName(query){
+  const raw=fold(query);
+  if(!raw||raw.length>85||/["]|(?:^|\s)(?:site:|source:|after:|before:)/.test(raw))
+    return null;
+  const name=raw.replace(/^(?:ir a|visitar|abrir|entrar a|buscar|sitio web|sitio oficial|pagina web|pagina oficial|web oficial|web|pagina|oficial)\s+(?:de\s+|del\s+|la\s+|el\s+)?/,"")
+    .replace(/\s+(?:pagina oficial|sitio oficial|web oficial)$/,"").trim();
+  if(!name||name.split(/\s+/).length>4||name.length>60||
+    !/^[\p{L}\p{N} .&+-]+$/u.test(name))return null;
+  return name;
+}
+export function publicSiteUrl(value){
+  try{
+    const u=new URL(value);
+    const host=u.hostname.toLowerCase().replace(/\.$/,"");
+    if(u.protocol!=="https:"||u.username||u.password||
+      (u.port&&u.port!=="443")||!host.includes(".")||
+      !/^[a-z0-9.-]+$/.test(host)||
+      /(?:^|\.)(?:localhost|local|internal|test|invalid|onion)$/.test(host)||
+      /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host)||u.href.length>1400)return null;
+    u.hash="";return u.href;
+  }catch{return null;}
+}
+const DIRECTORY=[
+  ["GitHub","https://github.com/","Plataforma para proyectos y repositorios de software",["github"]],
+  ["Mercado Libre México","https://www.mercadolibre.com.mx/","Comercio electrónico · sitio de México",["mercado libre","mercadolibre","mercado livre"]],
+  ["Facebook","https://www.facebook.com/","Red social",["facebook","fb"]],
+  ["Instagram","https://www.instagram.com/","Red social y contenido visual",["instagram"]],
+  ["TikTok","https://www.tiktok.com/","Red social de vídeo",["tiktok","tik tok"]],
+  ["YouTube","https://www.youtube.com/","Plataforma de vídeos",["youtube","you tube"]],
+  ["LinkedIn","https://www.linkedin.com/","Red profesional",["linkedin"]],
+  ["X","https://x.com/","Red social anteriormente Twitter",["twitter","x twitter"]],
+  ["WhatsApp","https://www.whatsapp.com/","Mensajería",["whatsapp","whats app"]],
+  ["Reddit","https://www.reddit.com/","Comunidades y discusión",["reddit"]],
+  ["Google","https://www.google.com/","Buscador web",["google"]],
+  ["GitLab","https://gitlab.com/","Plataforma de proyectos y repositorios de software",["gitlab"]]
+];
+export function directorySites(query){
+  const name=navigationalName(query);
+  if(!name)return [];
+  return DIRECTORY.filter(([,url,,aliases])=>aliases.includes(name)||
+    fold(new URL(url).hostname.replace(/^www\./,""))===name)
+    .map(([title,url,description])=>({
+      title,url,snippet:description+" · Enlace del directorio WAE WEB; disponibilidad no comprobada en tiempo real.",
+      source:"WAE WEB · directorio navegacional",date:null,image:null,
+      siteLink:true,linkBasis:"curated_directory",indexedScope:"limited_named_sites"
+    }));
+}
+function matchingName(entity,query){
+  const names=[...Object.values(entity.labels||{}).map(v=>v?.value),
+    ...Object.values(entity.aliases||{}).flatMap(arr=>
+      Array.isArray(arr)?arr.map(x=>x?.value):[])];
+  return names.some(value=>fold(value)===query);
+}
+export function wikidataSiteRecords(data,query){
+  const name=navigationalName(query);
+  if(!name||!data||typeof data.entities!=="object")return [];
+  const results=[];
+  for(const [id,entity] of Object.entries(data.entities)){
+    if(!/^Q[1-9]\d*$/.test(id)||!entity||entity.missing||
+      !matchingName(entity,name))continue;
+    const record=(entity.claims?.P856||[]).find(value=>
+      value.rank!=="deprecated"&&
+      publicSiteUrl(value.mainsnak?.datavalue?.value));
+    const url=publicSiteUrl(record?.mainsnak?.datavalue?.value);
+    if(!url)continue;
+    const label=entity.labels?.es?.value||entity.labels?.en?.value||
+      Object.values(entity.labels||{})[0]?.value||name;
+    const description=entity.descriptions?.es?.value||
+      entity.descriptions?.en?.value||"Sitio web asociado a esta entidad";
+    results.push({
+      title:String(label).slice(0,240),url,
+      snippet:String(description).slice(0,500)+
+        " · Enlace declarado en Wikidata (P856); WAE WEB no verifica la titularidad ni disponibilidad.",
+      source:"Wikidata · sitio web declarado",date:null,image:null,
+      siteLink:true,linkBasis:"wikidata_P856",
+      provenanceUrl:"https://www.wikidata.org/wiki/"+id
+    });
+    if(results.length>=4)break;
+  }
+  return results;
+}
+async function sourceJson(url){
+  const response=await fetch(url,{headers:{accept:"application/json",
+    "user-agent":"WAE-Web/1.0 (+https://github.com/aleexwae4-lab/Waeweb)"},
+    signal:AbortSignal.timeout(4800)});
+  if(!response.ok)throw Error("wikidata_sites_status_"+response.status);
+  const raw=await response.text();
+  if(raw.length>900000)throw Error("wikidata_sites_too_large");
+  return JSON.parse(raw);
+}
+export async function wikidataOfficialSites(query){
+  const name=navigationalName(query);
+  if(!name)return [];
+  const search=new URL("https://www.wikidata.org/w/api.php");
+  search.search=new URLSearchParams({action:"wbsearchentities",
+    search:name,language:"es",uselang:"es",limit:"7",format:"json"}).toString();
+  const found=await sourceJson(search);
+  const ids=[...new Set((found.search||[]).map(x=>x.id)
+    .filter(x=>/^Q[1-9]\d*$/.test(x||"")))].slice(0,6);
+  if(!ids.length)return [];
+  const details=new URL("https://www.wikidata.org/w/api.php");
+  details.search=new URLSearchParams({action:"wbgetentities",ids:ids.join("|"),
+    props:"labels|descriptions|aliases|claims",
+    languages:"es|en",languagefallback:"1",format:"json"}).toString();
+  return wikidataSiteRecords(await sourceJson(details),name);
+}
