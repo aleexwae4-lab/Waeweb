@@ -1,4 +1,4 @@
-import { createWorkspace, asMarkdown } from "/workspace.js";
+import { createWorkspace, asMarkdown, filterWorkspaceEntries, asComparisonMarkdown } from "/workspace.js";
 import { openBrowser, hideBrowser } from "/browser.js";
 import { classifyOmnibox } from "/omnibox.js";
 import { osmEmbedUrl, osmPlaceUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
@@ -1122,22 +1122,105 @@ function renderSummary(data) {
 function refreshLibraryCount() {
   byId("library-count").textContent = String(workspace.count());
 }
-function drawLibrary() {
-  refreshLibraryCount();
-  const list = byId("library-items");
-  list.replaceChildren();
-  const entries = workspace.list();
-  if (!entries.length) {
-    list.append(stateCard("Tu biblioteca está vacía", "Guarda fuentes de resultados o del panorama de investigación."));
+// Selection stays in this tab only. No research data is uploaded or sent to AI.
+const comparedLibraryUrls=new Set();
+function drawLibraryComparison(entries) {
+  const view=byId("library-compare");
+  view.replaceChildren();
+  const selected=[...comparedLibraryUrls].map(url=>entries.find(item=>item.url===url))
+    .filter(Boolean);
+  view.hidden=!selected.length;
+  if(!selected.length)return;
+  view.append(element("h3","","Comparación documental · "+selected.length+"/2"));
+  const reset=button("✕ Limpiar selección",()=>{
+    comparedLibraryUrls.clear();drawLibrary();
+  },"small-action");
+  view.append(reset);
+  if(selected.length!==2){
+    view.append(element("p","","Selecciona una segunda fuente para comparar sus textos y procedencia."));
     return;
   }
-  entries.forEach(item => {
-    const card = element("article", "library-entry");
-    append(card, external(item.url, item.title, "result-title"),
-      element("p", "", item.source + (item.date ? " · " + formatDate(item.date) : "")));
-    if (item.snippet) card.append(element("p", "snippet", item.snippet));
-    card.append(button("Eliminar de biblioteca", () => { workspace.remove(item.url); drawLibrary(); }, "small-action"));
-    list.append(card);
+  const grid=element("div","wae-library-compare-grid");
+  selected.forEach((item,index)=>{
+    const card=element("section","wae-library-compare-source");
+    card.append(element("strong","","Fuente "+(index+1)+" · "+item.title));
+    const origin=external(item.url,item.source+" · Abrir origen","wae-library-origin");
+    card.append(origin,element("span","wae-library-kind",
+      item.evidenceKind==="source_excerpt"?"Texto original recuperado":"Fragmento de búsqueda"));
+    if(item.fetchedAt)card.append(element("small","","Recuperado: "+formatDate(item.fetchedAt)));
+    card.append(element("p","wae-library-compare-text",
+      item.snippet||"Sin texto guardado."));
+    grid.append(card);
+  });
+  view.append(grid,element("p","wae-library-compare-note",
+    "Los textos se muestran sin inferir coincidencias, veracidad ni conclusiones."));
+  const actions=element("div","wae-library-compare-actions");
+  const report=asComparisonMarkdown(selected);
+  actions.append(button("⧉ Copiar comparación",()=>copyText(report),"small-action"),
+    button("↓ Exportar comparación .md",()=>{
+      const blob=new Blob([report],{type:"text/markdown;charset=utf-8"});
+      const link=element("a");const objectUrl=URL.createObjectURL(blob);
+      link.href=objectUrl;link.download="WAE-WEB-comparacion.md";
+      document.body.append(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),1500);
+      byId("library-status").textContent="Comparación de dos fuentes preparada para exportar.";
+    },"small-action"));
+  view.append(actions);
+}
+function drawLibrary() {
+  refreshLibraryCount();
+  const list=byId("library-items");
+  list.replaceChildren();
+  const entries=workspace.list();
+  // Reconcile stale selection when an item is deleted in another tab.
+  for(const url of comparedLibraryUrls){
+    if(!entries.some(item=>item.url===url))comparedLibraryUrls.delete(url);
+  }
+  const filtered=filterWorkspaceEntries(entries,
+    byId("library-search").value,byId("library-kind").value);
+  byId("library-status").textContent=entries.length
+    ? "Mostrando "+filtered.length+" de "+entries.length+" fuentes guardadas."
+    : "Todavía no hay fuentes guardadas.";
+  drawLibraryComparison(entries);
+  if(!entries.length){
+    list.append(stateCard("Tu biblioteca está vacía",
+      "Guarda fuentes de resultados o del panorama de investigación."));
+    return;
+  }
+  if(!filtered.length){
+    list.append(stateCard("No hay coincidencias",
+      "Prueba otro término o cambia el filtro de material."));
+    return;
+  }
+  filtered.forEach(item=>{
+    const card=element("article","library-entry");
+    const original=item.evidenceKind==="source_excerpt";
+    append(card,external(item.url,item.title,"result-title"),
+      element("p","",item.source+(item.date?" · "+formatDate(item.date):"")));
+    card.append(element("span","wae-library-kind",
+      original?"Texto original recuperado":"Fragmento del buscador"));
+    if(original&&item.fetchedAt)
+      card.append(element("small","","Recuperado: "+formatDate(item.fetchedAt)));
+    if(item.snippet){
+      const excerpt=element("details","wae-library-excerpt");
+      excerpt.append(element("summary","","Leer texto guardado"),
+        element("p","snippet",item.snippet));
+      card.append(excerpt);
+    }
+    const actions=element("div","wae-library-entry-actions");
+    const selected=comparedLibraryUrls.has(item.url);
+    const choose=button(selected?"✓ Seleccionado":"▤ Comparar",()=>{
+      if(comparedLibraryUrls.has(item.url))comparedLibraryUrls.delete(item.url);
+      else if(comparedLibraryUrls.size<2)comparedLibraryUrls.add(item.url);
+      drawLibrary();
+    },"small-action");
+    choose.setAttribute("aria-pressed",String(selected));
+    choose.disabled=!selected&&comparedLibraryUrls.size>=2;
+    if(choose.disabled)choose.title="Quita una fuente de la selección para elegir otra.";
+    actions.append(choose,button("Eliminar",()=>{
+      workspace.remove(item.url);comparedLibraryUrls.delete(item.url);drawLibrary();
+    },"small-action"));
+    card.append(actions);list.append(card);
   });
 }
 function downloadLibrary() {
@@ -2253,6 +2336,8 @@ sourceFilter.addEventListener("change", () => {
 byId("library-button").addEventListener("click", () => { drawLibrary(); byId("library-dialog").showModal(); });
 byId("close-library").addEventListener("click", () => byId("library-dialog").close());
 byId("export-library").addEventListener("click", downloadLibrary);
+byId("library-search").addEventListener("input", drawLibrary);
+byId("library-kind").addEventListener("change", drawLibrary);
 refreshLibraryCount();
 byId("about-button").addEventListener("click", () => byId("about-dialog").showModal());
 byId("close-dialog").addEventListener("click", () => byId("about-dialog").close());
