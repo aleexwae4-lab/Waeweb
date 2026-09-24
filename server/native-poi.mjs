@@ -27,7 +27,7 @@ function load(filePath=process.env.WAE_POI_INDEX_PATH||DEFAULT_PATH){
   let lines;
   try{lines=readFileSync(filePath,"utf8").split("\n");}
   catch{return null;}
-  let header=null,count=0;
+  let header=null,count=0,minLat=90,maxLat=-90,minLon=180,maxLon=-180;
   for(const line of lines){
     if(!line.trim())continue;
     let record;
@@ -40,12 +40,15 @@ function load(filePath=process.env.WAE_POI_INDEX_PATH||DEFAULT_PATH){
     }
     if(!validPoi(record)||seen.has(record.id))continue;
     seen.add(record.id);count++;
+    minLat=Math.min(minLat,record.latitude);maxLat=Math.max(maxLat,record.latitude);
+    minLon=Math.min(minLon,record.longitude);maxLon=Math.max(maxLon,record.longitude);
     const key=cell(record.latitude,record.longitude);
     if(!buckets.has(key))buckets.set(key,[]);
     buckets.get(key).push(record);
   }
   if(!header)return null;
   const index={mtimeMs:stat.mtimeMs,size:stat.size,buckets,count,
+    bounds:[minLat,minLon,maxLat,maxLon],
     snapshot:header.snapshot,coverage:header.coverage||"unknown"};
   byPath.set(filePath,index);
   return index;
@@ -89,6 +92,9 @@ export function searchNativeNearby({query,latitude,longitude,filePath}){
     !Number.isFinite(lat)||!Number.isFinite(lon)||
     Math.abs(lat)>90||Math.abs(lon)>180)return null;
   const dy=RADIUS/111000,dx=RADIUS/(111000*Math.max(.1,Math.cos(radians(lat))));
+  // Never imply a regional extract covers a coordinate outside its extent.
+  const [south,west,north,east]=index.bounds;
+  if(lat<south-dy||lat>north+dy||lon<west-dx||lon>east+dx)return null;
   const hits=[];
   for(let y=Math.floor((lat-dy)/STEP);y<=Math.floor((lat+dy)/STEP);y++)
     for(let x=Math.floor((lon-dx)/STEP);x<=Math.floor((lon+dx)/STEP);x++)
