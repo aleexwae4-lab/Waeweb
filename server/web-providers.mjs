@@ -80,8 +80,9 @@ export async function searxngImages(query){
 }
 const TECH=/\b(?:javascript|typescript|python|react|node(?:\.js)?|linux|android|sql|html|css|api|github|git|programaci[oó]n|codigo|c[oó]digo|backend|frontend|servidor|error|bug|docker|postgres|supabase|vercel|render|prisma|npm|web|desarrollo|development)\b/i;
 export const technicalWebQuery=(query,site=null,source=null)=>
-  ["stackoverflow","superuser","mdn"].includes(source)||
-  ["stackoverflow.com","superuser.com","developer.mozilla.org"].includes(site)||
+  ["stackoverflow","superuser","mdn","github"].includes(source)||
+  ["stackoverflow.com","superuser.com","developer.mozilla.org",
+    "github.com","www.github.com"].includes(site)||
   TECH.test(query);
 // Concurrent first-page and complete SERP requests reuse the SAME public
 // technical-source call. Completed results and failures are not cached here.
