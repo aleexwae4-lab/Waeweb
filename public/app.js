@@ -624,9 +624,10 @@ function renderResult(item, index) {
   let webReadingSlot=null;
   const title = nativeBook
     ? button(item.title, () => bookExperience.openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "result-title browser-result-title")
+    : state.type === "all" && item.siteLink===true
+    ? button(item.title,()=>openBrowser(url),"result-title web-result-title")
     : state.type === "all"
-    ? button(item.title,()=>item.siteLink===true
-      ? openBrowser(url):webReadingToggle?.(),"result-title web-result-title")
+    ? button(item.title,()=>webReadingToggle?.(),"result-title web-result-title")
     : state.type==="videos"
       ? button(item.title,()=>{
           const player=card.querySelector(".video-primary-play");
