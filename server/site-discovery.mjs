@@ -21,6 +21,17 @@ export function navigationalName(query){
     !/^[\p{L}\p{N} .&+-]+$/u.test(name))return null;
   return name;
 }
+// Only clearly navigational intent or a short, exact brand name triggers
+// an extra remote early lookup. Topical queries keep their existing federation.
+export function earlyWikidataSiteEligible(query){
+  const raw=fold(query),name=navigationalName(query);
+  if(!name||directorySites(query).length)return false;
+  const explicit=/^(?:ir a|visitar|abrir|entrar a|buscar|portal oficial|sitio web|sitio oficial|sitio|pagina web|pagina oficial|web oficial|web|pagina|oficial)\s/.test(raw)||
+    /\s(?:pagina oficial|sitio oficial|web oficial|pagina web|sitio web|oficial)$/.test(raw);
+  const institution=/^(?:instituto|universidad|secretaria|ministerio|gobierno|museo|hospital|fundacion|university|national|world health)\b/.test(name);
+  return explicit||institution||(name.length>=3&&name.length<=45&&
+    /^[\p{L}\p{N}.&+-]+$/u.test(name));
+}
 export function publicSiteUrl(value){
   try{
     const u=new URL(value);
@@ -106,7 +117,20 @@ async function sourceJson(url){
   if(raw.length>900000)throw Error("wikidata_sites_too_large");
   return JSON.parse(raw);
 }
-export async function wikidataOfficialSites(query){
+// Coalesce identical in-flight P856 requests from the instant lookup and
+// the full SERP. No result or outage is cached after the request settles.
+const inFlightSites=new Map();
+export function wikidataOfficialSites(query){
+  const name=navigationalName(query);
+  if(!name)return Promise.resolve([]);
+  if(inFlightSites.has(name))return inFlightSites.get(name);
+  const task=loadWikidataOfficialSites(name);
+  inFlightSites.set(name,task);
+  void task.then(()=>{if(inFlightSites.get(name)===task)inFlightSites.delete(name);},
+    ()=>{if(inFlightSites.get(name)===task)inFlightSites.delete(name);});
+  return task;
+}
+async function loadWikidataOfficialSites(query){
   const name=navigationalName(query);
   if(!name)return [];
   // Query the two Wikidata name indexes concurrently: an institution can
