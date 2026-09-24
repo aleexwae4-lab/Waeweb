@@ -81,7 +81,7 @@ if(!ready){
     ["Mercado Libre","mercadolibre.com.mx"],["Instagram","instagram.com"]]){
     const instant=await request("/api/search?nav=1&type=all&q="+encodeURIComponent(query));
     let actualHost=null;
-    try{actualHost=new URL(instant.body?.site?.url).hostname.replace(/^www\\./,"");}
+    try{actualHost=new URL(instant.body?.site?.url).hostname.replace(/^www\./,"");}
     catch{}
     const valid=instant.ok&&instant.marker&&
       instant.body?.kind==="named_site_preview"&&
