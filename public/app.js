@@ -34,6 +34,7 @@ const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
 let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, readingVisibleCount: 12, page: 1, loadingMore: false, videoPlatform: "all", videoPlayableOnly: false, mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24, imagePlatform: "all" };
 let activeDirections=null;
+let activeMap=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
 let activeVideoReset=null;
@@ -56,7 +57,7 @@ function stopInlineVideo(){
   activeVideoReset=null;
   reset?.();
 }
-function stopDirections(){activeDirections?.dispose();activeDirections=null;}
+function stopDirections(){activeDirections?.dispose();activeDirections=null;activeMap?.dispose();activeMap=null;}
 const translator = createTranslator({getJSON,resultsContainer,stats,sourceFilter,answer,weatherSlot,panel});
 function renderTranslator(push=true){
   stopDirections();
@@ -1862,6 +1863,7 @@ function createMapDirectionsDisclosure(directions){
 function showDirectionsWithoutLocality({query="",message=""}={}){
   stopDirections();
   const map=createNativeMap();
+  activeMap=map;
   const stage=map.root;
   const section=element("section","map-explorer");
   section.append(element("h2","","Explora el mapa"),createMapQuickSearch(query));
@@ -1926,6 +1928,7 @@ function renderMapPlaces(data) {
   toolbar.append(copy,visit);
 
   const map=createNativeMap({onSelectPlace:index=>select(index)});
+  activeMap=map;
   const directions=createDirections({getJSON,element,button,external,copyText,
     onDestinationSelect:place=>{
       if(!validMapPlace(place))return;
