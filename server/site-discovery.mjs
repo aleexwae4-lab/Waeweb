@@ -97,12 +97,22 @@ async function sourceJson(url){
 export async function wikidataOfficialSites(query){
   const name=navigationalName(query);
   if(!name)return [];
-  const search=new URL("https://www.wikidata.org/w/api.php");
-  search.search=new URLSearchParams({action:"wbsearchentities",
-    search:name,language:"es",uselang:"es",limit:"7",format:"json"}).toString();
-  const found=await sourceJson(search);
-  const ids=[...new Set((found.search||[]).map(x=>x.id)
-    .filter(x=>/^Q[1-9]\d*$/.test(x||"")))].slice(0,6);
+  // Query the two Wikidata name indexes concurrently: an institution can
+  // have no Spanish search entry even when its English label is an exact
+  // match. One language outage must not discard the other language's hits.
+  const searches=["es","en"].map(language=>{
+    const url=new URL("https://www.wikidata.org/w/api.php");
+    url.search=new URLSearchParams({action:"wbsearchentities",
+      search:name,language,uselang:language,limit:"5",format:"json"}).toString();
+    return sourceJson(url);
+  });
+  const found=await Promise.allSettled(searches);
+  if(found.every(value=>value.status==="rejected"))
+    throw Error("wikidata_sites_search_unavailable");
+  const ids=[...new Set(found.flatMap(value=>
+    value.status==="fulfilled"&&Array.isArray(value.value?.search)
+      ?value.value.search.map(item=>item.id):[])
+    .filter(id=>/^Q[1-9]\d*$/.test(id||"")))].slice(0,8);
   if(!ids.length)return [];
   const details=new URL("https://www.wikidata.org/w/api.php");
   details.search=new URLSearchParams({action:"wbgetentities",ids:ids.join("|"),
