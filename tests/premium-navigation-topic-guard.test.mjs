@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import {navigationalName,directorySites,earlyWikidataSiteEligible}
+import {navigationalName,directorySites,earlyWikidataSiteEligible,wikidataOfficialSites}
   from "../server/site-discovery.mjs";
 import {search} from "../server/search.mjs";
 import {handler} from "../server/index.mjs";
@@ -106,5 +106,35 @@ test("instant web navigation does not contact Wikidata for a broad topic",async(
       assert.equal(data.completeSearch,false);
     });
     assert.deepEqual(external,[]);
+  }finally{globalThis.fetch=original;}
+});
+
+test("explicit unknown multiword site reaches both Wikidata indexes and a P856 record",async()=>{
+  const original=globalThis.fetch,seen=[];
+  const entity={entities:{Q98765:{
+    labels:{es:{value:"Empresa Espectral"},en:{value:"Empresa Espectral"}},
+    descriptions:{es:{value:"Organización de prueba"}},
+    claims:{P856:[{rank:"normal",mainsnak:{
+      datavalue:{value:"https://empresa-espectral.example.org/"}}}]}
+  }}};
+  globalThis.fetch=async input=>{
+    const u=new URL(input);
+    seen.push(u);
+    return new Response(JSON.stringify(
+      u.searchParams.get("action")==="wbsearchentities"
+        ?{search:[{id:"Q98765"}]}:entity),{status:200,
+        headers:{"content-type":"application/json"}});
+  };
+  try{
+    const hits=await wikidataOfficialSites(
+      "quiero ir al sitio oficial de Empresa Espectral");
+    assert.equal(hits.length,1);
+    assert.equal(hits[0].url,"https://empresa-espectral.example.org/");
+    assert.equal(hits[0].linkBasis,"wikidata_P856");
+    assert.equal(hits[0].provenanceUrl,"https://www.wikidata.org/wiki/Q98765");
+    assert.equal(seen.length,3);
+    assert.ok(seen.slice(0,2).every(u=>
+      u.searchParams.get("search")==="empresa espectral"));
+    assert.equal(seen[2].searchParams.get("ids"),"Q98765");
   }finally{globalThis.fetch=original;}
 });
