@@ -30,7 +30,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, page: 1, loadingMore: false, videoPlatform: "all", videoPlayableOnly: false, mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24, imagePlatform: "all" };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, readingVisibleCount: 12, page: 1, loadingMore: false, videoPlatform: "all", videoPlayableOnly: false, mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24, imagePlatform: "all" };
 let activeDirections=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
@@ -345,8 +345,8 @@ function renderInformationCard(item,index){
     (news?"Publicado · ":"")+formatDate(item.date)));
   else if(news&&item.seenAt)heading.append(element("span","wae-information-date",
     "Detectado · "+formatDate(item.seenAt)));
-  const title=button(item.title,()=>openBrowser(url),"wae-information-title");
-  title.title="Explorar el documento en WAE WEB";
+  const title=button(item.title,()=>toggleReading(),"wae-information-title");
+  title.title="Desplegar el extracto y procedencia dentro de WAE WEB";
   card.append(heading,title);
   if(safeUrl(item.image)){
     const image=element("img","wae-information-image");
@@ -356,11 +356,32 @@ function renderInformationCard(item,index){
     card.append(image);
   }
   if(item.snippet)card.append(element("p","wae-information-snippet",item.snippet));
+  const reading=element("div","wae-information-reading");
+  reading.hidden=true;
+  reading.setAttribute("role","region");
+  reading.setAttribute("aria-label","Lectura del resultado: "+item.title);
+  reading.append(element("p","wae-information-reading-note",item.snippet?
+    "Extracto proporcionado por la fuente; no es el artículo ni documento completo.":
+    "Esta fuente no entregó un extracto. Abre el documento original para leerlo."));
+  reading.append(element("p","wae-information-reading-origin",
+    "Origen: "+source+(item.date?" · "+formatDate(item.date):
+      item.seenAt?" · Detectado: "+formatDate(item.seenAt):" · Fecha no informada")));
+  reading.append(external(url,"↗ Leer documento completo en la fuente",
+    "wae-information-reading-link"));
   const actions=element("div","wae-information-actions");
   const play=button("▶ Escuchar",()=>listenToResult(item),"wae-information-listen");
   play.disabled=!voiceReader.snapshot().available;
   if(play.disabled)play.title="La síntesis de voz no está disponible en este navegador.";
-  const open=button("◎ Leer aquí",()=>openBrowser(url),"wae-information-open");
+  const open=button("◎ Leer aquí",()=>toggleReading(),"wae-information-open");
+  open.setAttribute("aria-expanded","false");
+  function toggleReading(){
+    const next=reading.hidden;
+    reading.hidden=!next;
+    card.classList.toggle("is-reading",next);
+    open.textContent=next?"✕ Cerrar lectura":"◎ Leer aquí";
+    open.setAttribute("aria-expanded",String(next));
+    title.setAttribute("aria-expanded",String(next));
+  }
   const more=element("details","wae-information-more");
   more.append(element("summary","","⋯ Más"));
   const options=element("div","wae-information-more-content");
@@ -377,7 +398,7 @@ function renderInformationCard(item,index){
   options.append(original,copy,save);
   more.append(options);
   actions.append(play,open,more);
-  card.append(actions);
+  card.append(actions,reading);
   return card;
 }
 function renderResult(item, index) {
@@ -1285,8 +1306,10 @@ function renderData(data) {
     }
     if(state.type==="all" && state.results.length)
       resultsContainer.append(element("h2","web-results-heading","Resultados web"));
+    const readingMode=["news","knowledge","research"].includes(state.type);
     const displayed=state.type==="all"
-      ?state.results.slice(0,state.visibleCount):state.results;
+      ?state.results.slice(0,state.visibleCount)
+      :readingMode?state.results.slice(0,state.readingVisibleCount):state.results;
     const cards=state.type==="books"?element("div","wae-library-grid"):
       state.type==="videos"?element("div","video-results-grid"):
       ["news","knowledge","research"].includes(state.type)
@@ -1297,6 +1320,24 @@ function renderData(data) {
     });
     if(["books","videos","news","knowledge","research"].includes(state.type)&&cards.children.length)
       resultsContainer.append(cards);
+    if(readingMode && displayed.length<state.results.length){
+      const more=button("Mostrar más resultados ("+
+        Math.min(12,state.results.length-displayed.length)+")",()=>{
+        const start=state.readingVisibleCount;
+        const end=Math.min(start+12,state.results.length);
+        for(let index=start;index<end;index++){
+          const card=renderResult(state.results[index],index);
+          if(card)cards.append(card);
+        }
+        state.readingVisibleCount=end;
+        if(end>=state.results.length)more.remove();
+        else more.textContent="Mostrar más resultados ("+
+          Math.min(12,state.results.length-end)+")";
+      },"wae-reading-more");
+      more.setAttribute("aria-label","Mostrar "+Math.min(12,state.results.length-displayed.length)+
+        " resultados adicionales de las fuentes recuperadas");
+      resultsContainer.append(more);
+    }
     if(state.type==="all" && state.visibleCount<state.results.length){
       const remaining=state.results.length-state.visibleCount;
       const more=button("Mostrar más resultados ("+Math.min(10,remaining)+")",()=>{
@@ -1840,6 +1881,7 @@ async function performSearch(query, type = "all", push = true, collection = "web
   state.query = q; state.type = type;
   state.selectedSource = "";
   state.visibleCount = 10;
+  state.readingVisibleCount = 12;
   state.page = 1; state.loadingMore = false; state.videoPlatform = "all";
   state.imageKind="all";state.imageOrientation="all";
   state.imageHighRes=false;state.imageVisibleCount=24;state.imagePlatform="all";
@@ -1981,6 +2023,7 @@ document.querySelectorAll("[data-type]").forEach(tab => tab.addEventListener("cl
 byId("copy-search").addEventListener("click", () => copyText(location.href));
 sourceFilter.addEventListener("change", () => {
   state.selectedSource = sourceFilter.value;
+  state.readingVisibleCount=12;
   state.videoPlatform="all";
   if (state.data) renderData(state.data);
 });
