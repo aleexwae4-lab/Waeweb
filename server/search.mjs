@@ -370,7 +370,13 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   const key = selected + ":" + page + ":" + collection + ":" +
     (selected==="news"?newsWindow+":":"") + spec.input.toLocaleLowerCase("es");
   const cached = cache.get(key);
-  if (!fresh && cached && cached.expires > Date.now()) return cached.value;
+  if (!fresh && cached && cached.expires > Date.now()) {
+    // Registered links expire independently of cached searches. Refresh the
+    // right to preview genuine result URLs even when a search hits the cache.
+    if(["all","news","knowledge","research"].includes(selected))
+      registerWebHits(cached.value.results);
+    return cached.value;
+  }
   const videoQuery=spec.site?q+" site:"+spec.site:q;
   const pinterestOnly=selected==="images"&&spec.source==="pinterest";
   // A regular image query always includes Pinterest discovery if the
@@ -608,7 +614,10 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
         :"No hay proveedores disponibles para esta categoría.")
       : null
   };
-  if(selected==="all")registerWebHits(payload.results);
+  // Only URLs that appeared in real public search results can be read.
+  // The preview still enforces DNS pinning, robots.txt and rate limits.
+  if(["all","news","knowledge","research"].includes(selected))
+    registerWebHits(payload.results);
   // Retain the API's extractive brief for clients that need it, but the
   // consumer search UI displays organic links first and hides this panel.
   payload.brief = ["all","research","knowledge"].includes(selected)

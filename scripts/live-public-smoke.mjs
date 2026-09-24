@@ -52,7 +52,9 @@ if(!ready){
     ["/app.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&
       r.body.includes("loadBookModules")&&r.body.includes("createVoiceReader")&&
       r.body.includes("function toggleReading()")&&
-      r.body.includes("readingVisibleCount")],
+      r.body.includes("readingVisibleCount")&&
+      r.body.includes("Ampliar desde el sitio original")&&
+      r.body.includes("/api/web/preview?url=")],
     ["/book-gallery.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("renderBookCard")],
     ["/book-experience.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("openBookDetail")],
     ["/book-experience.css",r=>r.mime.includes("text/css")&&typeof r.body==="string"&&r.body.includes("wae-library-grid")]

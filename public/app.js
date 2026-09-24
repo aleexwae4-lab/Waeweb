@@ -366,6 +366,59 @@ function renderInformationCard(item,index){
   reading.append(element("p","wae-information-reading-origin",
     "Origen: "+source+(item.date?" · "+formatDate(item.date):
       item.seenAt?" · Detectado: "+formatDate(item.seenAt):" · Fecha no informada")));
+  // A user-requested preview is limited to source text WAE WEB really
+  // retrieved, never the search snippet recast as an original article.
+  let sourceExcerpt=null;
+  if(url.startsWith("https://")){
+    const recovery=element("section","wae-reading-recovery");
+    const recoveryStatus=element("p","wae-reading-recovery-status");
+    recoveryStatus.setAttribute("role","status");
+    const recoveryBody=element("div","wae-reading-recovery-body");
+    const recover=button("▤ Ampliar desde el sitio original",async()=>{
+      if(sourceExcerpt){
+        recoveryBody.hidden=!recoveryBody.hidden;
+        recover.textContent=recoveryBody.hidden
+          ?"▤ Mostrar texto recuperado":"▤ Ocultar texto recuperado";
+        return;
+      }
+      recover.disabled=true;
+      recover.textContent="Consultando fuente…";
+      recoveryStatus.textContent="Validando acceso y permisos de lectura de la página…";
+      try{
+        const data=await getJSON("/api/web/preview?url="+encodeURIComponent(url));
+        const requested=new URL(url);requested.hash="";
+        if(!data||data.url!==requested.href||data.kind!=="source_excerpt"||
+          typeof data.excerpt!=="string"||data.excerpt.length<30)
+          throw new Error("La fuente no devolvió un extracto legible.");
+        sourceExcerpt=data.excerpt;
+        recoveryBody.replaceChildren(
+          element("p","wae-reading-recovery-text",data.excerpt),
+          element("small","wae-reading-recovery-disclaimer",
+            data.disclaimer||"Extracto del sitio original. Verifica la fuente."));
+        const tools=element("div","wae-reading-recovery-actions");
+        const listen=button("▶ Escuchar texto",()=>
+          readAloud(sourceExcerpt,"Texto del origen · "+(data.title||item.title)),
+          "wae-information-link");
+        listen.disabled=!voiceReader.snapshot().available;
+        const copy=button("⧉ Copiar extracto",()=>copyText(
+          [data.title||item.title,data.url,sourceExcerpt].join("\n")),
+          "wae-information-link");
+        tools.append(listen,copy);
+        recoveryBody.append(tools);
+        recoveryBody.hidden=false;
+        recoveryStatus.textContent="Extracto original recuperado. "+
+          (data.hasMore?"La página contiene más texto.":"La fuente puede contener más contenido.");
+        recover.textContent="▤ Ocultar texto recuperado";
+      }catch(error){
+        recoveryStatus.textContent="No se pudo recuperar más texto aquí: "+
+          (error?.message||"Fuente no disponible")+
+          ". Conservamos el extracto inicial y el enlace original.";
+        recover.textContent="↻ Reintentar lectura original";
+      }finally{recover.disabled=false;}
+    },"wae-reading-recovery-toggle");
+    recovery.append(recover,recoveryStatus,recoveryBody);
+    reading.append(recovery);
+  }
   reading.append(external(url,"↗ Leer documento completo en la fuente",
     "wae-information-reading-link"));
   const actions=element("div","wae-information-actions");
