@@ -88,7 +88,7 @@ export function wikidataSiteRecords(data,query){
 async function sourceJson(url){
   const response=await fetch(url,{headers:{accept:"application/json",
     "user-agent":"WAE-Web/1.0 (+https://github.com/aleexwae4-lab/Waeweb)"},
-    signal:AbortSignal.timeout(4800)});
+    signal:AbortSignal.timeout(3000)});
   if(!response.ok)throw Error("wikidata_sites_status_"+response.status);
   const raw=await response.text();
   if(raw.length>900000)throw Error("wikidata_sites_too_large");
