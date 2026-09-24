@@ -2187,11 +2187,13 @@ async function performSearch(query, type = "all", push = true, collection = "web
       .then(preview=>{
         if(fullSearchFinished||signal.aborted||sequence!==state.sequence||
           preview?.kind!=="specialist_web_preview"||
-          !["hacker_news_story_links","public_technical_and_story_links"].includes(preview.scope)||
+          !["hacker_news_story_links","public_technical_and_story_links",
+            "public_code_and_story_links"].includes(preview.scope)||
           preview.completeSearch!==false||!Array.isArray(preview.results))return;
-        earlyPages=preview.results.slice(0,6).filter(item=>
+        earlyPages=preview.results.slice(0,8).filter(item=>
           ["Hacker News · web abierta","WAE Index local · HN",
-            "Stack Overflow · comunidad","MDN Web Docs · documentación"].includes(item.source)&&
+            "Stack Overflow · comunidad","MDN Web Docs · documentación",
+             "GitHub · repositorios públicos"].includes(item.source)&&
           safeUrl(item.url)&&item.title);
         earlyPagesShown=earlyPages.length>0;
         if(earlyPagesShown)showProgressiveWebResults();
