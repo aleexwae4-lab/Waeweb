@@ -110,7 +110,8 @@ test("general public search includes actual named site even when all general ind
 });
 test("native result cards visit site with explicit provenance; no full-web claims",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
-  assert.match(app,/item\.siteLink===true\s*\?\s*openBrowser\(url\)/);
+  assert.match(app,/state\.type === "all" && item\.siteLink===true/);
+  assert.match(app,/button\(item\.title,\(\)=>openBrowser\(url\),"result-title web-result-title"\)/);
   assert.match(app,/◎ Visitar sitio/);
   assert.match(app,/ⓘ Procedencia/);
   assert.match(app,/Índice web general no configurado/);
