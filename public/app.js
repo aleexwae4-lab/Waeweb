@@ -1905,6 +1905,32 @@ function showDirectionsWithoutLocality({query="",message=""}={}){
     "↗ Abrir mapa original","link-button"));
   resultsContainer.append(section);
 }
+function showPoiSearchStatus(data){
+  stopDirections();
+  const section=element("section","map-explorer map-poi-explorer");
+  const located=validMapPlace(data.center);
+  section.append(element("h2","",data.needsLocation
+    ?"¿En qué zona buscas "+state.query+"?"
+    :located?"No encontramos establecimientos en esta zona"
+      :"La búsqueda de comercios no está disponible"),
+    createMapQuickSearch(state.query));
+  const note=element("div","map-no-match");
+  note.append(element("strong","",data.message||
+    "Añade una ciudad a la búsqueda o selecciona un punto en el mapa."),
+    element("p","",located
+      ?"Área consultada: "+(data.zone||"punto seleccionado")+
+        ". OpenStreetMap no ha devuelto locales registrados en 6,5 km."
+      :"Escribe «Oxxo en Zapopan» o pulsa «Mi ubicación» para buscar alrededor del punto que autorices."));
+  section.append(note);
+  if(located){
+    const map=createNativeMap();
+    activeMap=map;
+    map.setView({name:"Centro de búsqueda · no es un negocio",
+      detail:"Centro de la zona consultada",...data.center},4);
+    section.append(map.root);
+  }
+  resultsContainer.replaceChildren(section);
+}
 function renderMapPlaces(data) {
   stopDirections();
   const places = Array.isArray(data.results) ? data.results.filter(validMapPlace) : [];
@@ -2037,6 +2063,32 @@ function renderMapPlaces(data) {
   if(data.kind==="business_poi"&&places.length>1)map.fitPlaces(places);
 }
 async function renderMap(query,signal,sequence) {
+  if(isPoiMapQuery(query)){
+    stopDirections();
+    panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
+    state.data=null;state.results=[];state.selectedSource="";
+    sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
+    stats.textContent="Buscando comercios registrados…";
+    resultsContainer.replaceChildren(stateCard("Buscando establecimientos",
+      "Consultando negocios públicos de OpenStreetMap en la zona indicada.",true));
+    const parameters=new URLSearchParams({q:query});
+    if(mapSearchAnchor){
+      parameters.set("lat",String(mapSearchAnchor.latitude));
+      parameters.set("lon",String(mapSearchAnchor.longitude));
+    }
+    try{
+      const data=await getJSON("/api/poi?"+parameters.toString(),signal);
+      if(sequence!==state.sequence)return;
+      if(data.needsLocation)showPoiSearchStatus(data);
+      else renderMapPlaces(data);
+    }catch(error){
+      if(error.name==="AbortError"||sequence!==state.sequence)return;
+      stats.textContent="Comercios no disponibles temporalmente";
+      resultsContainer.replaceChildren();
+      showPoiSearchStatus({message:error.message,needsLocation:false});
+    }
+    return;
+  }
   // Coordinates supplied by the user can render without /api/maps. A deployment
   // 401 must never hide an independently known point or invent a street address.
   const point=localMapCoordinates(query);
