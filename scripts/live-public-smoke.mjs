@@ -75,6 +75,23 @@ if(!ready){
       r.marker?"WAEWEB API":"no API marker",r.mime);
     if(!good)process.exitCode=1;
   }
+  // The instant endpoint must provide a real site without waiting for
+  // federated external providers. This is not a completed web search.
+  for(const [query,host] of [["GitHub","github.com"],
+    ["Mercado Libre","mercadolibre.com.mx"],["Instagram","instagram.com"]]){
+    const instant=await request("/api/search?nav=1&type=all&q="+encodeURIComponent(query));
+    let actualHost=null;
+    try{actualHost=new URL(instant.body?.site?.url).hostname.replace(/^www\\./,"");}
+    catch{}
+    const valid=instant.ok&&instant.marker&&
+      instant.body?.kind==="named_site_preview"&&
+      instant.body?.completeSearch===false&&
+      instant.body?.scope==="known_named_sites_only"&&
+      instant.body?.site?.siteLink===true&&actualHost===host;
+    console.log(valid?"LIVE PASS":"LIVE FAIL","instant named site",query,
+      "HTTP",instant.status,"host",actualHost);
+    if(!valid)process.exitCode=1;
+  }
   // Guard against the reported regression on the ACTUAL public server:
   // searching a named website must return a usable first-page destination,
   // not only a wiki entity or a random repository with that name.
