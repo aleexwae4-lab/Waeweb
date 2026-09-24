@@ -1,8 +1,9 @@
 import {routeDiagram,durationLabel,distanceLabel} from "/directions-core.js";
+import {isPoiMapQuery,localMapCoordinates} from "/maps-core.js";
 
 // A first-class directions panel inside the existing WAEWEB Maps tab.
 // Explicit submit only: no live tracking, no implicit geolocation or reroutes.
-export function createDirections({getJSON,element,button,external,copyText,onDestinationSelect=()=>{},onRoute=()=>{}}){
+export function createDirections({getJSON,element,button,external,copyText,onDestinationSelect=()=>{},onRoute=()=>{},getMapAnchor=()=>null}){
   const root=element("section","directions-panel");
   root.setAttribute("aria-label","Cómo llegar e indicaciones de ruta");
   root.append(element("span","tag","WAEWEB · CÓMO LLEGAR"),
@@ -77,7 +78,7 @@ export function createDirections({getJSON,element,button,external,copyText,onDes
     for(const side of ["origin","destination"]){
       lookups[side]?.abort();lookups[side]=null;lookupVersion[side]++;
     }
-    fromLookup.disabled=!addressReady;toLookup.disabled=!addressReady;
+    fromLookup.disabled=false;toLookup.disabled=false;
   }
   function choose(side,place){
     if(disposed||!Number.isFinite(place.latitude)||!Number.isFinite(place.longitude))return;
@@ -97,9 +98,6 @@ export function createDirections({getJSON,element,button,external,copyText,onDes
     const matches=side==="origin"?fromMatches:toMatches;
     const searchButton=side==="origin"?fromLookup:toLookup;
     const query=input.value.trim();
-    if(!addressReady){
-      state.textContent="Configura el proveedor de direcciones o escribe coordenadas manualmente.";return;
-    }
     if(query.length<3){
       state.textContent="Escribe al menos tres caracteres para buscar.";input.focus();return;
     }
@@ -110,16 +108,27 @@ export function createDirections({getJSON,element,button,external,copyText,onDes
     searchButton.disabled=true;
     matches.append(element("p","directions-match-status","Buscando coincidencias del proveedor…"));
     try{
-      const data=await getJSON("/api/places?q="+encodeURIComponent(query),request.signal);
+      const point=localMapCoordinates(side==="destination"?from.value:to.value)||
+        getMapAnchor();
+      const parameters=new URLSearchParams({q:query});
+      if(point){
+        parameters.set("lat",String(point.latitude));
+        parameters.set("lon",String(point.longitude));
+      }
+      const data=await getJSON(isPoiMapQuery(query)
+        ?"/api/poi?"+parameters.toString()
+        :addressReady?"/api/places?q="+encodeURIComponent(query)
+          :"/api/maps?q="+encodeURIComponent(query),request.signal);
       if(disposed||id!==lookupVersion[side]||!root.isConnected)return;
       matches.replaceChildren();
       if(!Array.isArray(data.results)||!data.results.length){
         matches.append(element("p","directions-match-status",
-          data.message||"No se encontraron direcciones. Prueba añadiendo ciudad o país."));
+          data.message||"No hay coincidencias. Añade ciudad o selecciona un punto en el mapa."));
         return;
       }
       matches.append(element("p","directions-match-status",
-        "Elige una coincidencia; no se selecciona automáticamente la primera."));
+        "Elige una coincidencia de "+(data.source||"la fuente")+
+        "; no se selecciona automáticamente la primera."));
       for(const place of data.results){
         if(!Number.isFinite(place.latitude)||!Number.isFinite(place.longitude))continue;
         const caption=(place.detail||place.name)+" · "+quality(place.precision);
@@ -133,7 +142,7 @@ export function createDirections({getJSON,element,button,external,copyText,onDes
         error.message||"La búsqueda de lugares no está disponible."));
     }finally{
       if(id===lookupVersion[side]){
-        lookups[side]=null;searchButton.disabled=!addressReady;
+        lookups[side]=null;searchButton.disabled=false;
       }
     }
   }
@@ -143,14 +152,14 @@ export function createDirections({getJSON,element,button,external,copyText,onDes
       if(disposed||!root.isConnected)return;
       enabled=caps.enabled===true;
       addressReady=caps.addressSearch?.enabled===true;
-      fromLookup.disabled=!addressReady;toLookup.disabled=!addressReady;
+      fromLookup.disabled=false;toLookup.disabled=false;
       calculate.disabled=!enabled;
       state.textContent=caps.note||"Proveedor de rutas no configurado.";
     }catch(err){
       if(disposed||!root.isConnected)return;
       enabled=false;addressReady=false;
-      fromLookup.disabled=true;toLookup.disabled=true;calculate.disabled=true;
-      state.textContent="La API de rutas no respondió: "+(err.message||"servicio no disponible.");
+      fromLookup.disabled=false;toLookup.disabled=false;calculate.disabled=true;
+      state.textContent="Puedes buscar comercios y localidades; el cálculo de rutas sigue sin estar disponible.";
     }
   }
   function setDestination(place){
