@@ -631,7 +631,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     entry.status==="fulfilled" && Array.isArray(entry.value.items) &&
     entry.value.items.length>0);
   if(selected==="all"&&page===1&&!spec.site&&!spec.source&&
-    !generalIndexHits && q.trim().split(/\\s+/).length>=2 &&
+    !generalIndexHits && q.trim().split(/\s+/).length>=2 &&
     !FAST_TECHNICAL.test(q) && !repositoryIntentTerms(q) &&
     !rustPackageIntentTerms(q) && !npmPackageIntentTerms(q) &&
     !gitlabRepositoryIntentTerms(q)){
