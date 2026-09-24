@@ -48,6 +48,14 @@ export function imageCanonical(value){
     return u.origin.toLowerCase()+u.pathname.replace(/\/$/,"")+u.search;
   }catch{return null;}
 }
+// A provider hit is not evidence of relevance without a matching title/excerpt.
+// This is metadata-only filtering; it does not claim visual recognition.
+export function imageRelevant(item,query){
+  const terms=tokens(query);
+  if(!terms.length)return true;
+  const description=fold([item.title,item.snippet].join(" "));
+  return terms.some(term=>description.includes(term));
+}
 export function imageScore(item,query,intent=imageIntent(query)){
   const terms=tokens(query),title=fold(item.title),snippet=fold(item.snippet);
   let score=0;
@@ -74,8 +82,9 @@ export function imageScore(item,query,intent=imageIntent(query)){
 // downloading and hashing pixels, which this metadata-only module does not do.
 export function rankImageResults(items,query){
   const intent=imageIntent(query);
-  const chosen=[],keys=new Set(),counts=new Map();
-  const sorted=items.filter(item=>item?.title&&imageCanonical(item.image)&&imageCanonical(item.url))
+  const chosen=[],keys=new Set(),counts=new Map(),landingCounts=new Map();
+  const sorted=items.filter(item=>item?.title&&imageCanonical(item.image)&&
+      imageCanonical(item.url)&&imageRelevant(item,query))
     .map((item,index)=>({item,index,score:imageScore(item,query,intent)}))
     .sort((a,b)=>b.score-a.score||a.index-b.index);
   for(const {item} of sorted){
@@ -86,6 +95,11 @@ export function rankImageResults(items,query){
     const key=item.imagePlatform==="Pinterest"&&item.pinId
       ?"pinterest:pin:"+item.pinId:asset||url;
     if(keys.has(key))continue;
+    // Preserve distinct images on an album, but prevent one generic page
+    // from saturating a query with near-identical variants.
+    const landing=url;
+    if((landingCounts.get(landing)||0)>=4)continue;
+    landingCounts.set(landing,(landingCounts.get(landing)||0)+1);
     keys.add(key);
     const host=new URL(item.url).hostname.toLowerCase();
     const seen=counts.get(host)||0;counts.set(host,seen+1);
