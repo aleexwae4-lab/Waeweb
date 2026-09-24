@@ -13,6 +13,7 @@ import { findPlaces, MapsError } from "./maps.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
 import {searchAddress,addressCapabilities,GeocodeError} from "./geocode.mjs";
 import {searchNearby,NearbyError} from "./nearby.mjs";
+import {nativePoiStatus} from "./native-poi.mjs";
 import {translateText,publicTranslateConfig,TranslateError} from "./translate.mjs";
 import { handleConnect, connectConfig } from "./connect.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
@@ -488,6 +489,15 @@ export async function handler(req, res) {
         }
         const data = getIndexedDocument(u.searchParams.get("id") || "", records);
         return data ? write(res, 200, data) : write(res, 404, { error: "Documento no encontrado en tu espacio." });
+      }
+      if(u.pathname==="/api/nearby/status"){
+        if(!["GET","HEAD"].includes(req.method))
+          return write(res,405,{error:"Solo lectura GET."},{allow:"GET, HEAD"});
+        return write(res,200,{
+          native:nativePoiStatus(),
+          externalFallback:process.env.WAE_NEARBY_EXTERNAL_FALLBACK!=="false",
+          note:"WAEWEB index is operator-owned; a missing import is not a global maps index."
+        });
       }
       if(u.pathname==="/api/nearby"){
         if(!["GET","HEAD"].includes(req.method))
