@@ -1216,13 +1216,18 @@ function renderData(data) {
     const coverage=data.searchCoverage;
     const indexes=coverage?.generalIndexes||[];
     const specialists=coverage?.specialistSources||[];
-    const unavailableIndexes=(coverage?.failed||[])
-      .filter(name=>["Brave","Google","SearXNG"].includes(name));
-    const webIndexStatus=indexes.length?"Índices web activos"
-      :unavailableIndexes.length?"Índices web sin respuesta"
-      :"Índice web general no configurado";
+    const diagnosis=coverage?.generalIndexDiagnosis;
+    const indexStates={
+      results:"Índice web · resultados recuperados",
+      empty:"Índices consultados · sin coincidencias",
+      unavailable:"Índices web sin respuesta",
+      unconfigured:"Índice web general no configurado",
+      not_queried:"Índices web no consultados"
+    };
+    const webIndexStatus=indexStates[diagnosis?.state]||
+      "Estado del índice web no disponible";
     const metrics=element("p","web-search-metrics",
-      indexes.length+" índices web generales · "+
+      indexes.length+" índices web consultados · "+
       (coverage?.navigationalSites||0)+" sitios web localizados · "+
       specialists.length+" fuentes adicionales · "+
       (data.results?.length||0)+" resultados");
@@ -1233,8 +1238,20 @@ function renderData(data) {
     const details=element("details","web-search-sources");
     details.append(element("summary","","Fuentes y cobertura · "+(
       webIndexStatus)));
+    if(diagnosis?.providers?.length){
+      const explanations={
+        results:"páginas recuperadas",empty:"respondió sin coincidencias",
+        unavailable:"sin respuesta",unconfigured:"no configurado",
+        not_queried:"no consultado"
+      };
+      const providerSummary=element("p","",
+        diagnosis.providers.map(provider=>provider.name+": "+
+          (provider.state==="results"?provider.results+" "+explanations.results:
+            explanations[provider.state]||"estado no disponible")).join(" · "));
+      details.append(providerSummary);
+    }
     details.append(element("p","",
-      "Índices web: "+(indexes.join(", ")||"sin proveedor general configurado")+
+      "Índices web que respondieron: "+(indexes.join(", ")||"ninguno")+
       ". Fuentes adicionales: "+(specialists.join(", ")||"ninguna")+
       ". "+(data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
       "El directorio incluye solo sitios conocidos; Wikidata aporta direcciones declaradas por sus colaboradores. "+
