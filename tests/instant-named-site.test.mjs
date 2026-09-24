@@ -57,8 +57,8 @@ test("early site UI cannot overwrite a later complete response or another query"
   assert.match(app,/getJSON\("\/api\/search\?q="\+encodeURIComponent\(q\)\+"&type=all&nav=1",signal\)/);
   assert.match(app,/fullSearchFinished\|\|signal\.aborted\|\|sequence!==state\.sequence/);
   assert.match(app,/preview\.completeSearch!==false/);
-  assert.match(app,/resultsContainer\.replaceChildren\(note,card\)/);
+  assert.match(app,/resultsContainer\.replaceChildren\(note,\.\.\.cards\)/);
   assert.match(app,/fullSearchFinished=true;\s*renderData\(data\)/);
-  assert.match(app,/if\(earlySiteShown\)\{/);
+  assert.match(app,/if\(earlySiteShown\|\|earlyPagesShown\)\{/);
   assert.match(css,/\.wae-instant-site-status/);
 });

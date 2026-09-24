@@ -351,6 +351,35 @@ export function dedupe(items) {
   });
 }
 const cache = new Map();
+// A deliberately limited early answer: public Hacker News story links ONLY.
+// No encyclopedias, synthetic domains, or general-index coverage claims.
+// Filters/advanced operators are left to the complete search to avoid
+// displaying provisional results that violate the user's restrictions.
+export async function quickOpenWeb(query){
+  const spec=parseQuery(normalizeQuery(query));
+  const q=spec.query;
+  const base={kind:"specialist_web_preview",query:q,
+    scope:"hacker_news_story_links",completeSearch:false,
+    generalIndexes:[],results:[]};
+  if(spec.errors.length||q.length<2||spec.site||spec.source||
+    spec.after||spec.before||spec.excludes.length||spec.phrases.length)
+    return {...base,sourceStatus:"not_applicable"};
+  const previous=localWebSearch(q);
+  // The volatile local index contains only previously discovered source
+  // records. Return them immediately rather than waiting for a provider.
+  if(previous.length>=3){
+    const hits=rankResults(dedupe(previous),spec,"all").slice(0,4);
+    registerWebHits(hits);
+    return {...base,results:hits,sourceStatus:"local_cache"};
+  }
+  let discovered=[],sourceStatus="retrieved";
+  try{discovered=await discoverOpenWeb(q);}
+  catch{sourceStatus="unavailable";}
+  const hits=rankResults(dedupe([...discovered,...previous]),spec,"all").slice(0,4);
+  registerWebHits(hits);
+  return {...base,results:hits,sourceStatus:hits.length?sourceStatus:
+    sourceStatus==="unavailable"?"unavailable":"no_match"};
+}
 export async function search(query, type = "all", { fresh = false, page = 1, collection = "web", newsWindow = "7d" } = {}) {
   const spec = parseQuery(normalizeQuery(query));
   const q = spec.query;

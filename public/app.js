@@ -2147,29 +2147,54 @@ async function performSearch(query, type = "all", push = true, collection = "web
   stats.textContent = "Consultando fuentes reales…";
   panel.replaceChildren(); answer.replaceChildren(); weatherSlot.replaceChildren();
   resultsContainer.replaceChildren(stateCard("Buscando información", "Conectando con las fuentes disponibles.", true));
-  let fullSearchFinished=false,earlySiteShown=false;
-  if(type==="all"&&collection==="web"&&q.length<=120){
-    // Source-backed sites can appear while the full search recovers other
-    // sources. A Wikidata P856 site is declared, NOT ownership-verified.
-    // Neither directory nor Wikidata is a general web index.
-    void getJSON("/api/search?q="+encodeURIComponent(q)+"&type=all&nav=1",signal)
+  let fullSearchFinished=false,earlySiteShown=false,earlyPagesShown=false;
+  let earlySite=null,earlyPages=[];
+  function showProgressiveWebResults(){
+    if(fullSearchFinished||signal.aborted||sequence!==state.sequence)return;
+    const records=[...(earlySite?[earlySite]:[]),
+      ...earlyPages.filter(item=>item.url!==earlySite?.url)];
+    const cards=records.map((item,i)=>renderResult(item,i)).filter(Boolean);
+    if(!cards.length)return;
+    const note=element("p","wae-instant-site-status",
+      earlySite?.linkBasis==="wikidata_P856"
+        ?"◎ Sitio declarado en Wikidata · Otras páginas en recuperación…"
+        :earlySite
+          ?"◎ Sitio conocido disponible · Otras páginas en recuperación…"
+          :"◎ Páginas publicadas en Hacker News · Búsqueda completa en curso…");
+    note.setAttribute("role","status");
+    resultsContainer.replaceChildren(note,...cards);
+    stats.textContent=earlyPages.length
+      ?earlyPages.length+" páginas recuperadas · La búsqueda completa continúa."
+      :"Sitio reconocido · La búsqueda completa continúa.";
+  }
+  if(type==="all"&&collection==="web"){
+    if(q.length<=120){
+      // Curated or source-declared navigation, never a broad-index claim.
+      void getJSON("/api/search?q="+encodeURIComponent(q)+"&type=all&nav=1",signal)
+        .then(preview=>{
+          if(fullSearchFinished||signal.aborted||sequence!==state.sequence||
+            preview?.kind!=="named_site_preview"||preview.completeSearch!==false||
+            preview.site?.siteLink!==true||!safeUrl(preview.site.url))return;
+          earlySite=preview.site;
+          earlySiteShown=true;
+          showProgressiveWebResults();
+        }).catch(()=>{});
+    }
+    // Independent public story-link metadata, shared with the full federated
+    // search on the server. No Wikipedia-only preview or duplicate provider
+    // request. An outage here cannot block or rewrite the full result.
+    void getJSON("/api/search?q="+encodeURIComponent(q)+"&type=all&quick=1",signal)
       .then(preview=>{
         if(fullSearchFinished||signal.aborted||sequence!==state.sequence||
-          preview?.kind!=="named_site_preview"||preview.completeSearch!==false||
-          preview.site?.siteLink!==true||!safeUrl(preview.site.url))return;
-        const card=renderResult(preview.site,0);
-        if(!card)return;
-        const declared=preview.site.linkBasis==="wikidata_P856";
-        const note=element("p","wae-instant-site-status",declared
-          ?"◎ Sitio declarado en Wikidata · Recuperando más fuentes…"
-          :"◎ Sitio conocido disponible · Recuperando más fuentes…");
-        note.setAttribute("role","status");
-        resultsContainer.replaceChildren(note,card);
-        stats.textContent=declared
-          ?"Sitio con procedencia Wikidata · La búsqueda completa continúa."
-          :"Sitio reconocido · La búsqueda completa continúa.";
-        earlySiteShown=true;
-      }).catch(()=>{}); // The complete search never depends on this optional hint.
+          preview?.kind!=="specialist_web_preview"||
+          preview.scope!=="hacker_news_story_links"||
+          preview.completeSearch!==false||!Array.isArray(preview.results))return;
+        earlyPages=preview.results.slice(0,4).filter(item=>
+          ["Hacker News · web abierta","WAE Index local · HN"].includes(item.source)&&
+          safeUrl(item.url)&&item.title);
+        earlyPagesShown=earlyPages.length>0;
+        if(earlyPagesShown)showProgressiveWebResults();
+      }).catch(()=>{});
   }
   // Weather is an independent public API; a search provider failure must not
   // suppress the weather card or misreport it as an invalid vault credential.
@@ -2214,11 +2239,11 @@ async function performSearch(query, type = "all", push = true, collection = "web
   } catch (e) {
     fullSearchFinished=true;
     if (e.name === "AbortError" || sequence !== state.sequence) return;
-    if(earlySiteShown){
-      // Keep a real destination accessible when an unrelated provider fails.
-      stats.textContent="Sitio disponible · No se completó la búsqueda adicional.";
+    if(earlySiteShown||earlyPagesShown){
+      // Keep actual discovered pages accessible on an unrelated failure.
+      stats.textContent="Fuentes disponibles · No se completó la búsqueda adicional.";
       const note=resultsContainer.querySelector(".wae-instant-site-status");
-      if(note)note.textContent="◎ Sitio conocido disponible · Otras fuentes no respondieron.";
+      if(note)note.textContent="◎ Fuentes recuperadas · Otras fuentes no respondieron.";
       return;
     }
     stats.textContent = "No se pudo completar la consulta.";

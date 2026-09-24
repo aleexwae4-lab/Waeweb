@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { search, weather } from "./search.mjs";
+import { search, weather, quickOpenWeb } from "./search.mjs";
 import {directorySites,earlyWikidataSiteEligible,wikidataOfficialSites} from "./site-discovery.mjs";
 import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
 import {previewWebHit} from "./web-preview.mjs";
@@ -549,6 +549,16 @@ export async function handler(req, res) {
         if(force!==null&&force!=="1")return write(res,400,{error:"Parámetro fresh inválido."});
         const nav=u.searchParams.get("nav");
         if(nav!==null&&nav!=="1")return write(res,400,{error:"Parámetro nav inválido."});
+        const quick=u.searchParams.get("quick");
+        if(quick!==null&&quick!=="1")return write(res,400,{error:"Parámetro quick inválido."});
+        if(quick==="1"){
+          if(nav==="1"||u.searchParams.get("type")&&u.searchParams.get("type")!=="all"||
+            rawPage!=="1"||collection!=="web")
+            return write(res,400,{error:"Vista anticipada solo disponible en búsqueda web inicial."});
+          if(req.method!=="GET"&&req.method!=="HEAD")
+            return write(res,405,{error:"Solo lectura GET."},{allow:"GET, HEAD"});
+          return write(res,200,await quickOpenWeb(q));
+        }
         // Prefer a zero-network directory hit. Unknown clearly navigational
         // names may resolve against exact Wikidata P856 with provenance.
         // Upstream failure never blocks the main search or invents a domain.

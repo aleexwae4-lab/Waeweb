@@ -115,6 +115,28 @@ if(!ready){
     candidate?"site with provenance":unknown.body?.sourceStatus||"invalid",
     "HTTP",unknown.status);
   if(!dynamicGood)process.exitCode=1;
+  // Progressive discovery must show only real, attributed public story
+  // links. Provider outage may yield zero pages; never relabel the specialist
+  // source as a fully operational general Internet index.
+  const earlyWeb=await request("/api/search?quick=1&type=all&q="+
+    encodeURIComponent("GitHub"));
+  const earlyRows=earlyWeb.body?.results;
+  const earlyValid=earlyWeb.ok&&earlyWeb.marker&&
+    earlyWeb.body?.kind==="specialist_web_preview"&&
+    earlyWeb.body?.scope==="hacker_news_story_links"&&
+    earlyWeb.body?.completeSearch===false&&
+    Array.isArray(earlyRows)&&
+    Array.isArray(earlyWeb.body?.generalIndexes)&&
+    earlyWeb.body.generalIndexes.length===0&&
+    ["retrieved","no_match","local_cache","unavailable"].includes(earlyWeb.body?.sourceStatus)&&
+    earlyRows.length<=4&&earlyRows.every(item=>
+      ["Hacker News · web abierta","WAE Index local · HN"].includes(item.source)&&
+      /^https:\/\//.test(item.url||"")&&
+      /^https:\/\/news\.ycombinator\.com\/item\?id=\d+$/.test(item.hnStory||""));
+  console.log(earlyValid?"LIVE PASS":"LIVE FAIL","progressive web pages",
+    "HTTP",earlyWeb.status,"count",earlyRows?.length??null,
+    "status",earlyWeb.body?.sourceStatus);
+  if(!earlyValid)process.exitCode=1;
   // Guard against the reported regression on the ACTUAL public server:
   // searching a named website must return a usable first-page destination,
   // not only a wiki entity or a random repository with that name.
