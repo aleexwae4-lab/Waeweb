@@ -47,3 +47,9 @@ No presentar Nominatim público, tiles públicos, Overpass público o una instan
 - Este informe describe cambios de rama/PR, NO afirma despliegue ni disponibilidad de upstream en producción.
 - QA de PR y pruebas de integración requieren estado PASS verificable; bloqueo de Vercel por cuota de builds no prueba fallo del código.
 - No se activa pago automático ni se instala proveedor comercial. 
+
+## Salto premium: búsquedas locales por lenguaje natural
+- `/api/poi/search?q=OXXO%20en%20Zapopan` clasifica una categoría permitida y separa ubicación; `OXXO`, `bancos` y `cines` sin ciudad requieren selección expresa de ubicación, no inferencia IP.
+- Nominatim se usa para localizar la ciudad/dirección; si devuelve varias ubicaciones, WAEWEB pide seleccionar una antes de consultar Overpass. Si devuelve una, consulta 5 km alrededor del centro geocodificado y muestra radio/limitación, no declara cobertura de toda la ciudad.
+- En interfaz se conservan selectores de categoría y radio para afinar; la consulta original no se sustituye por resultados falsos.
+- Pruebas de categorías, homónimos, privacidad y resultados vacíos: `tests/poi-query.test.mjs`. Este desarrollo sigue en el PR hasta integrar a `main` y verificar en Render.
