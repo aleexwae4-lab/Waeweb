@@ -618,11 +618,13 @@ function renderResult(item, index) {
     element("div","source-label",nativeBook?"Biblioteca WAE WEB":state.type==="all"?shortHost(url):item.source||"Fuente"),
     element("div","source-url",nativeBook?"Catálogo bibliográfico · Origen: "+item.source:displayResultUrl(url)));
   row.append(avatar, labels);
-  // Named sites with a known embedded-view restriction go to the real origin
-  // in web mode. Desktop retains internal Chromium navigation.
-  const directSite=state.type==="all"&&item.siteLink===true&&
+  // iframe restrictions apply to the URL itself, not just directory sites.
+  // Organic GitHub, government and social URLs should never open an empty
+  // browser pane when their original page is already one tap away.
+  // Desktop keeps internal Chromium; inline reading remains on every result.
+  const directSite=state.type==="all"&&
     siteVisitMode(url,window.waeDesktop?.isNative===true)==="original";
-  // All other results retain WAE WEB reading and navigation options.
+  // Other results retain WAE WEB reading and navigation options.
   const directVideo=state.type==="videos" &&
     (item.platform==="YouTube"||item.platform==="TikTok");
   let webReadingToggle=null;
@@ -1257,6 +1259,7 @@ function renderData(data) {
       element("h2","","Encuentra. Explora. Comprende."));
     const coverage=data.searchCoverage;
     const indexes=coverage?.generalIndexes||[];
+    const respondingIndexes=coverage?.respondingGeneralIndexes||indexes;
     const specialists=coverage?.specialistSources||[];
     const diagnosis=coverage?.generalIndexDiagnosis;
     const indexStates={
@@ -1272,7 +1275,7 @@ function renderData(data) {
       (coverage?.navigationalSites||0)+" sitios web · "+
       (coverage?.webPages||0)+" páginas web · "+
       (coverage?.encyclopediaPages||0)+" fichas de conocimiento · "+
-      indexes.length+" índices generales consultados · "+
+      indexes.length+" índices generales con resultados · "+
       (data.results?.length||0)+" resultados");
     const commands=element("div","web-search-commands");
     commands.append(button("↻ Actualizar resultados",()=>void performSearch(state.query,"all",false,"web",true),
@@ -1294,7 +1297,8 @@ function renderData(data) {
       details.append(providerSummary);
     }
     details.append(element("p","",
-      "Índices web que respondieron: "+(indexes.join(", ")||"ninguno")+
+      "Índices web que respondieron: "+(respondingIndexes.join(", ")||"ninguno")+
+      ". Índices con páginas: "+(indexes.join(", ")||"ninguno")+
       ". Fuentes adicionales: "+(specialists.join(", ")||"ninguna")+
       ". "+(data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
       "El directorio incluye solo sitios conocidos; Wikidata aporta direcciones declaradas por sus colaboradores. "+

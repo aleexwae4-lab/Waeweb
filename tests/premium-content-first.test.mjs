@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 const file=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
 const app=file("app.js"),css=file("styles.css"),html=file("index.html"),browser=file("browser.js");
 test("named sites have one opening action instead of a duplicate visit button",()=>{
-  assert.match(app,/const directSite=state\.type==="all"&&item\.siteLink===true/);
+  assert.match(app,/const directSite=state\.type==="all"&&\s*siteVisitMode\(url,window\.waeDesktop\?\.isNative===true\)==="original"/);
   assert.match(app,/The result title already opens the site; a second visit button is redundant/);
   assert.doesNotMatch(app,/meta\.append\(directSite\s*\?/);
   assert.match(app,/if\(!directSite\)meta\.append\(external\(url,"↗ Origen"/);
