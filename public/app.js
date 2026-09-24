@@ -1216,6 +1216,11 @@ function renderData(data) {
     const coverage=data.searchCoverage;
     const indexes=coverage?.generalIndexes||[];
     const specialists=coverage?.specialistSources||[];
+    const unavailableIndexes=(coverage?.failed||[])
+      .filter(name=>["Brave","Google","SearXNG"].includes(name));
+    const webIndexStatus=indexes.length?"Índices web activos"
+      :unavailableIndexes.length?"Índices web sin respuesta"
+      :"Índice web general no configurado";
     const metrics=element("p","web-search-metrics",
       indexes.length+" índices web generales · "+
       (coverage?.navigationalSites||0)+" sitios web localizados · "+
@@ -1227,13 +1232,14 @@ function renderData(data) {
     toolbar.append(top,metrics,commands);
     const details=element("details","web-search-sources");
     details.append(element("summary","","Fuentes y cobertura · "+(
-      indexes.length?"Índices conectados":"Índice web general no configurado")));
+      webIndexStatus)));
     details.append(element("p","",
       "Índices web: "+(indexes.join(", ")||"sin proveedor general configurado")+
       ". Fuentes adicionales: "+(specialists.join(", ")||"ninguna")+
       ". "+(data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
       "El directorio incluye solo sitios conocidos; Wikidata aporta direcciones declaradas por sus colaboradores. "+
-      "Sin Brave, Google o SearXNG configurados no existe cobertura de búsqueda general en Internet."));
+      "La búsqueda web amplia requiere que Brave, Google o SearXNG esté configurado y responda. " +
+      "El directorio y Wikidata no sustituyen un índice web general."));
     toolbar.append(details);
     resultsContainer.append(toolbar);
   }
