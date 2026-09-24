@@ -9,7 +9,8 @@ const reader=app.slice(start,end);
 const result=app.slice(end,app.indexOf("// Image galleries use only original provider records.",end));
 test("organic titles expand native reading instead of an iframe, with explicit navigation alternative",()=>{
   assert.ok(start>0&&end>start);
-  assert.match(result,/button\(item\.title,\(\)=>item\.siteLink===true\s*\? openBrowser\(url\):webReadingToggle\?\.\(\),"result-title web-result-title"\)/);
+  assert.match(result,/state\.type === "all" && item\.siteLink===true\s*\? button\(item\.title,\(\)=>openBrowser\(url\),"result-title web-result-title"\)/);
+  assert.match(result,/button\(item\.title,\(\)=>webReadingToggle\?\.\(\),"result-title web-result-title"\)/);
   assert.match(result,/const reader=createWebSourceReader\(item,url\)/);
   assert.match(result,/else meta\.append\(reader\.control\)/);
   assert.match(result,/if\(webReadingSlot\)card\.append\(webReadingSlot\)/);
