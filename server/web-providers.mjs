@@ -132,7 +132,7 @@ export function repositoryIntentTerms(query){
   const asksRepos=/\b(?:repo(?:s|sitory|sitories|sitorio|sitorios)?|repositorios?|repositories|codigo fuente|source code)\b/.test(folded);
   const namesTech=/\b(?:javascript|typescript|python|react|next\.?js|node\.?js|java|kotlin|swift|rust|golang|go|php|laravel|django|flask|postgres(?:ql)?|sqlite|supabase|docker|vue|angular|svelte|linux|android|ios|flutter|prisma|webassembly|wasm)\b/.test(folded);
   if(!asksRepos||!namesTech||raw.length>140)return null;
-  const terms=raw.replace(/\b(?:github|repositorios?|repositories|repository|repos|repo|proyectos de codigo|codigo fuente|source code|para|de|del|en)\b/gi,"")
+  const terms=raw.replace(/\b(?:github|repositorios?|repositories|repository|repos|repo|proyectos de codigo|codigo fuente|source code|para|de|del|en|for|with|using|con|sobre)\b/gi,"")
     .replace(/\s+/g," ").trim();
   return terms.length>=2?terms:null;
 }
