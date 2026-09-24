@@ -9,7 +9,7 @@ test("ordinary web search does not use Hacker News as a generic substitute for a
   assert.match(search,/page===1 && !spec\.source && !spec\.site && technicalWebQuery/);
 });
 test("image ranking rejects unrelated public-feed photos while keeping visible query matches",()=>{
-  const base={url:"https://example.com/p/1",image:"https://img.example.com/1.jpg",source:"fixture"};
+  const base={url:"https://example.com/p/1",image:"https://img.example.com/1.jpg",source:"Flickr · fotos públicas"};
   const ranked=rankImageResults([
     {...base,title:"Rider on a motorcycle",snippet:"Public photo"},
     {...base,url:"https://example.com/p/2",image:"https://img.example.com/2.jpg",title:"Artificial intelligence conference",snippet:"AI policy meeting"}
