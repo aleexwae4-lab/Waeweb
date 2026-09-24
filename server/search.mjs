@@ -10,6 +10,7 @@ import {pinterestQuery,verifiedPinterestImages,labelPinterestImages}
   from "./pinterest-discovery.mjs";
 import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb,githubPublicRepositories} from "./web-providers.mjs";
 import {registerWebHits} from "./web-preview.mjs";
+import {directorySites,wikidataOfficialSites,navigationalName} from "./site-discovery.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -457,7 +458,13 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
        ["Crossref",()=>crossref(q)],["OpenAlex",()=>openAlex(q)],
        ["Europe PMC",()=>europePMC(q)],["Open Library",()=>openLibrary(q)],
        ["Library of Congress",()=>libraryOfCongress(q)],["DataCite",()=>dataCite(q)]]
-    : [["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
+    : [
+       // Real destinations for a named website: curated exact-match URLs and
+       // Wikidata P856. These do not claim broad web-index coverage.
+       ...(page===1&&!spec.source&&!spec.site&&navigationalName(q)
+         ? [["WAE WEB · directorio",()=>directorySites(q)],
+            ["Wikidata · sitios web",()=>wikidataOfficialSites(q)]]:[]),
+       ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ...(!spec.source||spec.source==="searxng"
          ? [["SearXNG",()=>searxngWeb(spec.site?q+" site:"+spec.site:q,page)]]:[]),
@@ -548,11 +555,12 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     sources: available,
     searchCoverage:selected==="all"?{
       generalIndexes:["Brave","Google","SearXNG"].filter(name=>available.includes(name)),
-      specialistSources:["WAE Discovery","WAE Index local","Stack Overflow",
+      specialistSources:["WAE WEB · directorio","Wikidata · sitios web","WAE Discovery","WAE Index local","Stack Overflow",
         "Super User","MDN Web Docs","GitHub · repositorios públicos","Wikipedia","Wikidata"]
         .filter(name=>available.includes(name)),
       unconfigured:sources.map(([name])=>name).filter(name=>available.includes(name+" no configurado")),
-      failed:errors,inlineExcerpt:true,entireWebIndexed:false
+      failed:errors,inlineExcerpt:true,entireWebIndexed:false,
+      navigationalSites:results.filter(item=>item.siteLink===true).length
     }:null,
     newsCoverage:selected==="news"?{
       mode:"on_demand",window:newsWindow,
@@ -600,7 +608,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     webCoverage: selected === "all"
       ? (available.some(name => ["Brave","Google","SearXNG"].includes(name)) ? "general-index"
          : available.some(name=>["WAE Discovery","WAE Index local",
-             "Stack Overflow","Super User","MDN Web Docs"].includes(name))
+             "Stack Overflow","Super User","MDN Web Docs",
+             "WAE WEB · directorio","Wikidata · sitios web"].includes(name))
            ? "specialized":"limited")
       : null,
     webDiscovery:selected==="all"?{
