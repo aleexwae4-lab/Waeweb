@@ -4,14 +4,17 @@
 const fold=value=>String(value??"").normalize("NFD")
   .replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("es")
   .replace(/\s+/g," ").trim();
+// Only explicit navigation verbs, not broad question semantics, remove
+// conversational filler before exact-match brand or entity lookup.
+const NAV_VERB=/^(?:(?:quiero|necesito|deseo)\s+(?:ir\s+a|visitar|abrir|entrar\s+(?:a|en)|acceder\s+a|navegar\s+a|buscar)|(?:llevame|dirigeme)\s+a|(?:abre|visita|entra\s+(?:a|en)|accede\s+a|navega\s+a)|ir\s+a|visitar|abrir|entrar\s+a|buscar)\s+/;
+const NAV_PAGE=/^(?:(?:la|el)\s+)?(?:portal\s+oficial|sitio\s+web|sitio\s+oficial|sitio|pagina\s+web|pagina\s+oficial|pagina|web\s+oficial|web|oficial)\s+(?:de\s+|del\s+|la\s+|el\s+)?/;
 export function navigationalName(query){
   const raw=fold(query);
   if(!raw||raw.length>120||/["]|(?:^|\s)(?:site:|source:|after:|before:)/.test(raw))
     return null;
-  const prefix=/^(?:ir a|visitar|abrir|entrar a|buscar|portal oficial|sitio web|sitio oficial|sitio|pagina web|pagina oficial|web oficial|web|pagina|oficial)\s+(?:de\s+|del\s+|la\s+|el\s+)?/;
   const suffix=/\s+(?:pagina oficial|sitio oficial|web oficial|pagina web|sitio web|oficial)$/;
-  const explicit=prefix.test(raw)||suffix.test(raw);
-  const name=raw.replace(prefix,"").replace(suffix,"").trim();
+  const explicit=NAV_VERB.test(raw)||NAV_PAGE.test(raw)||suffix.test(raw);
+  const name=raw.replace(NAV_VERB,"").replace(NAV_PAGE,"").replace(suffix,"").trim();
   // Long institution names can be searched directly; other long, topical
   // questions require explicit website intent before requesting P856.
   const institution=/^(?:instituto|universidad|secretaria|ministerio|gobierno|museo|hospital|fundacion|university|national|world health)\b/.test(name);
@@ -26,7 +29,7 @@ export function navigationalName(query){
 export function earlyWikidataSiteEligible(query){
   const raw=fold(query),name=navigationalName(query);
   if(!name||directorySites(query).length)return false;
-  const explicit=/^(?:ir a|visitar|abrir|entrar a|buscar|portal oficial|sitio web|sitio oficial|sitio|pagina web|pagina oficial|web oficial|web|pagina|oficial)\s/.test(raw)||
+  const explicit=NAV_VERB.test(raw)||NAV_PAGE.test(raw)||
     /\s(?:pagina oficial|sitio oficial|web oficial|pagina web|sitio web|oficial)$/.test(raw);
   const institution=/^(?:instituto|universidad|secretaria|ministerio|gobierno|museo|hospital|fundacion|university|national|world health)\b/.test(name);
   return explicit||institution||(name.length>=3&&name.length<=45&&
@@ -61,7 +64,19 @@ const DIRECTORY=[
   ["OpenAI","https://openai.com/","Sitio de la organización de inteligencia artificial",["openai"]],
   ["NASA","https://www.nasa.gov/","Portal de la agencia espacial de Estados Unidos",["nasa"]],
   ["Amazon México","https://www.amazon.com.mx/","Comercio electrónico · sitio de México",["amazon mexico","amazon mx","amazon"]],
-  ["UNAM","https://www.unam.mx/","Universidad Nacional Autónoma de México",["unam"]]
+  ["UNAM","https://www.unam.mx/","Universidad Nacional Autónoma de México",["unam"]],
+  ["Canva","https://www.canva.com/","Diseño visual y plantillas",["canva"]],
+  ["Figma","https://www.figma.com/","Diseño de interfaces y colaboración",["figma"]],
+  ["Stack Overflow","https://stackoverflow.com/","Comunidad de desarrollo de software",["stack overflow","stackoverflow"]],
+  ["MDN Web Docs","https://developer.mozilla.org/","Documentación técnica para la web",["mdn","mdn web docs"]],
+  ["npm","https://www.npmjs.com/","Registro público de paquetes JavaScript",["npm","npmjs"]],
+  ["GitHub Docs","https://docs.github.com/","Documentación de GitHub",["github docs","documentacion github"]],
+  ["Docker Hub","https://hub.docker.com/","Registro público de imágenes de contenedores",["docker hub"]],
+  ["Google Maps","https://www.google.com/maps","Mapas y lugares",["google maps"]],
+  ["Spotify","https://open.spotify.com/","Música y podcasts",["spotify"]],
+  ["Telegram","https://telegram.org/","Mensajería",["telegram"]],
+  ["IMSS","https://www.imss.gob.mx/","Instituto Mexicano del Seguro Social",["imss"]],
+  ["SAT México","https://www.sat.gob.mx/","Servicio de Administración Tributaria de México",["sat","sat mexico"]]
 ];
 export function directorySites(query){
   const name=navigationalName(query);
