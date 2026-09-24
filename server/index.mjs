@@ -62,6 +62,7 @@ const files = new Map([
   ["/voice-reader.js", ["voice-reader.js", "text/javascript; charset=utf-8"]],
   ["/browser.js", ["browser.js", "text/javascript; charset=utf-8"]],
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
+  ["/web-page-merge.js", ["web-page-merge.js", "text/javascript; charset=utf-8"]],
   ["/omnibox.js", ["omnibox.js", "text/javascript; charset=utf-8"]],
   ["/maps-core.js", ["maps-core.js", "text/javascript; charset=utf-8"]],
   ["/native-map.js", ["native-map.js", "text/javascript; charset=utf-8"]],
