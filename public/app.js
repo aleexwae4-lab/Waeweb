@@ -618,11 +618,13 @@ function renderResult(item, index) {
     element("div","source-label",nativeBook?"Biblioteca WAE WEB":state.type==="all"?shortHost(url):item.source||"Fuente"),
     element("div","source-url",nativeBook?"Catálogo bibliográfico · Origen: "+item.source:displayResultUrl(url)));
   row.append(avatar, labels);
-  // Named sites with a known embedded-view restriction go to the real origin
-  // in web mode. Desktop retains internal Chromium navigation.
-  const directSite=state.type==="all"&&item.siteLink===true&&
+  // iframe restrictions apply to the URL itself, not just directory sites.
+  // Organic GitHub, government and social URLs should never open an empty
+  // browser pane when their original page is already one tap away.
+  // Desktop keeps internal Chromium; inline reading remains on every result.
+  const directSite=state.type==="all"&&
     siteVisitMode(url,window.waeDesktop?.isNative===true)==="original";
-  // All other results retain WAE WEB reading and navigation options.
+  // Other results retain WAE WEB reading and navigation options.
   const directVideo=state.type==="videos" &&
     (item.platform==="YouTube"||item.platform==="TikTok");
   let webReadingToggle=null;
