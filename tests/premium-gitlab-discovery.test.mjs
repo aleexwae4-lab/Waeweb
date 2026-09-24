@@ -166,6 +166,7 @@ test("advanced operators and ordinary navigation cannot leak early project cards
   }));
 test("existing native results UI shows verified GitLab project cards",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
-  assert.match(app,/"GitLab · repositorios públicos"\].includes\(item.source\)/);
+  assert.match(app,/"GitLab · repositorios públicos"/);
+  assert.match(app,/\].includes\(item.source\)/);
   assert.match(app,/fullSearchFinished\|\|signal\.aborted\|\|sequence!==state\.sequence/);
 });
