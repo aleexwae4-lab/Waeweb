@@ -386,7 +386,8 @@ function renderInformationCard(item,index){
       recoveryStatus.textContent="Validando acceso y permisos de lectura de la página…";
       try{
         const data=await getJSON("/api/web/preview?url="+encodeURIComponent(url));
-        if(!data||data.url!==url||data.kind!=="source_excerpt"||
+        const requested=new URL(url);requested.hash="";
+        if(!data||data.url!==requested.href||data.kind!=="source_excerpt"||
           typeof data.excerpt!=="string"||data.excerpt.length<30)
           throw new Error("La fuente no devolvió un extracto legible.");
         sourceExcerpt=data.excerpt;
