@@ -138,7 +138,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
       if(p.x<0||p.x>900||p.y<0||p.y>460)return;
       const pin=el("circle");
       pin.setAttribute("cx",String(p.x));pin.setAttribute("cy",String(p.y));
-      pin.setAttribute("r","17");pin.setAttribute("class","wae-map-candidate");
+      pin.setAttribute("r",places.length>15?"9":"12");pin.setAttribute("class","wae-map-candidate");
       pin.setAttribute("data-map-place",String(index));
       pin.setAttribute("tabindex","0");pin.setAttribute("role","button");
       pin.setAttribute("aria-label","Seleccionar "+(place.detail||place.name||"ubicación"));
@@ -174,7 +174,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
   }
   function toggleStreets(){streetsEnabled=!streetsEnabled;draw();}
   function setPlaces(items,activeIndex=0){
-    places=(Array.isArray(items)?items:[]).filter(validMapPlace).slice(0,12);
+    places=(Array.isArray(items)?items:[]).filter(validMapPlace).slice(0,35);
     selectedIndex=places.length&&activeIndex!==-1?clamp(Math.trunc(activeIndex)||0,0,places.length-1):-1;
     draw();
   }
@@ -184,6 +184,24 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
     label=String(place.detail||place.name||"Punto geográfico");
     level=clamp(Math.trunc(zoom)+1,0,spans.length-1);
     geometry=null;draw();
+  }
+  function fitPlaces(items){
+    const valid=(Array.isArray(items)?items:[]).filter(validMapPlace);
+    if(valid.length<2)return;
+    const lat=valid.map(p=>p.latitude),lon=valid.map(p=>p.longitude);
+    const minLat=Math.min(...lat),maxLat=Math.max(...lat),
+      minLon=Math.min(...lon),maxLon=Math.max(...lon);
+    if(maxLon-minLon>=180)return;
+    viewport=mapViewport(svg.getBoundingClientRect().width,
+      svg.getBoundingClientRect().height);
+    center={latitude:(minLat+maxLat)/2,longitude:(minLon+maxLon)/2};
+    const latRange=Math.max(.004,maxLat-minLat)*1.25;
+    const lonRange=Math.max(.006,maxLon-minLon)*1.25;
+    for(let i=spans.length-1;i>=0;i--){
+      if(spans[i].lat>=latRange &&
+        spans[i].lon*viewport.width/900>=lonRange){level=i;break;}
+    }
+    draw();
   }
   function setWorld(){point=null;geometry=null;level=0;center={latitude:23.6,longitude:-102.5};label="";places=[];selectedIndex=-1;draw();}
   function changeZoom(amount){level=clamp(level+amount,0,spans.length-1);draw();}
@@ -268,5 +286,5 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
   const resizeObserver=typeof ResizeObserver==="function"
     ?new ResizeObserver(()=>scheduleDraw()):null;
   resizeObserver?.observe(svg);
-  return {root,setView,setPlaces,setWorld,setRoute,changeZoom,toggleStreets,dispose(){resizeObserver?.disconnect();disposed=true;drag=null;gesture=null;pointers.clear();if(drawFrame)cancelAnimationFrame(drawFrame);rasterCache.clear();}};
+  return {root,setView,setPlaces,fitPlaces,setWorld,setRoute,changeZoom,toggleStreets,dispose(){resizeObserver?.disconnect();disposed=true;drag=null;gesture=null;pointers.clear();if(drawFrame)cancelAnimationFrame(drawFrame);rasterCache.clear();}};
 }
