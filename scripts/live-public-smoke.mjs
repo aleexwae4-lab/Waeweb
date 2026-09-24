@@ -132,7 +132,7 @@ if(!ready){
     earlyRows.length<=4&&earlyRows.every(item=>
       ["Hacker News · web abierta","WAE Index local · HN"].includes(item.source)&&
       /^https:\/\//.test(item.url||"")&&
-      /^https:\/\/news\\.ycombinator\\.com\/item\\?id=\\d+$/.test(item.hnStory||""));
+      /^https:\/\/news\.ycombinator\.com\/item\?id=\d+$/.test(item.hnStory||""));
   console.log(earlyValid?"LIVE PASS":"LIVE FAIL","progressive web pages",
     "HTTP",earlyWeb.status,"count",earlyRows?.length??null,
     "status",earlyWeb.body?.sourceStatus);
