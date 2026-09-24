@@ -123,7 +123,10 @@ async function loadStackExchangeWeb(query,site="stackoverflow"){
 }
 // Public repository search, not GitHub code search and not a general
 // web index. Unauthenticated REST calls can be rate limited by GitHub.
-export async function githubPublicRepositories(query){
+export function githubPublicRepositories(query){
+  return shareTechnical("github:"+query,()=>loadGithubPublicRepositories(query));
+}
+async function loadGithubPublicRepositories(query){
   const u=new URL("https://api.github.com/search/repositories");
   u.search=new URLSearchParams({q:query,per_page:"8",page:"1"}).toString();
   const data=await loadJson(u);
