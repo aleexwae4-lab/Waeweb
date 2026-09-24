@@ -1104,3 +1104,19 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .wae-reading-recovery-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
 .wae-reading-recovery-actions .wae-information-link{min-height:36px}
 @media(max-width:600px){.wae-reading-recovery{padding:8px 0;gap:6px}.wae-reading-recovery-text{padding:9px 10px;font-size:12px}.wae-reading-recovery-toggle{padding:7px 10px}}
+
+/* WAE WEB premium: source-backed encyclopedic introduction, on demand. */
+.wae-encyclopedia-widget{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0;width:100%;margin:9px 0}
+.wae-encyclopedia-toggle{border:1px solid rgba(136,186,255,.48);background:linear-gradient(125deg,#1b3b62,#233f64);color:#e9f5ff;border-radius:9px;min-height:36px;padding:7px 11px;font-size:11px;font-weight:760}
+.wae-encyclopedia-toggle:disabled{opacity:.56;cursor:wait}
+.wae-encyclopedia-status{margin:0;color:#a8c0dd;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.wae-encyclopedia-status:empty{display:none}
+.wae-encyclopedia-body{width:100%;min-width:0;display:flex;flex-direction:column;gap:9px;padding:13px 15px;border:1px solid rgba(126,177,250,.32);border-radius:13px;background:linear-gradient(155deg,rgba(13,34,60,.94),rgba(8,23,43,.94))}
+.wae-encyclopedia-body[hidden]{display:none!important}
+.wae-encyclopedia-title{color:#f1f7ff;font-size:clamp(16px,2.2vw,22px);line-height:1.35;margin:0}
+.wae-encyclopedia-extract{color:#dbe9fb;font-size:13px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.wae-encyclopedia-disclaimer{font-size:10px;line-height:1.5;color:#a6bedf}
+.wae-encyclopedia-actions{display:flex;flex-wrap:wrap;gap:7px}
+.wae-encyclopedia-action{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:7px 10px;border:1px solid rgba(125,173,236,.43);border-radius:9px;background:#1b3d67;color:#edf5ff;text-decoration:none;font-size:11px;font-weight:700}
+.wae-encyclopedia-action:disabled{opacity:.48}
+@media(max-width:600px){.wae-encyclopedia-body{padding:10px 11px}.wae-encyclopedia-extract{font-size:12px;line-height:1.7}}
