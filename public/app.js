@@ -624,6 +624,8 @@ function renderResult(item, index) {
   let webReadingSlot=null;
   const title = nativeBook
     ? button(item.title, () => bookExperience.openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "result-title browser-result-title")
+    : state.type === "all" && item.siteLink===true
+    ? button(item.title,()=>openBrowser(url),"result-title web-result-title")
     : state.type === "all"
     ? button(item.title,()=>webReadingToggle?.(),"result-title web-result-title")
     : state.type==="videos"
@@ -634,7 +636,7 @@ function renderResult(item, index) {
         },"result-title browser-result-title")
       : button(item.title, () => openBrowser(url), "result-title browser-result-title");
   title.title = nativeBook ? "Ver ficha bibliográfica en Biblioteca WAE WEB"
-    : state.type==="all" ? "Leer el resultado dentro de WAE WEB"
+    : state.type==="all" ? (item.siteLink===true ? "Visitar sitio dentro de WAE WEB" : "Leer el resultado dentro de WAE WEB")
     : state.type==="videos" ? "Reproducir dentro de WAE WEB si el origen lo permite"
     : "Navegar en WAEWEB: "+shortHost(url);
   if ((state.type === "books" || state.type === "videos" ||
@@ -660,6 +662,13 @@ function renderResult(item, index) {
         :"Vídeo · Consulta en la fuente original"));
     card.append(element("span","tag media-context video-platform",
       platform==="YouTube"?"▶ YouTube":platform==="TikTok"?"♪ TikTok":"▷ "+platform));
+  }
+  if(item.siteLink===true&&state.type==="all"){
+    card.classList.add("wae-site-hit");
+    card.append(element("span","wae-site-kind",
+      item.linkBasis==="wikidata_P856"
+        ?"◎ Sitio web declarado en Wikidata"
+        :"◎ Sitio conocido · Directorio WAE WEB"));
   }
   if (item.snippet) card.append(element("p", "snippet", item.snippet));
   const trustedVideo=state.type==="videos"&&(
@@ -800,7 +809,11 @@ function renderResult(item, index) {
       title.setAttribute("aria-expanded",String(open));
     };
     title.setAttribute("aria-expanded","false");
-    meta.append(reader.control);
+    if(item.siteLink===true){
+      meta.append(button("◎ Visitar sitio",()=>openBrowser(url),"save-button wae-site-primary"));
+      if(safeUrl(item.provenanceUrl))
+        meta.append(external(item.provenanceUrl,"ⓘ Procedencia","save-button"));
+    }else meta.append(reader.control);
     const listen=button("▶ Escuchar",()=>listenToResult(item),
       "save-button wae-result-voice");
     listen.disabled=!voiceReader.snapshot().available;
@@ -1205,20 +1218,22 @@ function renderData(data) {
     const specialists=coverage?.specialistSources||[];
     const metrics=element("p","web-search-metrics",
       indexes.length+" índices web generales · "+
-      specialists.length+" fuentes especializadas · "+
-      (data.results?.length||0)+" páginas recuperadas");
+      (coverage?.navigationalSites||0)+" sitios web localizados · "+
+      specialists.length+" fuentes adicionales · "+
+      (data.results?.length||0)+" resultados");
     const commands=element("div","web-search-commands");
     commands.append(button("↻ Actualizar resultados",()=>void performSearch(state.query,"all",false,"web",true),
       "web-search-refresh"));
     toolbar.append(top,metrics,commands);
     const details=element("details","web-search-sources");
     details.append(element("summary","","Fuentes y cobertura · "+(
-      indexes.length?"Índices conectados":"Descubrimiento especializado")));
+      indexes.length?"Índices conectados":"Índice web general no configurado")));
     details.append(element("p","",
       "Índices web: "+(indexes.join(", ")||"sin proveedor general configurado")+
       ". Fuentes adicionales: "+(specialists.join(", ")||"ninguna")+
       ". "+(data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
-      "Los resultados son enlaces reales atribuidos; no representan un índice de toda Internet."));
+      "El directorio incluye solo sitios conocidos; Wikidata aporta direcciones declaradas por sus colaboradores. "+
+      "Sin Brave, Google o SearXNG configurados no existe cobertura de búsqueda general en Internet."));
     toolbar.append(details);
     resultsContainer.append(toolbar);
   }

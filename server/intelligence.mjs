@@ -80,6 +80,9 @@ export function scoreResult(item, query, type = "all") {
   // remain available under Investigación; they should not bury a direct hit.
   if (type === "all") {
     if (normalizedQuery && title === normalizedQuery) score += 18;
+    // An exact navigational match should surface the real website above
+    // encyclopaedia entries, repositories and HN articles about that name.
+    if(item.siteLink===true)score+=44;
     const origin=sourceName(item.source);
     if (/brave search|google programmable search|searxng/.test(origin)) score += 10;
     else if (/wikipedia|wikidata/.test(origin)) score += 7;
