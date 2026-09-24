@@ -1371,3 +1371,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .map-explorer>.map-place{margin-top:7px}
 }
 @media(prefers-reduced-motion:reduce){.map-directions-disclosure>summary::after,.map-credits>summary::after{transition:none}}
+
+/* P0 nearby OpenStreetMap discovery: compact, responsive, accessible. */
+.map-poi-form{display:grid;grid-template-columns:minmax(130px,1fr) minmax(80px,110px) auto;gap:8px;align-items:center;}
+.map-poi-form select{min-width:0;width:100%;max-width:100%;padding:10px 12px;min-height:42px;border-radius:11px;border:1px solid rgba(150,197,255,.55);background:#12263f;color:#f3f8ff;font:inherit;}
+.map-poi-form select:focus-visible,.map-poi-form button:focus-visible{outline:3px solid #a9d5ff;outline-offset:2px;}
+.map-poi-form .map-search-status{grid-column:1/-1;margin:0;font-size:.83rem;line-height:1.4;}
+@media(max-width:650px){.map-poi-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+.map-poi-form .map-search-submit{grid-column:1/-1;width:100%;}
+}
