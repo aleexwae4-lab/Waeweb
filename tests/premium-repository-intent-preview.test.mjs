@@ -112,7 +112,7 @@ test("fast and full SERP share one same GitHub repository request",async()=>fixt
 
 test("GitHub navigator or advanced filters never cause preliminary repo leakage",async()=>fixture(async called=>{
   const nav=await quickOpenWeb("GitHub");
-  assert.equal(nav.scope,"hacker_news_story_links");
+  assert.equal(nav.scope,"verified_local_web_links_only");
   assert.ok(nav.results.every(r=>r.source!=="GitHub · repositorios públicos"));
   const before=called.filter(u=>u.hostname==="api.github.com").length;
   for(const q of ["repositorios React site:example.org",
