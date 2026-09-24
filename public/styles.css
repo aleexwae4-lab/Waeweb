@@ -1157,3 +1157,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .wae-web-reader-disclaimer{flex-basis:100%;font-size:10px;line-height:1.5;color:#a8bedc}
 .result-card.web-result .meta-line .wae-web-read-toggle{border-color:rgba(150,197,255,.63);background:linear-gradient(125deg,#275180,#254168)}
 @media(max-width:600px){.wae-web-source-reader{padding:10px 11px;margin-top:8px}.wae-web-reader-recovered{padding:10px;font-size:12px}.result-card.web-result .meta-line .save-button{flex:0 1 auto;min-height:36px;padding:7px 10px}}
+
+/* Real navigational website cards: compact site identity, clear primary action. */
+.wae-site-hit{border-color:rgba(111,185,246,.5);background:linear-gradient(145deg,rgba(26,48,82,.53),rgba(11,23,42,.58))}
+.wae-site-kind{display:inline-flex;align-self:flex-start;padding:4px 9px;border-radius:18px;border:1px solid rgba(140,193,255,.36);font-size:11px;color:#c1deff;margin:6px 0}
+.wae-site-primary{border:1px solid rgba(114,207,175,.56);color:#d6fff0;background:rgba(32,125,98,.19);font-weight:650}
+.wae-site-primary:hover{background:rgba(41,153,120,.28)}
+@media(max-width:550px){.wae-site-kind{font-size:10px}.wae-site-primary{font-size:12px}}
