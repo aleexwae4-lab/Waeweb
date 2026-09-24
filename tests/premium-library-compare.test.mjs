@@ -36,7 +36,7 @@ test("comparison exports exactly two attributed records without invented synthes
   assert.match(text,/Extracto recuperado de la página original/);
   assert.match(text,/Fragmento del resultado de búsqueda/);
   assert.match(text,/2026-09-24T05:00:00.000Z/);
-  assert.match(text,/no determina si sus afirmaciones son verdaderas/);
+  assert.match(text,/No determina si sus afirmaciones son verdaderas/);
   assert.throws(()=>asComparisonMarkdown([one]),/dos fuentes/);
   assert.throws(()=>asComparisonMarkdown([one,{...two,url:"javascript:alert(1)"}]),/no válida/);
 });
