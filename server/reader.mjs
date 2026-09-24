@@ -174,11 +174,33 @@ async function checkRobots(url, options) {
     reject("robots_disallowed", "robots.txt restringe esta ruta.");
   }
 }
+// Accept routine redirects only to the exact host or its www alias. An
+// unrelated destination is never requested, even if it is a valid HTTPS URL.
+// Every hop receives its OWN robots check, DNS resolution and HTTPS request.
+export function sameSiteRedirect(from, to) {
+  const a = safeReaderUrl(from), b = safeReaderUrl(to);
+  return a.hostname.toLowerCase().replace(/^www\./,"") ===
+    b.hostname.toLowerCase().replace(/^www\./,"");
+}
 export async function readPage(input, options = {}) {
-  const url = safeReaderUrl(input);
-  await checkRobots(url, options);
-  // Do not follow document redirects: otherwise the destination path could bypass its robots rules.
-  const response = await guardedFetch(url.href, { ...options, redirects: 0 });
+  let url = safeReaderUrl(input);
+  const seen = new Set();
+  let response;
+  for (let hop = 0; hop <= 2; hop++) {
+    if (seen.has(url.href)) reject("redirect_loop", "Redirección circular.");
+    seen.add(url.href);
+    // Check the final path too: an allowed /article may redirect to a
+    // robots-disallowed /private route on the same public host.
+    await checkRobots(url, options);
+    response = await guardedFetch(url.href, { ...options, redirects: 0 });
+    if (![301, 302, 303, 307, 308].includes(response.status)) break;
+    if (!response.location || hop === 2)
+      reject("redirect_limit", "La página excedió el límite de redirecciones.");
+    const target = safeReaderUrl(new URL(response.location, url).href);
+    if (!sameSiteRedirect(url, target))
+      reject("redirected_origin", "La página redirige a otro sitio; abre la fuente original.");
+    url = target;
+  }
   if (response.status !== 200) reject("not_found", "Documento no encontrado.");
   const mime = String(response.headers?.["content-type"] || "").toLowerCase().split(";")[0].trim();
   if (!["text/html", "text/plain"].includes(mime)) reject("unsupported_media", "Solo se admite HTML o texto.");
