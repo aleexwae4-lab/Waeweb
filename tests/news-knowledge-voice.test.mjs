@@ -62,7 +62,7 @@ test("News and Information speak real headlines, extracts and citations with a s
   assert.match(app,/voiceReader\.play\(\{title,text,lang:"es-MX"\}\)/);
   assert.match(app,/news-bulletin/);
   assert.match(app,/news-reading-note/);
-  assert.match(app,/▶ Escuchar este extracto/);
+  assert.match(app,/readAloud\(recovered/);
   assert.match(app,/▶ Escuchar resultados/);
   assert.match(app,/wae-voice-toggle/);
   assert.match(app,/voiceReader\.pause\(\)/);
