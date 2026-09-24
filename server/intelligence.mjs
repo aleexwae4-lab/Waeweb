@@ -1,5 +1,24 @@
 // WAE WEB Research Core: deterministic evidence orchestration, not generative AI.
 const fold = text => String(text ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
+export const normalizeNaturalQuery=text=>String(text??"").normalize("NFKC").replace(/[\u0000-\u001F\u007F]/g," ").replace(/\s+/g," ").trim().slice(0,180);
+const SPELLING=new Map([["githup","github"],["gitub","github"],["mercadolibre","mercado libre"],["wikipeda","wikipedia"],["youtub","youtube"],["oxxo","OXXO"],["whatsap","WhatsApp"],["facebok","Facebook"],["instagran","Instagram"]]);
+export function correctQuery(text){
+  const raw=normalizeNaturalQuery(text),parts=raw.split(/(\s+)/);
+  let changed=false;
+  const corrected=parts.map(part=>{const replacement=SPELLING.get(fold(part));if(!replacement)return part;changed=changed||replacement!==part;return replacement;}).join("");
+  return {query:corrected,changed,original:raw,suggestion:changed?corrected:null};
+}
+export function classifyIntent(text){
+  const q=fold(text);
+  if(/\b(?:mapa|cerca de mi|cerca|direccion|ubicacion|restaurante|banco|cine|gasolinera|oxxo|farmacia|hotel)\b/.test(q))return "local";
+  if(/\b(?:comprar|precio|oferta|tienda|producto|marketplace)\b/.test(q))return "shopping";
+  if(/\b(?:noticias?|hoy|ultima hora|actualidad)\b/.test(q))return "news";
+  if(/\b(?:imagenes?|fotos?|fotografias?)\b/.test(q))return "images";
+  if(/\b(?:videos?|youtube|tiktok)\b/.test(q))return "videos";
+  if(/\b(?:doi|paper|articulo cientifico|investigacion|estudio|journal)\b/.test(q))return "research";
+  if(/^(?:https?:\/\/|www\.)/.test(q)||/^[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:\/|$)/.test(q)||/\b(?:sitio oficial|pagina oficial|web oficial|iniciar sesion)\b/.test(q))return "navigation";
+  return "information";
+}
 export const tokens = text => [...new Set(fold(text).match(/[\p{L}\p{N}]{2,}/gu) || [])].slice(0, 30);
 function validDate(value) {
   if (!/^\d{4}(?:-\d{2}-\d{2})?$/.test(value)) return null;
@@ -8,7 +27,7 @@ function validDate(value) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === full ? full : null;
 }
 export function parseQuery(raw) {
-  const input = String(raw ?? "").trim().slice(0, 180);
+  const input = normalizeNaturalQuery(raw);
   const siteMatch = input.match(/(?:^|\s)site:([a-z0-9.-]+\.[a-z]{2,})(?=\s|$)/i);
   const afterMatch = input.match(/(?:^|\s)after:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
   const beforeMatch = input.match(/(?:^|\s)before:(\d{4}(?:-\d{2}-\d{2})?)(?=\s|$)/i);
@@ -22,8 +41,9 @@ export function parseQuery(raw) {
     .replace(/(?:^|\s)-[\p{L}\p{N}]{2,}(?=\s|$)/gu, " ")
     .replace(/"/g, " ")
     .replace(/\s+/g, " ").trim();
+  const correction=correctQuery(query);
   return {
-    input, query, site: siteMatch?.[1].toLowerCase() || null,
+    input, query: correction.query, originalQuery: query, correction, intent: classifyIntent(correction.query), site: siteMatch?.[1].toLowerCase() || null,
     after: afterMatch ? validDate(afterMatch[1]) : null,
     before: beforeMatch ? validDate(beforeMatch[1]) : null,
     source: sourceMatch?.[1].toLowerCase() || null,
@@ -80,6 +100,15 @@ export function scoreResult(item, query, type = "all") {
   // remain available under Investigación; they should not bury a direct hit.
   if (type === "all") {
     if (normalizedQuery && title === normalizedQuery) score += 18;
+    let host="";try{host=new URL(item.url).hostname.toLowerCase().replace(/^www\./,"");}catch{}
+    const trusted=/^(?:github\.com|wikipedia\.org|wikidata\.org|openai\.com|microsoft\.com|apple\.com|mozilla\.org|developer\.mozilla\.org|gob\.mx|unam\.mx)$/.test(host)||/\.gob\.mx$|\.edu$|\.edu\.mx$/.test(host);
+    if(trusted && !/(?:^|\.)(?:wikidata|wikipedia)\.org$/.test(host))score+=4;
+    if(/(?:^|\.)(?:blogspot\.com|wordpress\.com)$/.test(host))score-=1;
+    const spam=/(?:casino|apuestas|viagra|crypto giveaway|descarga gratis crack|click here)/i.test([item.title,item.snippet].join(" "));
+    if(spam)score-=20;
+    if(item.date){
+      const t=Date.parse(item.date);if(Number.isFinite(t)){const age=(Date.now()-t)/86400000;if(age>=0)score+=Math.max(0,4-Math.log10(age+1)*1.5);}
+    }
     // An exact navigational match should surface the real website above
     // encyclopaedia entries, repositories and HN articles about that name.
     if(item.siteLink===true)score+=44;
