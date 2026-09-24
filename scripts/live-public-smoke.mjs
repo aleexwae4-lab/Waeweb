@@ -49,7 +49,10 @@ if(!ready){
     ["/voice-reader.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&
       r.body.includes("createVoiceReader")&&r.body.includes("speechChunks")],
     ["/",r=>r.mime.includes("text/html")&&typeof r.body==="string"&&r.body.includes("href=\"/?type=videos\"")],
-    ["/app.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("loadBookModules")&&r.body.includes("createVoiceReader")],
+    ["/app.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&
+      r.body.includes("loadBookModules")&&r.body.includes("createVoiceReader")&&
+      r.body.includes("function toggleReading()")&&
+      r.body.includes("readingVisibleCount")],
     ["/book-gallery.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("renderBookCard")],
     ["/book-experience.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("openBookDetail")],
     ["/book-experience.css",r=>r.mime.includes("text/css")&&typeof r.body==="string"&&r.body.includes("wae-library-grid")]
