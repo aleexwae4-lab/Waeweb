@@ -108,6 +108,34 @@ test("general public search includes actual named site even when all general ind
       if(value===undefined)delete process.env[name];else process.env[name]=value;
   }
 });
+test("known domains suppress alternate Wikidata P856 navigation while keeping encyclopedia enrichment",async()=>{
+  const old=globalThis.fetch;
+  const env=[["BRAVE_SEARCH_API_KEY",process.env.BRAVE_SEARCH_API_KEY],
+    ["GOOGLE_SEARCH_API_KEY",process.env.GOOGLE_SEARCH_API_KEY],
+    ["GOOGLE_SEARCH_ENGINE_ID",process.env.GOOGLE_SEARCH_ENGINE_ID],
+    ["WAE_SEARXNG_URL",process.env.WAE_SEARXNG_URL]];
+  for(const [name]of env)delete process.env[name];
+  let entityDetailRequests=0;
+  globalThis.fetch=async url=>{
+    const u=new URL(url);
+    if(u.searchParams.get("action")==="wbgetentities")entityDetailRequests++;
+    return new Response("unavailable",{status:503});
+  };
+  try{
+    for(const [name,domain]of [["github","github.com"],
+      ["Mercado Libre","mercadolibre.com.mx"],["instagram","instagram.com"]]){
+      const page=await search(name,"all",{fresh:true});
+      assert.equal(new URL(page.results[0].url).hostname.replace(/^www\./,""),domain);
+      assert.equal(page.results[0].linkBasis,"curated_directory");
+      assert.equal(page.results.filter(item=>item.siteLink).length,1);
+    }
+    assert.equal(entityDetailRequests,0);
+  }finally{
+    globalThis.fetch=old;
+    for(const [name,value]of env)
+      if(value===undefined)delete process.env[name];else process.env[name]=value;
+  }
+});
 test("native result cards visit site with explicit provenance; no full-web claims",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(app,/state\.type === "all" && item\.siteLink===true/);
