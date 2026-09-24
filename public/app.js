@@ -1280,16 +1280,13 @@ function renderData(data) {
     const metrics=element("p","web-search-metrics",
       (coverage?.navigationalSites||0)+" sitios web · "+
       (coverage?.webPages||0)+" páginas web · "+
-      (coverage?.encyclopediaPages||0)+" fichas de conocimiento · "+
-      indexes.length+" índices generales con resultados · "+
-      (data.results?.length||0)+" resultados");
+      (coverage?.encyclopediaPages||0)+" fichas de conocimiento");
     const commands=element("div","web-search-commands");
     commands.append(button("↻ Actualizar resultados",()=>void performSearch(state.query,"all",false,"web",true),
       "web-search-refresh"));
     toolbar.append(top,metrics,commands);
     const details=element("details","web-search-sources");
-    details.append(element("summary","","Fuentes y cobertura · "+(
-      webIndexStatus)));
+    details.append(element("summary","","Fuentes y cobertura · "+webIndexStatus));
     if(diagnosis?.providers?.length){
       const explanations={
         results:"páginas recuperadas",empty:"respondió sin coincidencias",
