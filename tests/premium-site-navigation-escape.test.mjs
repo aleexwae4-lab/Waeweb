@@ -33,8 +33,9 @@ test("real website title and primary action are direct HTTPS links on web, butto
   assert.match(app,/siteVisitMode\(url,window\.waeDesktop\?\.isNative===true\)==="original"/);
   assert.match(app,/directSite\s*\? external\(url,item\.title,"result-title web-result-title wae-external-site-title"\)/);
   assert.match(app,/item\.siteLink===true\s*\? button\(item\.title,\(\)=>openBrowser\(url\)/);
-  assert.match(app,/external\(url,"↗ Visitar sitio original","save-button wae-site-primary"\)/);
-  assert.match(app,/button\("◎ Visitar sitio",\(\)=>openBrowser\(url\),"save-button wae-site-primary"\)/);
+  // A result title is the only primary visit action; do not render a duplicate CTA.
+  assert.doesNotMatch(app,/meta\.append\(directSite\s*\?/);
+  assert.match(app,/if\(item\.snippet\)meta\.append\(reader\.control\)/);
   assert.match(app,/a\.referrerPolicy = "no-referrer"/);
   assert.match(app,/if\(!directSite\)meta\.append\(external\(url,"↗ Origen","save-button"\)\)/);
   assert.match(app,/button\(item\.title,\(\)=>webReadingToggle\?\.\(\),"result-title web-result-title"\)/);

@@ -1222,3 +1222,65 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(prefers-reduced-motion:reduce){
   .result-card.web-result,.browser-view.is-external-first *{animation:none!important;transition:none!important}
 }
+
+
+/* RC45 · Content-first layout: detail on demand, never a dashboard above results. */
+.hero-eyebrow,.hero-description,#hero-marketplace{display:none!important}
+.hero{min-height:min(68dvh,560px);padding-top:clamp(48px,10vh,90px);padding-bottom:28px}
+.hero-logo{font-size:clamp(78px,13vw,132px)}
+.hero-tagline{margin:0 0 18px;letter-spacing:.12em}
+.hero-business.hero-business-details{margin:23px 0 0;padding:0;width:min(100%,570px);border:1px solid rgba(132,178,249,.24);border-radius:13px;background:rgba(15,33,58,.52);box-shadow:none}
+.hero-business-details>summary{display:flex;justify-content:space-between;align-items:center;gap:14px;list-style:none;cursor:pointer;padding:12px 15px;color:#c9ddf8;font-size:12px;font-weight:700}
+.hero-business-details>summary::-webkit-details-marker{display:none}
+.hero-business-details>summary span{color:#8fc3ff;font-size:17px}
+.hero-business-details[open]{background:linear-gradient(145deg,#10233e,#0a1629)}
+.hero-business-details[open]>summary{border-bottom:1px solid rgba(142,185,249,.19)}
+.hero-business-details .hero-business-content{padding:13px 15px 17px}
+.hero-business-details h2{font-size:17px;margin:0}
+.hero-business-details p{font-size:12px;line-height:1.5}
+.hero-business-details .business-primary{min-height:41px}
+.result-card.web-result .source-avatar{display:none}
+.result-card.web-result .source-row{gap:0}
+.result-card.web-result .source-label{font-weight:720}
+.web-result-more{min-width:0;max-width:100%;color:#b6cce9}
+.web-result-more>summary{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;list-style:none;min-height:38px;padding:6px 11px;border:1px solid rgba(143,178,226,.28);border-radius:9px;background:rgba(24,52,87,.35);font-size:11px;font-weight:700;color:#c6d9f1}
+.web-result-more>summary::-webkit-details-marker{display:none}
+.web-result-more>summary:hover,.web-result-more>summary:focus-visible{border-color:#89baff;background:#223f64}
+.web-result-more[open]{flex-basis:100%;max-width:100%}
+.web-result-secondary{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:8px 0 0;padding:9px;border-radius:11px;border:1px solid rgba(136,174,229,.17);background:rgba(13,30,52,.62)}
+.web-result-secondary .save-button{min-height:36px;padding:7px 11px;font-size:11px}
+.web-result-secondary .source-engine{display:none}
+.video-original-searches{order:99;margin-top:12px;padding:8px 1px}
+.video-platform-filters{margin:1px 0 9px;padding:0;gap:6px}
+.video-platform-filter{min-height:38px;min-width:0;padding:7px 11px;font-size:11px;box-shadow:none!important}
+.video-results-grid{gap:10px}
+.video-results-grid .video-card-compact{box-shadow:none}
+.video-card-compact .video-compact-preview{border:0}
+.browser-view .browser-disclaimer{display:none}
+.search-alternatives{width:100%;margin:13px auto 0;text-align:left;max-width:640px;font-size:12px;color:#b2c8e7}
+.search-alternatives>summary{cursor:pointer;min-height:36px;padding:7px 0}
+.search-alternatives .search-fallback-links{margin:6px 0 0}
+@media(max-width:720px){
+  .hero{padding:44px 18px 22px;min-height:min(70dvh,540px)}
+  .hero-logo{font-size:clamp(70px,21vw,108px)}
+  .hero-tagline{font-size:10px;letter-spacing:.08em;margin-bottom:12px}
+  .hero-section-links{gap:6px}
+  .hero-business.hero-business-details{margin-top:17px}
+  .suggestions{margin-top:14px;gap:6px}
+  .suggestions button{font-size:11px;padding:7px 11px}
+  .result-card.web-result .source-label{font-size:11px}
+  .result-card.web-result .source-url{display:none}
+  .result-card.web-result .meta-line{gap:5px}
+  .result-card.web-result .meta-line .save-button{flex:0 1 auto;min-height:36px;font-size:11px}
+  .web-result-more>summary{min-height:36px}
+  .web-result-secondary{padding:8px;gap:5px}
+  .web-result-secondary .save-button{flex:0 1 auto}
+  .video-platform-filters{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
+  .video-platform-filter{flex:0 0 auto;min-height:39px}
+  .video-results-grid{gap:8px}
+  .statsbar #copy-search{display:inline-flex!important;align-items:center;justify-content:center;width:36px;min-width:36px;min-height:36px;padding:5px;font-size:0;line-height:1;letter-spacing:0}
+  .statsbar #copy-search::before{content:"⧉";font-size:18px}
+  .statsbar .results-controls{width:auto;flex-wrap:nowrap;gap:5px}
+  .statsbar .source-filter{width:auto}
+}
+@media(prefers-reduced-motion:reduce){.hero-business-details *, .web-result-more *{animation:none!important;transition:none!important}}
