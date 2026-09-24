@@ -1,5 +1,6 @@
 import { createWorkspace, asMarkdown } from "/workspace.js";
 import { openBrowser, hideBrowser } from "/browser.js";
+import {siteVisitMode} from "/browser-core.js";
 import { classifyOmnibox } from "/omnibox.js";
 import { osmEmbedUrl, osmPlaceUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
 import {createDirections} from "/directions.js";
@@ -80,6 +81,7 @@ function button(text, fn, css = "") {
 function external(url, title, css = "") {
   const a = element("a", css, title);
   a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
+  a.referrerPolicy = "no-referrer";
   return a;
 }
 function safeUrl(value) {
@@ -616,14 +618,19 @@ function renderResult(item, index) {
     element("div","source-label",nativeBook?"Biblioteca WAE WEB":state.type==="all"?shortHost(url):item.source||"Fuente"),
     element("div","source-url",nativeBook?"Catálogo bibliográfico · Origen: "+item.source:displayResultUrl(url)));
   row.append(avatar, labels);
-  // Primary result stays inside WAE WEB. A distinct origin link preserves
-  // access to the original page when it disallows embedded browsing.
+  // Named sites with a known embedded-view restriction go to the real origin
+  // in web mode. Desktop retains internal Chromium navigation.
+  const directSite=state.type==="all"&&item.siteLink===true&&
+    siteVisitMode(url,window.waeDesktop?.isNative===true)==="original";
+  // All other results retain WAE WEB reading and navigation options.
   const directVideo=state.type==="videos" &&
     (item.platform==="YouTube"||item.platform==="TikTok");
   let webReadingToggle=null;
   let webReadingSlot=null;
   const title = nativeBook
     ? button(item.title, () => bookExperience.openBookDetail(item, { workspace, onSaved: refreshLibraryCount }), "result-title browser-result-title")
+    : directSite
+    ? external(url,item.title,"result-title web-result-title wae-external-site-title")
     : state.type === "all" && item.siteLink===true
     ? button(item.title,()=>openBrowser(url),"result-title web-result-title")
     : state.type === "all"
@@ -636,7 +643,7 @@ function renderResult(item, index) {
         },"result-title browser-result-title")
       : button(item.title, () => openBrowser(url), "result-title browser-result-title");
   title.title = nativeBook ? "Ver ficha bibliográfica en Biblioteca WAE WEB"
-    : state.type==="all" ? (item.siteLink===true ? "Visitar sitio dentro de WAE WEB" : "Leer el resultado dentro de WAE WEB")
+    : state.type==="all" ? (directSite ? "Abrir página original; conserva tus resultados en WAE WEB" : item.siteLink===true ? "Visitar sitio dentro de WAE WEB" : "Leer el resultado dentro de WAE WEB")
     : state.type==="videos" ? "Reproducir dentro de WAE WEB si el origen lo permite"
     : "Navegar en WAEWEB: "+shortHost(url);
   if ((state.type === "books" || state.type === "videos" ||
@@ -810,7 +817,9 @@ function renderResult(item, index) {
     };
     title.setAttribute("aria-expanded","false");
     if(item.siteLink===true){
-      meta.append(button("◎ Visitar sitio",()=>openBrowser(url),"save-button wae-site-primary"));
+      meta.append(directSite
+        ? external(url,"↗ Visitar sitio original","save-button wae-site-primary")
+        : button("◎ Visitar sitio",()=>openBrowser(url),"save-button wae-site-primary"));
       if(safeUrl(item.provenanceUrl))
         meta.append(external(item.provenanceUrl,"ⓘ Procedencia","save-button"));
     }else meta.append(reader.control);
@@ -818,7 +827,7 @@ function renderResult(item, index) {
       "save-button wae-result-voice");
     listen.disabled=!voiceReader.snapshot().available;
     meta.append(listen);
-    meta.append(external(url,"↗ Origen","save-button"));
+    if(!directSite)meta.append(external(url,"↗ Origen","save-button"));
   }
   if(state.type !== "all")meta.append(external(url,
     state.type==="videos" && item.platform==="TikTok"?"↗ Ver clip en TikTok":
