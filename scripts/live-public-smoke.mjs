@@ -108,7 +108,7 @@ if(!ready){
     unknown.body?.completeSearch===false&&
     (candidate
       ?candidate.linkBasis==="wikidata_P856"&&
-        /^https:\/\/www\\.wikidata\\.org\/wiki\/Q[1-9]\\d*$/.test(candidate.provenanceUrl||"")&&
+        /^https:\/\/www\.wikidata\.org\/wiki\/Q[1-9]\d*$/.test(candidate.provenanceUrl||"")&&
         /^https:\/\//.test(candidate.url||"")
       :["unavailable","no_match"].includes(unknown.body?.sourceStatus));
   console.log(dynamicGood?"LIVE PASS":"LIVE FAIL","early P856 named site",
