@@ -24,7 +24,10 @@ test("bad map dimensions and excessive tile requests remain disabled",()=>{
 
 test("street layer only activates by explicit button, retains attribution and fallback",async()=>{
   const map=await readFile(new URL("../public/native-map.js",import.meta.url),"utf8");
-  assert.match(map,/make\("▧ Calles",\(\)=>toggleStreets\(\)\)/);
+  assert.match(map,/make\("▧",\(\)=>toggleStreets\(\)\)/);
+  assert.match(map,/streets\.title="Mostrar u ocultar calles"/);
+  assert.match(map,/streets\.setAttribute\("aria-label","Activar o desactivar cartografía de calles"\)/);
+  assert.match(map,/streets\.setAttribute\("aria-pressed","true"\)/);
   assert.match(map,/let center=.*streetsEnabled=true/);
   assert.match(map,/if\(streetsEnabled\)\{/);
   assert.match(map,/OpenStreetMap contributors/);
