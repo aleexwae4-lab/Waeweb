@@ -1905,10 +1905,12 @@ function renderMapPlaces(data) {
   const heading = element("div","map-heading");
   const headText = element("div");
   append(headText,element("span","tag","WAEWEB · MAPAS"),
-    element("h2","",data.precision==="coordinate"?"Punto en el mapa":places[0].name),
+    element("h2","",data.precision==="coordinate"?"Punto en el mapa":data.precision==="poi_osm"?data.query+" · "+data.searchArea:places[0].name),
     element("p","map-description",data.precision === "coordinate"
       ? "Punto indicado por coordenadas. No equivale a una dirección postal verificada."
-      : data.precision === "address_or_place"
+      : data.precision === "poi_osm"
+        ? "Establecimientos registrados en OpenStreetMap cerca de "+data.searchArea+". "+(data.locationDefaulted?"Zona inicial predeterminada; escribe otra ciudad en la búsqueda. ":"")+"La ficha no verifica horarios ni que el local siga abierto."
+        : data.precision === "address_or_place"
         ? "Coincidencias de direcciones y lugares; selecciona el punto correcto antes de trazar una ruta."
         : "Localidades geocodificadas. El marcador representa un centro aproximado, no una dirección exacta."));
   const mapSearch=createMapQuickSearch(data.query);
@@ -1965,7 +1967,8 @@ function renderMapPlaces(data) {
       place_point:"Lugar señalado por el proveedor",
       approximate_address:"Dirección aproximada",
       street_centroid:"Centro aproximado de calle",
-      locality_centroid:"Centro aproximado de localidad"
+      locality_centroid:"Centro aproximado de localidad",
+      poi_osm:"Establecimiento etiquetado en OpenStreetMap · sin verificación comercial"
     }[place.precision]||"Ubicación geocodificada";
     placeDetail.textContent=(place.detail||"Ubicación geográfica")+" · "+accuracy;
     coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
@@ -2018,14 +2021,17 @@ async function renderMap(query,signal,sequence) {
   state.data=null;state.results=[];state.selectedSource="";
   sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
   resultsContainer.replaceChildren(stateCard("Buscando en el mapa",
-    "Localizando ciudades y coordenadas. No se generan ubicaciones ficticias.",true));
+    "Buscando establecimientos reales y localidades en fuentes comunitarias. No se generan ubicaciones ficticias.",true));
   try {
-    const [addressResponse,localityResponse]=await Promise.allSettled([
+    const [poiResponse,addressResponse,localityResponse]=await Promise.allSettled([
+      getJSON("/api/poi?q="+encodeURIComponent(query),signal),
       getJSON("/api/places?q="+encodeURIComponent(query),signal),
       getJSON("/api/maps?q="+encodeURIComponent(query),signal)
     ]);
     if(sequence!==state.sequence)return;
-    if(addressResponse.status==="fulfilled" && addressResponse.value.results?.length){
+    if(poiResponse.status==="fulfilled" && poiResponse.value.results?.length){
+      renderMapPlaces(poiResponse.value);
+    }else if(addressResponse.status==="fulfilled" && addressResponse.value.results?.length){
       const addresses=addressResponse.value;
       const locality=localityResponse.status==="fulfilled"?localityResponse.value:null;
       const seen=new Set();
