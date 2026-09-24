@@ -123,7 +123,23 @@ async function loadStackExchangeWeb(query,site="stackoverflow"){
 }
 // Public repository search, not GitHub code search and not a general
 // web index. Unauthenticated REST calls can be rate limited by GitHub.
-export async function githubPublicRepositories(query){
+// Only specific code + repository intent receives fast GitHub discovery;
+// broad "GitHub" navigational searches still use the site, not random repos.
+// Normalize Spanish/English intent words WITHOUT guessing a new domain.
+export function repositoryIntentTerms(query){
+  const raw=String(query??"").trim();
+  const folded=raw.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const asksRepos=/\b(?:repo(?:s|sitory|sitories|sitorio|sitorios)?|repositorios?|repositories|codigo fuente|source code)\b/.test(folded);
+  const namesTech=/\b(?:javascript|typescript|python|react|next\.?js|node\.?js|java|kotlin|swift|rust|golang|go|php|laravel|django|flask|postgres(?:ql)?|sqlite|supabase|docker|vue|angular|svelte|linux|android|ios|flutter|prisma|webassembly|wasm)\b/.test(folded);
+  if(!asksRepos||!namesTech||raw.length>140)return null;
+  const terms=raw.replace(/\b(?:github|repositorios?|repositories|repository|repos|repo|proyectos de codigo|codigo fuente|source code|para|de|del|en)\b/gi,"")
+    .replace(/\s+/g," ").trim();
+  return terms.length>=2?terms:null;
+}
+export function githubPublicRepositories(query){
+  return shareTechnical("github-repos:"+query,()=>loadGithubPublicRepositories(query));
+}
+async function loadGithubPublicRepositories(query){
   const u=new URL("https://api.github.com/search/repositories");
   u.search=new URLSearchParams({q:query,per_page:"8",page:"1"}).toString();
   const data=await loadJson(u);
