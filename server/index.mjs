@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { search, weather, quickOpenWeb } from "./search.mjs";
 import {directorySites,earlyWikidataSiteEligible,wikidataOfficialSites} from "./site-discovery.mjs";
 import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
-import {previewWebHit} from "./web-preview.mjs";
+import {previewWebHit,registerWebHits} from "./web-preview.mjs";
 import {wikipediaIntroduction,EncyclopediaError} from "./encyclopedia.mjs";
 import {searxngConfig} from "./web-providers.mjs";
 import { findPlaces, MapsError } from "./maps.mjs";
@@ -566,14 +566,17 @@ export async function handler(req, res) {
           if(req.method!=="GET"&&req.method!=="HEAD")
             return write(res,405,{error:"Solo lectura GET."},{allow:"GET, HEAD"});
           const known=directorySites(q)[0]||null;
-          if(known||!earlyWikidataSiteEligible(q))
+          if(known||!earlyWikidataSiteEligible(q)){
+            if(known)registerWebHits([known]);
             return write(res,200,{kind:"named_site_preview",query:q,site:known,
               scope:"known_named_sites_only",completeSearch:false});
+          }
           let site=null,sourceStatus="no_match";
           try{
             site=(await wikidataOfficialSites(q))[0]||null;
             if(site)sourceStatus="found";
           }catch{sourceStatus="unavailable";}
+          if(site)registerWebHits([site]);
           return write(res,200,{kind:"named_site_preview",query:q,site,
             scope:"wikidata_P856_exact_name",sourceStatus,
             completeSearch:false});
