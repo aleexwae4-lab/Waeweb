@@ -1,6 +1,6 @@
 // WAEWEB RC33 · owned SVG geographic viewport. No third-party iframe,
 // tiles, network requests or invented roads. Points and ORS geometry only.
-import {validMapPlace} from "/maps-core.js";
+import {validMapPlace,mapViewport} from "/maps-core.js";
 import {visibleStreetTiles} from "/map-tiles.js";
 
 const svgNS="http://www.w3.org/2000/svg";
@@ -20,6 +20,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
   const svg=el("svg");svg.setAttribute("viewBox","0 0 900 460");
   svg.setAttribute("role","group");svg.setAttribute("aria-label","Mapa interactivo de calles, ubicaciones geocodificadas y rutas verificadas.");
   svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+  let viewport=mapViewport(900,460);
   svg.setAttribute("tabindex","0");
   area.append(svg);
   const controls=document.createElement("div");controls.className="wae-native-map-controls";
@@ -28,8 +29,10 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
     b.addEventListener("click",fn);controls.append(b);return b;
   };
   const plus=make("+",()=>changeZoom(1)),minus=make("−",()=>changeZoom(-1));
-  make("⌖ Centrar",()=>{if(point)setView(point);else setWorld();});
-  const streets=make("▧ Calles",()=>toggleStreets());
+  const centerButton=make("⌖",()=>{if(point)setView(point);else setWorld();});
+  centerButton.title="Centrar mapa";centerButton.setAttribute("aria-label","Centrar mapa");
+  const streets=make("▧",()=>toggleStreets());
+  streets.title="Mostrar u ocultar calles";
   streets.setAttribute("aria-label","Activar o desactivar cartografía de calles");
   streets.setAttribute("aria-pressed","true");
   area.append(controls);
@@ -64,6 +67,8 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
   }
   function draw(){
     if(disposed)return;
+    viewport=mapViewport(svg.getBoundingClientRect().width,svg.getBoundingClientRect().height);
+    svg.setAttribute("viewBox",viewport.viewBox);
     svg.replaceChildren();
     const defs=el("defs"),gradient=el("linearGradient");gradient.id="wae-map-gradient";
     gradient.setAttribute("x1","0");gradient.setAttribute("x2","1");
@@ -233,7 +238,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
     const rect=svg.getBoundingClientRect();
     if(!rect.width||!rect.height)return;
     center={
-      longitude:normLon(drag.center.longitude-(e.clientX-drag.x)/rect.width*spans[level].lon),
+      longitude:normLon(drag.center.longitude-(e.clientX-drag.x)/rect.width*spans[level].lon*viewport.width/900),
       latitude:clamp(drag.center.latitude+(e.clientY-drag.y)/rect.height*spans[level].lat,-89,89)
     };
     scheduleDraw();
@@ -258,5 +263,10 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
     }else if(e.key==="+"){changeZoom(1);}else if(e.key==="-"){changeZoom(-1);}
   });
   draw();
-  return {root,setView,setPlaces,setWorld,setRoute,changeZoom,toggleStreets,dispose(){disposed=true;drag=null;gesture=null;pointers.clear();if(drawFrame)cancelAnimationFrame(drawFrame);rasterCache.clear();}};
+  // A portrait map must recalculate its crop after mounting, rotation and
+  // browser UI resizing. No network requests or new map panel are created.
+  const resizeObserver=typeof ResizeObserver==="function"
+    ?new ResizeObserver(()=>scheduleDraw()):null;
+  resizeObserver?.observe(svg);
+  return {root,setView,setPlaces,setWorld,setRoute,changeZoom,toggleStreets,dispose(){resizeObserver?.disconnect();disposed=true;drag=null;gesture=null;pointers.clear();if(drawFrame)cancelAnimationFrame(drawFrame);rasterCache.clear();}};
 }
