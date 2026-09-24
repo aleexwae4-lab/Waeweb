@@ -592,7 +592,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       if(entry.value.items.length ||
         !["WAE WEB · directorio","Wikidata · sitios web"].includes(entry.value.name))
         available.push(entry.value.name);
-      if(!(selected==="all"&&entry.value.name==="WAE Discovery"&&\n        !technicalWebQuery(q,spec.site,spec.source))) results.push(...entry.value.items);
+      if(!(selected==="all"&&entry.value.name==="WAE Discovery"&&
+        !technicalWebQuery(q,spec.site,spec.source))) results.push(...entry.value.items);
       if(selected==="all" && page<5 && (
         (entry.value.items.hasMorePage ?? (
           (entry.value.name==="Brave" && entry.value.items.length>=20) ||
