@@ -356,12 +356,15 @@ const cache = new Map();
 // general Internet index or synthetic domain. Advanced filters are deferred
 // to the complete search so provisional cards cannot contradict them.
 const FAST_TECHNICAL=/\b(?:javascript|typescript|python|react|node(?:\.js)?|html|css|docker|postgres(?:ql)?|sqlite|sql|npm|prisma|linux|programaci[oó]n|c[oó]digo|backend|frontend)\b/i;
+const REPOSITORY_INTENT=/\b(?:github\s+)?(?:repo(?:sitorio|sitorios)?|repos|repository|repositories|open\s*source)\b/i;
 export async function quickOpenWeb(query){
   const spec=parseQuery(normalizeQuery(query));
   const q=spec.query;
-  const technical=FAST_TECHNICAL.test(q);
+  const repositoryIntent=REPOSITORY_INTENT.test(q);
+  const technical=FAST_TECHNICAL.test(q)||repositoryIntent;
   const base={kind:"specialist_web_preview",query:q,
-    scope:technical?"public_technical_and_story_links":"hacker_news_story_links",
+    scope:repositoryIntent?"public_repository_technical_and_story_links":
+      technical?"public_technical_and_story_links":"hacker_news_story_links",
     completeSearch:false,generalIndexes:[],results:[]};
   if(spec.errors.length||q.length<2||spec.site||spec.source||
     spec.after||spec.before||spec.excludes.length||spec.phrases.length)
@@ -377,7 +380,9 @@ export async function quickOpenWeb(query){
   const feeds=[["Hacker News",()=>discoverOpenWeb(q)],
     ...(technical?[
       ["Stack Overflow",()=>stackExchangeWeb(q,"stackoverflow")],
-      ["MDN Web Docs",()=>mdnWeb(q)]
+      ["MDN Web Docs",()=>mdnWeb(q)],
+      ...(repositoryIntent?[["GitHub · repositorios públicos",
+        ()=>githubPublicRepositories(q.replace(/\bgithub\b/ig,"").trim()||q)]]:[])
     ]:[])];
   const settled=await Promise.allSettled(feeds.map(async([name,run])=>
     ({name,items:await run()})));
