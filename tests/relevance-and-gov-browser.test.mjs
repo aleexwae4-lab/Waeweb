@@ -55,7 +55,7 @@ test("government portal and its subdomains avoid blank embedded frames on hosted
   assert.equal(siteVisitMode("https://www.gob.mx/",true),"integrated");
 });
 
-test("broad public search shows source-backed encyclopedia before HN when general indexes are absent",async()=>{
+test("broad public search shows encyclopedia without unrelated HN stories when indexes are absent",async()=>{
   const prior=globalThis.fetch;
   const keys=["BRAVE_SEARCH_API_KEY","GOOGLE_SEARCH_API_KEY","GOOGLE_SEARCH_ENGINE_ID","WAE_SEARXNG_URL"];
   const saved=keys.map(k=>process.env[k]);keys.forEach(k=>delete process.env[k]);
@@ -75,9 +75,9 @@ test("broad public search shows source-backed encyclopedia before HN when genera
     const result=await search("inteligencia artificial","all",{fresh:true});
     const wiki=result.results.findIndex(x=>x.source==="Wikipedia");
     const hn=result.results.findIndex(x=>x.source==="Hacker News · web abierta");
-    assert.ok(wiki>=0&&hn>=0);
-    assert.ok(wiki<hn,"real encyclopedia context leads unrelated old HN stories");
-    assert.equal(result.webCoverage,"specialized");
+    assert.ok(wiki>=0,"real encyclopedia context remains available");
+    assert.equal(hn,-1,"unrelated old community stories must not impersonate general web results");
+    assert.equal(result.webCoverage,"limited");
     assert.equal(result.searchCoverage.generalIndexes.length,0);
   }finally{
     globalThis.fetch=prior;
