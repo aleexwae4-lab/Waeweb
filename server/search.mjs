@@ -12,6 +12,9 @@ import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb,githu
 import {registerWebHits} from "./web-preview.mjs";
 import {directorySites,wikidataOfficialSites,navigationalName} from "./site-discovery.mjs";
 import {diagnoseWebIndexes} from "./web-index-diagnostics.mjs";
+import {rustPackageIntentTerms,rustPublicCrates,CRATES_SOURCE} from "./rust-package-discovery.mjs";
+import {npmPackageIntentTerms,npmPublicPackages} from "./package-discovery.mjs";
+import {gitlabRepositoryIntentTerms,gitlabPublicRepositories,GITLAB_SOURCE} from "./gitlab-discovery.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -360,9 +363,13 @@ export async function quickOpenWeb(query){
   const spec=parseQuery(normalizeQuery(query));
   const q=spec.query;
   const repoTerms=repositoryIntentTerms(q);
+  const crateTerms=rustPackageIntentTerms(q);
+  const npmTerms=npmPackageIntentTerms(q);
+  const gitlabTerms=gitlabRepositoryIntentTerms(q);
   const technical=FAST_TECHNICAL.test(q);
   const base={kind:"specialist_web_preview",query:q,
     scope:repoTerms?"public_code_and_story_links":
+      crateTerms?"public_rust_package_links":
       technical?"public_technical_and_story_links":"hacker_news_story_links",
     completeSearch:false,generalIndexes:[],results:[]};
   if(spec.errors.length||q.length<2||spec.site||spec.source||
@@ -371,7 +378,7 @@ export async function quickOpenWeb(query){
   const previous=localWebSearch(q);
   // A local-only fast return is safe for ordinary searches; for technical
   // intent, add independent documentation even if a few old HN links exist.
-  if(!technical&&!repoTerms&&previous.length>=3){
+  if(!technical&&!repoTerms&&!crateTerms&&!npmTerms&&!gitlabTerms&&previous.length>=3){
     const hits=rankResults(dedupe(previous),spec,"all").slice(0,4);
     registerWebHits(hits);
     return {...base,results:hits,sourceStatus:"local_cache"};
@@ -381,7 +388,10 @@ export async function quickOpenWeb(query){
       ["Stack Overflow",()=>stackExchangeWeb(q,"stackoverflow")],
       ["MDN Web Docs",()=>mdnWeb(q)]
     ]:[]),
-    ...(repoTerms?[["GitHub · repositorios públicos",()=>githubPublicRepositories(repoTerms)]]:[])];
+    ...(repoTerms&&!/\bgitlab\b/i.test(q)?[["GitHub · repositorios públicos",()=>githubPublicRepositories(repoTerms)]]:[]),
+    ...(gitlabTerms?[[GITLAB_SOURCE,()=>gitlabPublicRepositories(gitlabTerms)]]:[]),
+    ...(crateTerms?[[CRATES_SOURCE,()=>rustPublicCrates(crateTerms)]]:[]),
+    ...(npmTerms?[["npm · paquetes publicados",()=>npmPublicPackages(npmTerms)]]:[])];
   const settled=await Promise.allSettled(feeds.map(async([name,run])=>
     ({name,items:await run()})));
   const found=settled.flatMap(entry=>entry.status==="fulfilled"?
@@ -391,10 +401,10 @@ export async function quickOpenWeb(query){
   // letting one site crowd out all documentation, without discarding links.
   const ranked=rankResults(dedupe([...found,...previous].filter(item=>
     typeof item.url==="string"&&item.url.startsWith("https://"))),spec,"all");
-  const sourceCounts=new Map(),limit=technical||repoTerms?8:4;
+  const sourceCounts=new Map(),limit=technical||repoTerms||crateTerms||npmTerms||gitlabTerms?8:4;
   const hits=ranked.filter(item=>{
     const count=sourceCounts.get(item.source)||0;
-    if(count>=2&&(technical||repoTerms))return false;
+    if(count>=2&&(technical||repoTerms||crateTerms||npmTerms||gitlabTerms))return false;
     sourceCounts.set(item.source,count+1);
     return true;
   }).slice(0,limit);
@@ -537,9 +547,20 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
            ? [["Super User",()=>stackExchangeWeb(q,"superuser")]]:[]),
          ...((!spec.source||spec.source==="mdn")&&platformAllowed("developer.mozilla.org")
            ? [["MDN Web Docs",()=>mdnWeb(q)]]:[]),
-         ...((!spec.source||spec.source==="github")&&platformAllowed("github.com")
+         ...((!spec.source||spec.source==="github")&&platformAllowed("github.com")&&
+           !/\bgitlab\b/i.test(q)
            ? [["GitHub · repositorios públicos",()=>githubPublicRepositories(repositoryIntentTerms(q)||q)]]:[])
        ]:[]),
+       ...(page===1&&(!spec.source||spec.source==="crates")&&
+         (!spec.site||platformAllowed("crates.io"))&&
+         (rustPackageIntentTerms(q)||spec.source==="crates"&&q.length>=2)
+         ? [[CRATES_SOURCE,()=>rustPublicCrates(rustPackageIntentTerms(q)||q)]]:[]),
+       ...(page===1&&(!spec.source||spec.source==="gitlab")&&
+         platformAllowed("gitlab.com")&&
+         (gitlabRepositoryIntentTerms(q)||spec.source==="gitlab"&&q.length>=2)
+         ? [[GITLAB_SOURCE,()=>gitlabPublicRepositories(gitlabRepositoryIntentTerms(q)||q)]]:[]),
+       ...(page===1&&!spec.source&&!spec.site&&npmPackageIntentTerms(q)
+         ? [["npm · paquetes publicados",()=>npmPublicPackages(npmPackageIntentTerms(q))]]:[]),
        // Discovery is a specialist public-link feed; it is not a general
        // Internet index. Wikipedia and Wikidata enrich, not replace, web hits.
        ...(page===1 && !spec.source && !spec.site
@@ -623,7 +644,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     searchCoverage:selected==="all"?{
       generalIndexes:["Brave","Google","SearXNG"].filter(name=>available.includes(name)),
       specialistSources:["WAE WEB · directorio","Wikidata · sitios web","WAE Discovery","WAE Index local","Stack Overflow",
-        "Super User","MDN Web Docs","GitHub · repositorios públicos","Wikipedia","Wikidata"]
+        "Super User","MDN Web Docs","GitHub · repositorios públicos",CRATES_SOURCE,GITLAB_SOURCE,
+        "npm · paquetes publicados","Wikipedia","Wikidata"]
         .filter(name=>available.includes(name)),
       unconfigured:sources.map(([name])=>name).filter(name=>available.includes(name+" no configurado")),
       failed:errors,inlineExcerpt:true,entireWebIndexed:false,
@@ -678,8 +700,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     webCoverage: selected === "all"
       ? (available.some(name => ["Brave","Google","SearXNG"].includes(name)) ? "general-index"
          : available.some(name=>["WAE Discovery","WAE Index local",
-             "Stack Overflow","Super User","MDN Web Docs",
-             "WAE WEB · directorio","Wikidata · sitios web"].includes(name))
+             "Stack Overflow","Super User","MDN Web Docs",CRATES_SOURCE,GITLAB_SOURCE,
+             "npm · paquetes publicados","WAE WEB · directorio","Wikidata · sitios web"].includes(name))
            ? "specialized":"limited")
       : null,
     webDiscovery:selected==="all"?{

@@ -7,10 +7,10 @@ import {earlyWikidataSiteEligible,wikidataOfficialSites}
 import {handler} from "../server/index.mjs";
 
 const fixture={entities:{
-  Q310:{labels:{en:{value:"Spotify"},es:{value:"Spotify"}},
-    descriptions:{es:{value:"Servicio de música"}},
-    claims:{P856:[{rank:"normal",mainsnak:{datavalue:{value:"https://www.spotify.com/"}}}]}},
-  Q311:{labels:{en:{value:"Spotify impostor"}},
+  Q310:{labels:{en:{value:"Duolingo"},es:{value:"Duolingo"}},
+    descriptions:{es:{value:"Servicio educativo"}},
+    claims:{P856:[{rank:"normal",mainsnak:{datavalue:{value:"https://www.duolingo.com/"}}}]}},
+  Q311:{labels:{en:{value:"Duolingo impostor"}},
     claims:{P856:[{rank:"normal",mainsnak:{datavalue:{value:"https://impostor.example.org/"}}}]}}
 }};
 const json=data=>new Response(JSON.stringify(data),{
@@ -24,12 +24,12 @@ async function serve(fn){
 }
 
 test("extra early provider lookup is limited to named-brand or official-site intent",()=>{
-  for(const q of ["Spotify","sitio oficial de Spotify",
+  for(const q of ["Duolingo","sitio oficial de Duolingo",
     "Instituto Nacional de Investigación Digital"])
     assert.equal(earlyWikidataSiteEligible(q),true,q);
   for(const q of ["github","Mercado Libre México",
     "tutorial de GitHub","clima en Guadalajara","inteligencia artificial",
-    "medicamentos baratos","site:spotify.com Spotify","x",""])
+    "medicamentos baratos","site:duolingo.com Duolingo","x",""])
     assert.equal(earlyWikidataSiteEligible(q),false,q);
 });
 
@@ -44,7 +44,7 @@ test("unknown brand obtains real P856 URL and clear provenance, without claiming
   };
   try{
     await serve(async base=>{
-      const res=await fetch(base+"/api/search?nav=1&type=all&q=Spotify");
+      const res=await fetch(base+"/api/search?nav=1&type=all&q=Duolingo");
       const body=await res.json();
       assert.equal(res.status,200);
       assert.equal(res.headers.get("x-waeweb-api"),"1");
@@ -52,7 +52,7 @@ test("unknown brand obtains real P856 URL and clear provenance, without claiming
       assert.equal(body.completeSearch,false);
       assert.equal(body.scope,"wikidata_P856_exact_name");
       assert.equal(body.sourceStatus,"found");
-      assert.equal(body.site.url,"https://www.spotify.com/");
+      assert.equal(body.site.url,"https://www.duolingo.com/");
       assert.equal(body.site.linkBasis,"wikidata_P856");
       assert.equal(body.site.provenanceUrl,"https://www.wikidata.org/wiki/Q310");
       assert.doesNotMatch(body.site.url,/impostor/);
@@ -74,13 +74,13 @@ test("concurrent identical official-site lookups share provider calls and releas
   };
   try{
     const [a,b]=await Promise.all([
-      wikidataOfficialSites("Spotify oficial"),
-      wikidataOfficialSites("sitio web de Spotify")
+      wikidataOfficialSites("Duolingo oficial"),
+      wikidataOfficialSites("sitio web de Duolingo")
     ]);
-    assert.equal(a[0].url,"https://www.spotify.com/");
+    assert.equal(a[0].url,"https://www.duolingo.com/");
     assert.equal(b[0].url,a[0].url);
     assert.equal(calls,3,"two languages and one detail call, not duplicated");
-    await wikidataOfficialSites("Spotify");
+    await wikidataOfficialSites("Duolingo");
     assert.equal(calls,6,"completed result is not a persistent new web index");
   }finally{globalThis.fetch=prior;}
 });
@@ -94,7 +94,7 @@ test("unknown-name outage produces an honest optional preview and keeps the norm
   };
   try{
     await serve(async base=>{
-      const bad=await (await fetch(base+"/api/search?nav=1&q=Spotify")).json();
+      const bad=await (await fetch(base+"/api/search?nav=1&q=Duolingo")).json();
       assert.equal(bad.site,null);
       assert.equal(bad.sourceStatus,"unavailable");
       assert.equal(bad.scope,"wikidata_P856_exact_name");
@@ -104,7 +104,7 @@ test("unknown-name outage produces an honest optional preview and keeps the norm
       assert.equal(topical.site,null);
       assert.equal(topical.scope,"known_named_sites_only");
       const advanced=await (await fetch(base+"/api/search?nav=1&q="+
-        encodeURIComponent("Spotify site:spotify.com"))).json();
+        encodeURIComponent("Duolingo site:duolingo.com"))).json();
       assert.equal(advanced.site,null);
       assert.equal(advanced.scope,"known_named_sites_only");
     });
