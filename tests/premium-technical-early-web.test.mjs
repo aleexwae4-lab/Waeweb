@@ -119,6 +119,6 @@ test("frontend accepts only real named specialist sources with bounded result co
   assert.match(ui,/public_technical_and_story_links/);
   assert.match(ui,/Stack Overflow · comunidad/);
   assert.match(ui,/MDN Web Docs · documentación/);
-  assert.match(ui,/preview\.results\.slice\(0,6\)/);
+  assert.match(ui,/preview\.results\.slice\(0,8\)/);
   assert.match(ui,/fullSearchFinished\|\|signal\.aborted\|\|sequence!==state\.sequence/);
 });
