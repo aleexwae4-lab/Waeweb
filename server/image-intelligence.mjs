@@ -83,8 +83,9 @@ export function imageScore(item,query,intent=imageIntent(query)){
 export function rankImageResults(items,query){
   const intent=imageIntent(query);
   const chosen=[],keys=new Set(),counts=new Map(),landingCounts=new Map();
-  const sorted=items.filter(item=>item?.title&&imageCanonical(item.image)&&
-      imageCanonical(item.url)&&imageRelevant(item,query))
+  let duplicatesRemoved=0,lowRelevanceRemoved=0;
+  const valid=items.filter(item=>item?.title&&imageCanonical(item.image)&&imageCanonical(item.url));
+  const sorted=valid.filter(item=>imageRelevant(item,query))
     .map((item,index)=>({item,index,score:imageScore(item,query,intent)}))
     .sort((a,b)=>b.score-a.score||a.index-b.index);
   for(const {item} of sorted){
@@ -94,7 +95,7 @@ export function rankImageResults(items,query){
     // An authenticated pin URL is stronger identity than a thumbnail URL.
     const key=item.imagePlatform==="Pinterest"&&item.pinId
       ?"pinterest:pin:"+item.pinId:asset||url;
-    if(keys.has(key))continue;
+    if(keys.has(key)){duplicatesRemoved++;continue;}
     // Preserve distinct images on an album, but prevent one generic page
     // from saturating a query with near-identical variants.
     const landing=url;
@@ -113,5 +114,6 @@ export function rankImageResults(items,query){
     if(head.length<18&&count<6){head.push(item);perHost.set(host,count+1);}
     else tail.push(item);
   }
-  return {intent,results:[...head,...tail],duplicatesRemoved:sorted.length-chosen.length};
+  lowRelevanceRemoved=valid.length-sorted.length;
+  return {intent,results:[...head,...tail],duplicatesRemoved,lowRelevanceRemoved};
 }
