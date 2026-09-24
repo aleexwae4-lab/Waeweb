@@ -85,7 +85,12 @@ export function rankImageResults(items,query){
   const chosen=[],keys=new Set(),counts=new Map(),landingCounts=new Map();
   let duplicatesRemoved=0,lowRelevanceRemoved=0;
   const valid=items.filter(item=>item?.title&&imageCanonical(item.image)&&imageCanonical(item.url));
-  const sorted=valid.filter(item=>imageRelevant(item,query))
+  // Search-index and catalog providers may return relevant synonyms or titles
+  // in another language. Do not discard their genuine records solely because
+  // the display title differs from the submitted phrase. Flickr's weak public
+  // any-tag feed is the only provider requiring this additional text gate.
+  const sorted=valid.filter(item=>item.source!=="Flickr · fotos públicas" ||
+      imageRelevant(item,query))
     .map((item,index)=>({item,index,score:imageScore(item,query,intent)}))
     .sort((a,b)=>b.score-a.score||a.index-b.index);
   for(const {item} of sorted){
