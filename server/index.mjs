@@ -10,6 +10,7 @@ import {previewWebHit,registerWebHits} from "./web-preview.mjs";
 import {wikipediaIntroduction,EncyclopediaError} from "./encyclopedia.mjs";
 import {searxngConfig} from "./web-providers.mjs";
 import { findPlaces, MapsError } from "./maps.mjs";
+import {searchPOI,poiCategories,PoiError} from "./poi.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
 import {searchAddress,addressCapabilities,GeocodeError} from "./geocode.mjs";
 import {translateText,publicTranslateConfig,TranslateError} from "./translate.mjs";
@@ -184,7 +185,7 @@ export async function handler(req, res) {
            (req.method==="POST" && ["/api/translate","/api/directions"].includes(u.pathname))) ||
         !([ "/api/translate","/api/directions" ].includes(u.pathname) ||
           ["/api/health","/api/capabilities","/api/search",
-           "/api/weather","/api/maps","/api/places","/api/marketplace",
+           "/api/weather","/api/maps","/api/places","/api/poi","/api/poi/categories","/api/marketplace",
            "/api/web-index/read","/api/web/preview",
            "/api/encyclopedia/summary",
            "/api/translate/capabilities","/api/directions/capabilities"].includes(u.pathname))))
@@ -200,8 +201,8 @@ export async function handler(req, res) {
     publicMode:previewMode() ? "isolated" : "full", 
     revision: (process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA)?.slice(0,12) || null });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
-    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Google News RSS", "BBC Mundo RSS", "El País RSS", "Open-Meteo", "Open-Meteo Geocoding", "OpenStreetMap"],
-    mapsEnabled: true, mapPrecision: "locality_centroid_or_user_coordinates",
+    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Google News RSS", "BBC Mundo RSS", "El País RSS", "Open-Meteo", "OpenStreetMap/Nominatim", "OpenStreetMap/Overpass"],
+    mapsEnabled: true, mapPrecision: "nominatim_address_place_poi_or_user_coordinates", poiCategories:poiCategories(),
     directions: {...routingCapabilities(),addressSearch:addressCapabilities()},
     translator: publicTranslateConfig(),
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
@@ -586,6 +587,17 @@ export async function handler(req, res) {
           {page:Number(rawPage),collection,newsWindow,fresh:force==="1"});
         return write(res, data.error ? 400 : 200, data);
       }
+      if(u.pathname==="/api/poi"){
+        if(!["GET","HEAD"].includes(req.method))return write(res,405,{error:"Método no permitido."},{allow:"GET, HEAD"});
+        if(directionsLimited(req))return write(res,429,{error:"Demasiadas búsquedas locales. Intenta en un minuto.",code:"poi_rate_limit"},{"retry-after":"60"});
+        const data=await searchPOI({latitude:u.searchParams.get("lat"),longitude:u.searchParams.get("lon"),
+          radius:u.searchParams.get("radius")||2500,category:u.searchParams.get("category")||""});
+        return write(res,200,data);
+      }
+      if(u.pathname==="/api/poi/categories"){
+        if(!["GET","HEAD"].includes(req.method))return write(res,405,{error:"Método no permitido."},{allow:"GET, HEAD"});
+        return write(res,200,{categories:poiCategories()});
+      }
       if (u.pathname === "/api/maps") {
         if (req.method !== "GET" && req.method !== "HEAD") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
         const data = await findPlaces(u.searchParams.get("q") || "");
@@ -599,6 +611,7 @@ export async function handler(req, res) {
       }
       return write(res, 404, { error: "Ruta no encontrada." });
     } catch (error) {
+      if (error instanceof PoiError)return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof GeocodeError)return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof DirectionsError)return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof TranslateError) return write(res,error.status,
