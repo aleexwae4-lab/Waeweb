@@ -617,11 +617,27 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   }
   const imageRanked=selected==="images"
     ?rankImageResults(rankResults(labelPinterestImages(results),spec,selected),q):null;
-  const rankedItems=selected==="images"?imageRanked.results
+  let rankedItems=selected==="images"?imageRanked.results
     :selected==="news"
       ?rankNewsResults(rankResults(dedupe(results),spec,selected),q,newsWindow)
       :rankResults(selected==="videos"
         ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected);
+  // On broad topical searches with no actual general-index hits, surface
+  // encyclopedia context before HN link-feed articles. Named websites still
+  // lead; specialist technical/repository searches preserve their web order.
+  // No record is fabricated, hidden or claimed to come from a web index.
+  const generalIndexHits=settled.some((entry,i)=>
+    ["Brave","Google","SearXNG"].includes(sources[i][0]) &&
+    entry.status==="fulfilled" && Array.isArray(entry.value.items) &&
+    entry.value.items.length>0);
+  if(selected==="all"&&page===1&&!spec.site&&!spec.source&&
+    !generalIndexHits && q.trim().split(/\s+/).length>=2 &&
+    !FAST_TECHNICAL.test(q) && !repositoryIntentTerms(q) &&
+    !rustPackageIntentTerms(q) && !npmPackageIntentTerms(q) &&
+    !gitlabRepositoryIntentTerms(q)){
+    rankedItems=["named_site","encyclopedia","web_page"].flatMap(kind=>
+      rankedItems.filter(item=>webResultKind(item)===kind));
+  }
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, page,

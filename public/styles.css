@@ -1284,3 +1284,30 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .statsbar .source-filter{width:auto}
 }
 @media(prefers-reduced-motion:reduce){.hero-business-details *, .web-result-more *{animation:none!important;transition:none!important}}
+
+
+/* RC46 · Relevant images lead; advanced filters never bury the gallery. */
+.wae-image-search-head{padding:11px 12px;border-radius:13px;box-shadow:none;background:rgba(14,28,47,.67)}
+.wae-image-search-head>.wae-image-eyebrow,
+.wae-image-search-head>h2,
+.wae-image-search-head>p{display:none!important}
+.wae-image-search-head>.wae-image-filters{margin:0;gap:5px}
+.wae-image-search-head .wae-image-filter{min-height:36px;padding:6px 10px;font-size:11px;box-shadow:none}
+.wae-image-advanced{margin:8px 0 0;color:#a7c3e7;font-size:11px}
+.wae-image-advanced>summary{display:inline-flex;align-items:center;cursor:pointer;min-height:34px;padding:6px 10px;border:1px solid rgba(143,184,240,.24);border-radius:8px;list-style:none}
+.wae-image-advanced>summary::-webkit-details-marker{display:none}
+.wae-image-advanced[open]>summary{background:rgba(58,99,159,.29);border-color:rgba(149,198,254,.53)}
+.wae-image-advanced .wae-image-context{margin:8px 0!important;font-size:10px;line-height:1.5}
+.wae-image-advanced .wae-image-options{margin:8px 0 0;gap:6px}
+.wae-image-advanced .wae-image-source-detail{margin:8px 0 0;padding:8px 0 0}
+.image-gallery{gap:9px}
+.image-gallery-tile{border-radius:12px;box-shadow:none}
+.image-gallery-tile:hover{border-color:rgba(135,187,255,.59)}
+.image-gallery-caption{min-height:0;font-size:11px;padding:7px 9px}
+@media(max-width:600px){
+  .wae-image-search-head{padding:9px 10px}
+  .wae-image-search-head>.wae-image-filters{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
+  .wae-image-search-head>.wae-image-filters .wae-image-filter{flex:0 0 auto}
+  .image-gallery{gap:7px}
+  .image-gallery-tile img{height:clamp(128px,42vw,220px)}
+}

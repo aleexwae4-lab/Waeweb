@@ -677,7 +677,11 @@ function renderResult(item, index) {
         ?"◎ Sitio web declarado en Wikidata"
         :"◎ Sitio conocido · Directorio WAE WEB"));
   }
-  if (item.snippet) card.append(element("p", "snippet", item.snippet));
+  // The HN indexing disclaimer is not a page excerpt. Showing it on every
+  // result made the search appear repetitive and implied useful page content.
+  if(item.snippet && !(state.type==="all" &&
+    /^Enlace publicado por la comunidad de Hacker News; contenido del sitio original no verificado por WAEWEB\.?$/i.test(item.snippet.trim())))
+    card.append(element("p", "snippet", item.snippet));
   const trustedVideo=state.type==="videos"&&(
     /^https:\/\/upload\.wikimedia\.org\//.test(item.mediaUrl||"")||
     item.platform==="Internet Archive"&&/^https:\/\/archive\.org\/download\//.test(item.mediaUrl||"")
@@ -1303,7 +1307,10 @@ function renderData(data) {
       " · "+allResults.length+" imágenes distintas"+
       (discovery.duplicatesRemoved?" · "+discovery.duplicatesRemoved+" duplicados omitidos":"")+
       " · "+(discovery.dimensionsKnown||0)+" con tamaño conocido");
-    header.append(context);
+    const advanced=element("details","wae-image-advanced");
+    advanced.append(element("summary","","Filtros avanzados"));
+    advanced.open=state.imageOrientation!=="all" || state.imageHighRes;
+    advanced.append(context);
     const pinterestCount=sourceResults.filter(item=>item.imagePlatform==="Pinterest").length;
     const pinterestBar=element("nav","wae-image-filters wae-pinterest-controls");
     pinterestBar.setAttribute("aria-label","Explorar imágenes de Pinterest");
@@ -1350,14 +1357,15 @@ function renderData(data) {
     high.setAttribute("aria-pressed",String(state.imageHighRes));
     high.title="Filtra imágenes con dimensiones originales conocidas de al menos 1200 × 800.";
     options.append(high);
-    header.append(options);
+    advanced.append(options);
     const sourceDetail=element("details","wae-image-source-detail");
     sourceDetail.append(element("summary","","Fuentes y metadatos disponibles"),
       element("p","",
         (data.sources||[]).join(" · ")+". "+
         (data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
         "No se estima el tamaño ni la licencia de archivos sin metadatos."));
-    header.append(sourceDetail);
+    advanced.append(sourceDetail);
+    header.append(advanced);
     resultsContainer.append(header);
   }
   if(state.type==="news"){
