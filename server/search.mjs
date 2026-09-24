@@ -11,6 +11,7 @@ import {pinterestQuery,verifiedPinterestImages,labelPinterestImages}
 import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb,githubPublicRepositories} from "./web-providers.mjs";
 import {registerWebHits} from "./web-preview.mjs";
 import {directorySites,wikidataOfficialSites,navigationalName} from "./site-discovery.mjs";
+import {diagnoseWebIndexes} from "./web-index-diagnostics.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
 const clean = value => String(value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -499,6 +500,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     ?localWebSearch(q):[];
   const settled = await Promise.allSettled(sources.map(async ([name, fn]) => ({ name, items: await fn() })));
   const errors = [], available = [], results = [];
+  const generalIndexDiagnosis=selected==="all"?diagnoseWebIndexes(sources,settled):null;
   let moreFromProviders=false;
   settled.forEach((entry, i) => {
     if (entry.status === "rejected") errors.push(sources[i][0]);
@@ -565,7 +567,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
         .filter(name=>available.includes(name)),
       unconfigured:sources.map(([name])=>name).filter(name=>available.includes(name+" no configurado")),
       failed:errors,inlineExcerpt:true,entireWebIndexed:false,
-      navigationalSites:results.filter(item=>item.siteLink===true).length
+      navigationalSites:results.filter(item=>item.siteLink===true).length,
+      generalIndexDiagnosis
     }:null,
     newsCoverage:selected==="news"?{
       mode:"on_demand",window:newsWindow,
