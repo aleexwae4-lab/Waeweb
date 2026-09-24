@@ -52,7 +52,9 @@ test("bad IDs, missing pages and short extracts cannot create synthetic answers"
   await assert.rejects(wikipediaIntroduction("304",{fetcher:async()=>new Response("Bad gateway",
     {status:502})}),{code:"upstream_status",status:502});
 });
-test("the public summary route validates identifiers without reaching arbitrary URLs",async()=>{
+test("the public summary route validates identifiers in isolated Render preview",async()=>{
+  const preview=process.env.WAE_PREVIEW_MODE;
+  process.env.WAE_PREVIEW_MODE="true";
   const server=http.createServer((req,res)=>handler(req,res).catch(error=>{
     res.statusCode=500;res.end(error.message);
   }));
@@ -63,7 +65,11 @@ test("the public summary route validates identifiers without reaching arbitrary 
     assert.equal(response.status,400);
     assert.equal(response.headers.get("x-waeweb-api"),"1");
     assert.equal((await response.json()).code,"invalid_pageid");
-  }finally{if(server.listening)await new Promise(resolve=>server.close(resolve));}
+  }finally{
+    if(server.listening)await new Promise(resolve=>server.close(resolve));
+    if(preview===undefined)delete process.env.WAE_PREVIEW_MODE;
+    else process.env.WAE_PREVIEW_MODE=preview;
+  }
 });
 test("normal Wikipedia result can be read natively with voice and source attribution",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
