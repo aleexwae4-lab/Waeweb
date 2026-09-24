@@ -75,7 +75,7 @@ function makeFrame(tab) {
   frame.hidden = true;
   frame.addEventListener("load", () => {
     if (state.active()?.id === tab.id && !view.hidden)
-      status.textContent = "Vista cargada o rechazada por el sitio. Si está en blanco, usa «Abrir sitio original»: muchas páginas prohíben incrustación.";
+      status.textContent = "Si esta página queda vacía, utiliza «Abrir sitio original».";
   });
   stage.append(frame);
   frames.set(tab.id, frame);
@@ -129,7 +129,9 @@ function render() {
   view.classList.toggle("is-external-first", blocked);
   if (!native) for (const [id, frame] of frames)
     frame.hidden = !current || current.id !== id || blocked;
-  access.hidden=!current?.url;
+  // Normal embedded pages already have a source link in the toolbar.
+  // The larger escape panel is reserved for known blocked destinations.
+  access.hidden=!current?.url || !blocked;
   if(current?.url){
     accessLink.href=current.url;
     accessLabel.textContent=blocked
@@ -168,8 +170,7 @@ function loadCurrent() {
   frame.src = tab.url;
   frame.title = "Página web: " + tab.title;
   render();
-  status.textContent = "Abriendo " + new URL(tab.url).hostname +
-    " · Si se muestra en blanco, este sitio no permite la vista integrada. Usa «Abrir sitio original».";
+  status.textContent = "Abriendo " + new URL(tab.url).hostname + "…";
 }
 export function openBrowser(value = "", { newTab = false } = {}) {
   showView();
