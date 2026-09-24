@@ -12,6 +12,7 @@ import {searxngConfig} from "./web-providers.mjs";
 import { findPlaces, MapsError } from "./maps.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
 import {searchAddress,addressCapabilities,GeocodeError} from "./geocode.mjs";
+import {searchNearby,NearbyError} from "./nearby.mjs";
 import {translateText,publicTranslateConfig,TranslateError} from "./translate.mjs";
 import { handleConnect, connectConfig } from "./connect.mjs";
 import { readPage, searchIndex, getIndexedDocument, ReaderError } from "./reader.mjs";
@@ -487,6 +488,16 @@ export async function handler(req, res) {
         const data = getIndexedDocument(u.searchParams.get("id") || "", records);
         return data ? write(res, 200, data) : write(res, 404, { error: "Documento no encontrado en tu espacio." });
       }
+      if(u.pathname==="/api/nearby"){
+        if(!["GET","HEAD"].includes(req.method))
+          return write(res,405,{error:"Solo lectura GET."},{allow:"GET, HEAD"});
+        if(directionsLimited(req))
+          return write(res,429,{error:"Demasiadas consultas de lugares.",code:"nearby_rate_limit"},{"retry-after":"60"});
+        const q=u.searchParams.get("q")||"";
+        if(q.length>180)return write(res,400,{error:"Consulta demasiado larga."});
+        return write(res,200,await searchNearby({query:q,
+          latitude:u.searchParams.get("lat"),longitude:u.searchParams.get("lon")}));
+      }
       if(u.pathname==="/api/places"){
         if(!["GET","HEAD"].includes(req.method))return write(res,405,{error:"Método no permitido."},{allow:"GET, HEAD"});
         if(directionsLimited(req))return write(res,429,{error:"Demasiadas búsquedas de lugares. Intenta de nuevo en un minuto.",code:"geocode_rate_limit"},{"retry-after":"60"});
@@ -599,6 +610,7 @@ export async function handler(req, res) {
       }
       return write(res, 404, { error: "Ruta no encontrada." });
     } catch (error) {
+      if (error instanceof NearbyError)return write(res,error.status,{error:error.message,code:"nearby_unavailable"});
       if (error instanceof GeocodeError)return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof DirectionsError)return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof TranslateError) return write(res,error.status,
