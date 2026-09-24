@@ -2193,7 +2193,7 @@ async function performSearch(query, type = "all", push = true, collection = "web
         earlyPages=preview.results.slice(0,8).filter(item=>
           ["Hacker News · web abierta","WAE Index local · HN",
             "Stack Overflow · comunidad","MDN Web Docs · documentación",
-             "GitHub · repositorios públicos"].includes(item.source)&&
+             "GitHub · repositorios públicos","npm · paquetes publicados"].includes(item.source)&&
           safeUrl(item.url)&&item.title);
         earlyPagesShown=earlyPages.length>0;
         if(earlyPagesShown)showProgressiveWebResults();
