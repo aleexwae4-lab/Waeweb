@@ -328,6 +328,60 @@ function renderCompactVideo(item,index){
   }
   return card;
 }
+// An actual encyclopedia article introduction is fetched from the fixed
+// Wikipedia API after a click, never fabricated from a search snippet.
+function encyclopediaWidget(item){
+  let url;
+  try{url=new URL(item.url);}catch{return null;}
+  if(item.source!=="Wikipedia"||url.protocol!=="https:"||
+    url.hostname!=="es.wikipedia.org"||url.pathname!=="/")return null;
+  const pageid=url.searchParams.get("curid");
+  if(!/^[1-9][0-9]{0,11}$/.test(pageid||""))return null;
+  const panel=element("div","wae-encyclopedia-widget");
+  const body=element("div","wae-encyclopedia-body");
+  body.hidden=true;
+  const status=element("p","wae-encyclopedia-status");
+  status.setAttribute("role","status");
+  const trigger=button("◈ Leer introducción",async()=>{
+    if(body.hasChildNodes()){
+      body.hidden=!body.hidden;
+      trigger.textContent=body.hidden?"◈ Mostrar introducción":"◈ Ocultar introducción";
+      return;
+    }
+    trigger.disabled=true;
+    status.textContent="Consultando el artículo original…";
+    try{
+      const data=await getJSON("/api/encyclopedia/summary?pageid="+pageid);
+      if(data.kind!=="encyclopedia_introduction"||
+        data.pageid!==pageid||typeof data.extract!=="string"||
+        data.extract.length<45)
+        throw new Error("La fuente no entregó una introducción válida.");
+      const headline=element("h3","wae-encyclopedia-title",data.title);
+      const intro=element("p","wae-encyclopedia-extract",data.extract);
+      const disclaimer=element("small","wae-encyclopedia-disclaimer",data.disclaimer);
+      const actions=element("div","wae-encyclopedia-actions");
+      const listen=button("▶ Escuchar introducción",()=>
+        readAloud(data.extract,"Wikipedia · "+data.title),"wae-encyclopedia-action");
+      listen.disabled=!voiceReader.snapshot().available;
+      actions.append(listen,
+        button("⧉ Copiar introducción",()=>copyText(
+          [data.title,data.url,data.extract,data.disclaimer].join("\n")),
+          "wae-encyclopedia-action"),
+        external(data.url,"↗ Artículo original","wae-encyclopedia-action"));
+      body.replaceChildren(headline,intro,disclaimer,actions);
+      body.hidden=false;
+      trigger.textContent="◈ Ocultar introducción";
+      status.textContent="";
+    }catch(error){
+      status.textContent="No se pudo recuperar la introducción: "+
+        (error?.message||"Wikipedia no disponible")+
+        ". Conservamos la referencia original.";
+      trigger.textContent="↻ Reintentar introducción";
+    }finally{trigger.disabled=false;}
+  },"wae-encyclopedia-toggle");
+  panel.append(trigger,status,body);
+  return panel;
+}
 // News and knowledge receive a compact, attributable reading card. It never
 // implies that a feed snippet or catalog abstract is the complete article.
 function renderInformationCard(item,index){
@@ -419,6 +473,8 @@ function renderInformationCard(item,index){
     recovery.append(recover,recoveryStatus,recoveryBody);
     reading.append(recovery);
   }
+  const encyclopedia=encyclopediaWidget(item);
+  if(encyclopedia)reading.append(encyclopedia);
   reading.append(external(url,"↗ Leer documento completo en la fuente",
     "wae-information-reading-link"));
   const actions=element("div","wae-information-actions");
@@ -692,6 +748,10 @@ function renderResult(item, index) {
     meta.append(button("⌕ Leer e indexar", () => requestRead(url), "save-button"));
   }
   card.append(meta);
+  if(state.type==="all"){
+    const encyclopedia=encyclopediaWidget(item);
+    if(encyclopedia)card.append(encyclopedia);
+  }
   return card;
 }
 // Image galleries use only original provider records. Facets are metadata
