@@ -1259,6 +1259,7 @@ function renderData(data) {
       element("h2","","Encuentra. Explora. Comprende."));
     const coverage=data.searchCoverage;
     const indexes=coverage?.generalIndexes||[];
+    const respondingIndexes=coverage?.respondingGeneralIndexes||indexes;
     const specialists=coverage?.specialistSources||[];
     const diagnosis=coverage?.generalIndexDiagnosis;
     const indexStates={
@@ -1274,7 +1275,7 @@ function renderData(data) {
       (coverage?.navigationalSites||0)+" sitios web · "+
       (coverage?.webPages||0)+" páginas web · "+
       (coverage?.encyclopediaPages||0)+" fichas de conocimiento · "+
-      indexes.length+" índices generales consultados · "+
+      indexes.length+" índices generales con resultados · "+
       (data.results?.length||0)+" resultados");
     const commands=element("div","web-search-commands");
     commands.append(button("↻ Actualizar resultados",()=>void performSearch(state.query,"all",false,"web",true),
@@ -1296,7 +1297,8 @@ function renderData(data) {
       details.append(providerSummary);
     }
     details.append(element("p","",
-      "Índices web que respondieron: "+(indexes.join(", ")||"ninguno")+
+      "Índices web que respondieron: "+(respondingIndexes.join(", ")||"ninguno")+
+      ". Índices con páginas: "+(indexes.join(", ")||"ninguno")+
       ". Fuentes adicionales: "+(specialists.join(", ")||"ninguna")+
       ". "+(data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
       "El directorio incluye solo sitios conocidos; Wikidata aporta direcciones declaradas por sus colaboradores. "+
