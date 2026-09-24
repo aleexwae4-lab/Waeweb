@@ -1168,3 +1168,57 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 /* Instant source-backed navigation stays as one compact result, not a fake full SERP. */
 .wae-instant-site-status{margin:0 0 10px;color:#abd3ff;font-size:12px;line-height:1.5}
 @media(max-width:550px){.wae-instant-site-status{font-size:11px}}
+
+
+/* RC44 · Mobile search clarity: content first; controls stay available on demand. */
+#browser-open{display:none} /* Both search fields already accept HTTPS URLs. */
+.web-search-toolbar{order:99;display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:15px 0 0;padding:10px 2px 0;border-top:1px solid rgba(150,183,236,.14);background:none;box-shadow:none}
+.web-search-toolbar-heading,.web-search-metrics,.web-results-heading{display:none!important}
+.web-search-toolbar .web-search-sources{margin:0;font-size:11px;color:#a9bbd5;max-width:100%}
+.web-search-toolbar .web-search-sources summary{font-size:11px;line-height:1.45;cursor:pointer}
+.web-search-toolbar .web-search-sources p{font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+.web-search-toolbar .web-search-refresh{min-height:34px;padding:6px 10px;font-size:11px;box-shadow:none}
+.wae-site-kind,.result-card.web-result .source-engine{display:none!important}
+.result-card.web-result .source-row{margin-bottom:7px}
+.result-card.web-result .meta-line{margin-top:9px;gap:5px}
+.result-card.web-result .meta-line .save-button{min-height:35px;padding:6px 10px;border-radius:9px}
+.result-card.web-result{padding-block:14px 17px}
+.results-main .browser-view.is-external-first{margin:0 0 18px;scroll-margin-top:100px}
+.browser-view.is-external-first .browser-disclaimer,
+.browser-view.is-external-first .browser-chrome,
+.browser-view.is-external-first .browser-stage{display:none!important}
+.browser-view.is-external-first .browser-heading .tag{display:none}
+.browser-view.is-external-first .browser-heading h2{margin:0;font-size:16px}
+.results-main .browser-view.is-external-first .browser-access{margin:6px 0 0;padding:12px;border-radius:13px;gap:8px;box-shadow:none}
+.browser-view.is-external-first .browser-access span{font-size:12px;line-height:1.35}
+.browser-view.is-external-first .browser-access-link{min-height:40px;padding:8px 13px}
+.browser-view.is-external-first #browser-attempt{min-height:36px;padding:7px 10px;font-size:11px}
+@media(max-width:720px){
+  .topbar{padding:10px 14px 7px;gap:8px}
+  .topbar-right{gap:6px;letter-spacing:0}
+  .topbar-right>.status-led,.topbar-right>span:not(.status-led){display:none}
+  .results-view{padding:0 12px 28px}
+  .results-top{padding:7px 0 3px}
+  .results-search{min-height:46px}
+  .tabs{padding:7px 0 6px;gap:3px}
+  .tabs .tab{padding:8px 11px;min-height:38px;font-size:11px}
+  .results-layout{padding-top:5px}
+  .statsbar{gap:5px;margin:0 0 8px;font-size:11px;align-items:center}
+  .statsbar .source-filter{max-width:140px;min-height:34px;padding:5px 9px;font-size:11px}
+  .results-container{gap:8px}
+  .result-card.web-result{padding:12px 2px 15px}
+  .result-card.web-result .source-row{gap:8px}
+  .result-card.web-result .source-avatar{width:27px;height:27px;min-width:27px;min-height:27px;font-size:12px}
+  .result-card.web-result .source-label{font-size:12px}
+  .result-card.web-result .source-url{display:none}
+  .result-card.web-result .web-result-title{font-size:18px;line-height:1.31}
+  .result-card.web-result .snippet{font-size:12px;line-height:1.5;margin-top:6px}
+  .result-card.web-result .meta-line .save-button{min-height:34px;padding:6px 9px;font-size:10px;flex:0 1 auto}
+  .results-main .browser-access{border-radius:12px}
+  .results-main .browser-view.is-external-first .browser-heading{gap:6px}
+  .results-main .browser-view.is-external-first .browser-access #browser-attempt{width:auto;min-height:35px}
+  .web-search-toolbar{margin-top:11px}
+}
+@media(prefers-reduced-motion:reduce){
+  .result-card.web-result,.browser-view.is-external-first *{animation:none!important;transition:none!important}
+}
