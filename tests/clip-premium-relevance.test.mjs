@@ -1,4 +1,4 @@
-import test from "node:test";
+// RC46 clip regression suite\nimport test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {rankImageResults} from "../server/image-intelligence.mjs";
