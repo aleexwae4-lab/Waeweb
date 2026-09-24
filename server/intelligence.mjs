@@ -103,6 +103,19 @@ export function scoreResult(item, query, type = "all") {
   }
   return score;
 }
+// Web intent must not be crowded out by encyclopedia records just because
+// their entity titles match the query. Only source-backed URLs enter this
+// tiering; these labels never claim independently verified website ownership.
+export function webResultKind(item){
+  if(item?.siteLink===true)return "named_site";
+  let host="";
+  try{host=new URL(item?.url).hostname.toLowerCase().replace(/^www\\./,"");}
+  catch{return "web_page";}
+  const encyclopedia=/(?:^|\\.)(?:wikipedia|wikidata)\\.org$/.test(host)||
+    host==="commons.wikimedia.org"||
+    /^(?:wikipedia|wikidata|wikimedia commons)(?:\\s|$)/.test(sourceName(item?.source));
+  return encyclopedia?"encyclopedia":"web_page";
+}
 // Domain diversity is applied only to general web results and only when
 // multiple hosts exist. It never drops pages or changes explicit site: searches.
 export function diversifyWebResults(items, {limit=12,maxPerHost=2}={}) {
@@ -143,9 +156,16 @@ export function rankResults(items, spec, type = "all") {
     .sort((a, b) => b._score - a._score || a._order - b._order)
     .map(({ _score, _order, ...item }) => item);
   if(type==="knowledge"&&!spec.source)return diversifyKnowledgeResults(ranked);
-  return type==="all" && !spec.site && !spec.source
-    ? diversifyWebResults(ranked)
-    : ranked;
+  if(type==="all"&&!spec.site&&!spec.source){
+    // Preserve provider relevance and domain diversity inside each tier:
+    // [named websites] -> [genuine web pages] -> [encyclopedia enrichment].
+    // Diversifying the concatenated list would push encyclopedia cards ahead
+    // of deferred organic pages from repeated hosts.
+    const tiers=["named_site","web_page","encyclopedia"];
+    return tiers.flatMap(kind=>diversifyWebResults(
+      ranked.filter(item=>webResultKind(item)===kind)));
+  }
+  return ranked;
 }
 function extractSentence(text) {
   const normalized = String(text || "").replace(/\s+/g, " ").trim();
