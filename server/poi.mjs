@@ -103,7 +103,8 @@ export async function findPoi(input,{latitude,longitude,transport=fetch}={}){
   const intent=parsePoiQuery(input);
   if(!intent)throw new PoiError("Busca un comercio, categoría o nombre con ciudad: «Oxxo en Zapopan».");
   let point={latitude,longitude},zone="";
-  if(!coords(point)){
+  // An explicit city always overrides the previously selected map point.
+  if(intent.locality || !coords(point)){
     if(!intent.locality)return {query:intent.query,kind:"business_poi",
       needsLocation:true,results:[],source:"OpenStreetMap · Overpass",
       message:"¿En qué ciudad o zona buscas? Escribe «"+intent.term+" en Zapopan» o usa «Mi ubicación» para autorizarla."};
@@ -117,6 +118,8 @@ export async function findPoi(input,{latitude,longitude,transport=fetch}={}){
     zone=exact.name+(exact.detail?" · "+exact.detail:"");
   }else zone="zona seleccionada en el mapa";
   const cacheKey=fold(intent.term)+"|"+(intent.category?.key||"")+
+    "|"+(intent.category?.value||"")+
+    "|"+fold(intent.brand||"")+
     "|"+point.latitude.toFixed(3)+","+point.longitude.toFixed(3);
   const prior=cache.get(cacheKey);
   if(prior&&prior.expires>Date.now())return {...prior.value,query:intent.query};
