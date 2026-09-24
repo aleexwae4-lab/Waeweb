@@ -65,6 +65,7 @@ const files = new Map([
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
   ["/web-page-merge.js", ["web-page-merge.js", "text/javascript; charset=utf-8"]],
   ["/omnibox.js", ["omnibox.js", "text/javascript; charset=utf-8"]],
+  ["/local-intent.js", ["local-intent.js", "text/javascript; charset=utf-8"]],
   ["/maps-core.js", ["maps-core.js", "text/javascript; charset=utf-8"]],
   ["/native-map.js", ["native-map.js", "text/javascript; charset=utf-8"]],
   ["/map-tiles.js", ["map-tiles.js", "text/javascript; charset=utf-8"]],
