@@ -89,7 +89,22 @@ export async function enrichIndexedPage(value,options={}){
     fetchedAt:updated.fetchedAt,fingerprint:updated.fingerprint,
     contentRecovered:true,persistence:"memory_only",cached:false};
 }
-export async function discoverOpenWeb(query){
+// Share only concurrent identical discovery requests. The result is NOT
+// persistently cached; each completed search can refresh source metadata.
+// This avoids doubling unauthenticated public API traffic when the same
+// user requests progressive pages and the complete federated SERP.
+const pendingDiscovery=new Map();
+export function discoverOpenWeb(query){
+  const key=String(query??"").trim().toLocaleLowerCase("es");
+  if(!key)return Promise.resolve([]);
+  if(pendingDiscovery.has(key))return pendingDiscovery.get(key);
+  const task=loadOpenWeb(key);
+  pendingDiscovery.set(key,task);
+  void task.then(()=>{if(pendingDiscovery.get(key)===task)pendingDiscovery.delete(key);},
+    ()=>{if(pendingDiscovery.get(key)===task)pendingDiscovery.delete(key);});
+  return task;
+}
+async function loadOpenWeb(query){
   const u=new URL("https://hn.algolia.com/api/v1/search");
   u.search=new URLSearchParams({query,tags:"story",hitsPerPage:"20",page:"0"}).toString();
   const response=await fetch(u,{headers:{accept:"application/json",
