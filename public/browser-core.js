@@ -20,7 +20,8 @@ export function browserPresentation(value){
     return {externalFirst:false,reason:""};
   }
   const restricted=["youtube.com","youtu.be","tiktok.com","facebook.com",
-    "instagram.com","accounts.google.com","google.com","x.com","twitter.com",
+    "instagram.com","openai.com","chatgpt.com","pinterest.com",
+    "accounts.google.com","google.com","x.com","twitter.com",
     "github.com","mercadolibre.com.mx","mercadolibre.com",
     "linkedin.com","whatsapp.com"];
   const externalFirst=restricted.some(domain=>host===domain||host.endsWith("."+domain))||

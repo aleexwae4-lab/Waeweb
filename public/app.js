@@ -1198,7 +1198,7 @@ function renderData(data) {
   options.forEach(name => sourceFilter.add(new Option(name, name)));
   if (!options.includes(state.selectedSource)) state.selectedSource = "";
   sourceFilter.value = state.selectedSource;
-  sourceFilter.hidden = state.type==="books";
+  sourceFilter.hidden = state.type==="books" || options.length < 2;
   const sourceResults = state.selectedSource
     ? allResults.filter(item => item.source === state.selectedSource):allResults;
   if(state.type==="videos" && state.videoPlatform!=="all" &&
@@ -1440,10 +1440,11 @@ function renderData(data) {
     ? count+" libro"+(count===1?"":"s")+" · Biblioteca WAE WEB"
     : count===0 && data.message
     ? "Sin resultados de los índices conectados · "+data.message
-    : (state.type==="all" ? "Mostrando "+visible+" de "+count : count+" resultado"+(count===1?"":"s"))+
-      " · "+(data.webCoverage==="limited"?"Cobertura web limitada · ":
-        data.webCoverage==="specialized"?"Cobertura web especializada · ":"")+
-      (data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
+    : state.type==="all"
+    ? (visible===count ? count+" resultado"+(count===1?"":"s")
+      : visible+" de "+count+" resultados")
+    : count+" resultado"+(count===1?"":"s")+
+      " · "+(data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
   renderPanel(data);
   if (["research","knowledge","index"].includes(state.type)) {
     const filteredBrief = state.selectedSource ? {

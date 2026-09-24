@@ -125,14 +125,16 @@ function render() {
   const planned=current?.url?browserPresentation(current.url):null;
   const blocked=Boolean(!native && current?.url && planned.externalFirst &&
     !previewOptIn.has(current.id));
+  // In hosted web mode, do not present a large empty iframe for known restricted sites.
+  view.classList.toggle("is-external-first", blocked);
   if (!native) for (const [id, frame] of frames)
     frame.hidden = !current || current.id !== id || blocked;
   access.hidden=!current?.url;
   if(current?.url){
     accessLink.href=current.url;
     accessLabel.textContent=blocked
-      ?planned.reason+" Abrir el original es la opción fiable."
-      :"Si la vista integrada queda en blanco, abre la página original.";
+      ?"Este sitio puede impedir la vista integrada. Abre la página original."
+      :"Si la página no aparece aquí, puedes abrir el sitio original.";
   }else accessLink.removeAttribute("href");
   attempt.hidden=!blocked;
   gate.hidden=!blocked;
@@ -157,8 +159,7 @@ function loadCurrent() {
   const plan=browserPresentation(tab.url);
   if(plan.externalFirst && !previewOptIn.has(tab.id)){
     render();
-    status.textContent=plan.reason+
-      " Usa «Abrir página en el navegador» o elige intentar la vista integrada.";
+    status.textContent="Abre el sitio original o intenta la vista integrada.";
     return;
   }
   const frame = frames.get(tab.id) || makeFrame(tab);
