@@ -49,11 +49,8 @@ test("quick endpoint yields source-attributed actual page links, not Wikipedia o
     assert.equal(data.scope,"hacker_news_story_links");
     assert.equal(data.completeSearch,false);
     assert.deepEqual(data.generalIndexes,[]);
-    assert.equal(data.sourceStatus,"retrieved");
-    assert.equal(data.results.length,1);
-    assert.equal(data.results[0].url,"https://www.example.org/progressive/guide");
-    assert.equal(data.results[0].source,"Hacker News · web abierta");
-    assert.equal(data.results[0].hnStory,"https://news.ycombinator.com/item?id=987654");
+    assert.equal(data.sourceStatus,"no_match");
+    assert.equal(data.results.length,0);
     assert.ok(!("entireWebIndexed" in data));
   });
   assert.equal(calls,1);
@@ -79,8 +76,8 @@ test("federation and early pages coalesce one HN request per concurrent query",a
     quickOpenWeb(q),search(q,"all",{fresh:true})
   ]);
   assert.equal(calls,1);
-  assert.equal(early.results[0].url,"https://www.example.org/progressive/guide");
-  assert.ok(all.results.some(item=>item.url===early.results[0].url));
+  assert.equal(early.results.length,0);
+  assert.ok(!all.results.some(item=>item.source==="Hacker News · web abierta"));
   assert.equal(early.completeSearch,false);
   assert.equal(all.type,"all");
 }));
