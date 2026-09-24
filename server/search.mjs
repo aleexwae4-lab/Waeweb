@@ -672,7 +672,11 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     results: rankedItems,
     sources: available,
     searchCoverage:selected==="all"?{
-      generalIndexes:["Brave","Google","SearXNG"].filter(name=>available.includes(name)),
+      generalIndexes:generalIndexDiagnosis?.providers
+        .filter(provider=>provider.state==="results").map(provider=>provider.name)||[],
+      respondingGeneralIndexes:generalIndexDiagnosis?.providers
+        .filter(provider=>["results","empty"].includes(provider.state))
+        .map(provider=>provider.name)||[],
       specialistSources:["WAE WEB · directorio","Wikidata · sitios web","WAE Discovery","WAE Index local","Stack Overflow",
         "Super User","MDN Web Docs","GitHub · repositorios públicos",CRATES_SOURCE,GITLAB_SOURCE,
         "npm · paquetes publicados","Wikipedia","Wikidata"]
@@ -728,7 +732,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       providersUnavailable:errors.length+available.filter(name=>name.endsWith(" no configurado")).length
     }:null,
     webCoverage: selected === "all"
-      ? (available.some(name => ["Brave","Google","SearXNG"].includes(name)) ? "general-index"
+      ? (generalIndexHits ? "general-index"
          : available.some(name=>["WAE Discovery","WAE Index local",
              "Stack Overflow","Super User","MDN Web Docs",CRATES_SOURCE,GITLAB_SOURCE,
              "npm · paquetes publicados","WAE WEB · directorio","Wikidata · sitios web"].includes(name))
