@@ -1816,9 +1816,9 @@ function createMapQuickSearch(initial="") {
   form.setAttribute("role","search");
   const input=element("input","map-search-input");
   input.type="search";input.name="place";input.maxLength=180;
-  input.autocomplete="off";input.placeholder="Ciudad, región o latitud,longitud";
+  input.autocomplete="off";input.placeholder="Lugar, comercio, dirección o latitud,longitud";
   input.value=initial;
-  input.setAttribute("aria-label","Buscar localidad o coordenadas; las direcciones y negocios dependen del proveedor configurado");
+  input.setAttribute("aria-label","Buscar lugar, dirección, comercio o coordenadas");
   const search=element("button","map-search-submit","Buscar");
   search.type="submit";
   const locate=button("⌖ Mi ubicación",()=>{
@@ -1870,7 +1870,7 @@ function showDirectionsWithoutLocality({query="",message=""}={}){
   if(query){
     const empty=element("div","map-no-match");
     empty.append(element("strong","","No encontramos una ubicación precisa para «"+query+"»."),
-      element("p","",message||"El motor conectado puede buscar localidades, pero no garantiza calles o sucursales."));
+      element("p","",message||"Prueba con colonia o municipio, o utiliza la búsqueda de comercios cercanos a un punto seleccionado."));
     empty.append(external(osmSearchUrl(query),"↗ Buscar «"+query+"» en OpenStreetMap","map-action map-original"));
     section.append(empty);
   }
@@ -1908,9 +1908,9 @@ function renderMapPlaces(data) {
     element("h2","",data.precision==="coordinate"?"Punto en el mapa":places[0].name),
     element("p","map-description",data.precision === "coordinate"
       ? "Punto indicado por coordenadas. No equivale a una dirección postal verificada."
-      : data.precision === "address_or_place"
-        ? "Coincidencias de direcciones y lugares; selecciona el punto correcto antes de trazar una ruta."
-        : "Localidades geocodificadas. El marcador representa un centro aproximado, no una dirección exacta."));
+      : data.precision === "address_or_place" || data.precision === "poi"
+        ? "Coincidencias geográficas reales de OpenStreetMap; selecciona el punto correcto antes de trazar una ruta."
+        : "Ubicaciones geocodificadas. Confirma el punto antes de trazar una ruta."));
   const mapSearch=createMapQuickSearch(data.query);
   const mapSearchInput=mapSearch.querySelector("input");
   const newSearch=button("⌕ Otro lugar",()=>{mapSearchInput.focus();mapSearchInput.scrollIntoView({behavior:"smooth",block:"center"});},"small-action");
@@ -1947,6 +1947,52 @@ function renderMapPlaces(data) {
   picks.setAttribute("aria-label","Ubicaciones encontradas");
   let selected = 0, zoom = data.precision === "coordinate" ? 3 : 2;
   let mapOverride=null,shownPlace=null;
+  // Explicit opt-in local discovery. Never query nearby businesses merely
+  // because the user opened a map or granted geolocation.
+  const poiBar=element("form","map-search-form map-poi-form");
+  const poiCategory=element("select","map-poi-category");
+  const poiItems=[
+    ["oxxo","OXXO"],["bancos","Bancos"],["cajeros","Cajeros"],
+    ["cines","Cines"],["restaurantes","Restaurantes"],["gasolineras","Gasolineras"],
+    ["farmacias","Farmacias"],["supermercados","Supermercados"],
+    ["cafeterias","Cafeterías"],["hospitales","Hospitales"],["hoteles","Hoteles"]
+  ];
+  for(const [id,label]of poiItems)poiCategory.append(new Option(label,id));
+  poiCategory.setAttribute("aria-label","Tipo de comercio cercano");
+  const poiRadius=element("select","map-poi-radius");
+  for(const [metres,label]of [["1000","1 km"],["2500","2.5 km"],["5000","5 km"],["10000","10 km"]])
+    poiRadius.append(new Option(label,metres));
+  poiRadius.value="2500";
+  poiRadius.setAttribute("aria-label","Radio de búsqueda");
+  const poiSubmit=element("button","map-search-submit","Buscar comercios cerca");
+  poiSubmit.type="submit";
+  const poiFeedback=element("p","map-search-status");poiFeedback.setAttribute("role","status");
+  poiFeedback.setAttribute("aria-live","polite");
+  poiBar.append(poiCategory,poiRadius,poiSubmit,poiFeedback);
+  poiBar.addEventListener("submit",async event=>{
+    event.preventDefault();
+    const place=mapOverride||places[selected];
+    if(!validMapPlace(place))return;
+    const currentSequence=state.sequence;
+    poiSubmit.disabled=true;poiFeedback.textContent="Consultando establecimientos registrados en OpenStreetMap…";
+    try{
+      const params=new URLSearchParams({lat:String(place.latitude),lon:String(place.longitude),
+        radius:poiRadius.value,category:poiCategory.value});
+      const found=await getJSON("/api/poi?"+params);
+      if(currentSequence!==state.sequence)return;
+      if(!found.results?.length){poiFeedback.textContent=found.message||"No se encontraron comercios en ese radio.";return;}
+      renderMapPlaces({...found,query:state.query,returnQuery:data.returnQuery||state.query,
+        results:found.results.slice(0,20)});
+    }catch(error){
+      if(currentSequence===state.sequence)poiFeedback.textContent=
+        "No se pudieron consultar los comercios. Prueba de nuevo o reduce el radio.";
+    }finally{poiSubmit.disabled=false;}
+  });
+  section.append(poiBar);
+  if(data.returnQuery){
+    const back=button("← Volver a la ubicación",()=>void performSearch(data.returnQuery,"maps"),"map-action");
+    section.append(back);
+  }
   const options = places.map((place,index)=>{
     const label = place.name + (place.detail ? " · " + place.detail : "");
     const choice = button(label,()=>select(index),"map-pick");
@@ -1975,7 +2021,7 @@ function renderMapPlaces(data) {
       option.setAttribute("aria-pressed",String(!mapOverride&&i===selected));
     });
     stats.textContent=places.length + (places.length===1 ? " ubicación" : " ubicaciones") +
-      " · " + (mapOverride?"openrouteservice Pelias":data.source) + " · " + place.name;
+      " · " + (mapOverride?"Punto seleccionado":data.source) + " · " + place.name;
   }
   function select(index){
     selected=index;zoom=places[index].precision==="coordinate"?3:2;
@@ -2018,7 +2064,7 @@ async function renderMap(query,signal,sequence) {
   state.data=null;state.results=[];state.selectedSource="";
   sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
   resultsContainer.replaceChildren(stateCard("Buscando en el mapa",
-    "Localizando ciudades y coordenadas. No se generan ubicaciones ficticias.",true));
+    "Consultando lugares, direcciones y establecimientos indexados. No se generan ubicaciones ficticias.",true));
   try {
     const [addressResponse,localityResponse]=await Promise.allSettled([
       getJSON("/api/places?q="+encodeURIComponent(query),signal),
