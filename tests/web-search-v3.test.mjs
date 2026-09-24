@@ -146,7 +146,7 @@ test("native web UI offers excerpt reading, source attribution, and visible sear
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   const index=readFileSync(new URL("../server/index.mjs",import.meta.url),"utf8");
   assert.match(app,/Encuentra\. Explora\. Comprende\./);
-  assert.match(app,/Leer extracto aquí/);
+  assert.match(app,/▤ Leer aquí/);
   assert.match(app,/\/api\/web\/preview\?url=/);
   assert.match(app,/↗ Fuente original/);
   assert.match(index,/\/api\/web\/preview/);
