@@ -107,6 +107,36 @@ export async function stackExchangeWeb(query,site="stackoverflow"){
       image:null}];
   });
 }
+// Public repository search, not GitHub code search and not a general
+// web index. Unauthenticated REST calls can be rate limited by GitHub.
+export async function githubPublicRepositories(query){
+  const u=new URL("https://api.github.com/search/repositories");
+  u.search=new URLSearchParams({q:query,per_page:"8",page:"1"}).toString();
+  const data=await loadJson(u);
+  if(!Array.isArray(data.items))throw Error("github_repo_invalid_response");
+  return data.items.slice(0,8).flatMap(item=>{
+    const name=String(item.full_name||"");
+    if(!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(name)||
+      !Number.isInteger(item.id)||item.id<=0||item.private===true)return [];
+    const expected="https://github.com/"+name;
+    const link=safeUrl(item.html_url);
+    if(!link)return [];
+    const page=new URL(link);
+    if(page.protocol!=="https:"||page.hostname!=="github.com"||
+      page.pathname.replace(/\/$/,"").toLowerCase()!==("/"+name).toLowerCase())return [];
+    const language=typeof item.language==="string"?item.language.slice(0,45):null;
+    const stars=Number.isInteger(item.stargazers_count)&&item.stargazers_count>=0
+      ?item.stargazers_count:null;
+    const description=[decodeWebText(item.description||""),
+      language?"Lenguaje: "+language:null,
+      stars!==null?"Estrellas públicas: "+stars:null].filter(Boolean).join(" · ");
+    return [{title:decodeWebText(item.full_name).slice(0,240),
+      url:expected,snippet:description.slice(0,850),
+      source:"GitHub · repositorios públicos",date:null,image:null,
+      updatedAt:typeof item.updated_at==="string"?item.updated_at:null,
+      indexedScope:"repository_metadata_only"}];
+  });
+}
 export async function mdnWeb(query){
   const url=new URL("https://developer.mozilla.org/api/v1/search");
   url.search=new URLSearchParams({q:query,locale:"en-US"}).toString();
