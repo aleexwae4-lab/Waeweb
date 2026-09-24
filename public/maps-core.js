@@ -38,3 +38,20 @@ export function localMapCoordinates(input) {
      latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)return null;
   return {latitude,longitude};
 }
+
+// SVG uses a fixed geographic projection with its center at 450,230.
+// Crop that projection to the actual device aspect ratio instead of showing
+// a thin letterboxed map on portrait phones.
+export function mapViewport(width,height){
+  if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)
+    return {width:900,x:0,viewBox:"0 0 900 460"};
+  const visibleWidth=Math.max(140,Math.min(900,460*width/height));
+  const x=(900-visibleWidth)/2;
+  return {width:visibleWidth,x,viewBox:x+" 0 "+visibleWidth+" 460"};
+}
+
+export function osmSearchUrl(query){
+  const name=String(query??"").trim().slice(0,180);
+  if(!name)throw new TypeError("Escribe un lugar para buscar.");
+  return "https://www.openstreetmap.org/search?query="+encodeURIComponent(name);
+}
