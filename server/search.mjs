@@ -8,7 +8,7 @@ import {rankImageResults} from "./image-intelligence.mjs";
 import {flickrPublicImages} from "./flickr-images.mjs";
 import {pinterestQuery,verifiedPinterestImages,labelPinterestImages}
   from "./pinterest-discovery.mjs";
-import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb} from "./web-providers.mjs";
+import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb,githubPublicRepositories} from "./web-providers.mjs";
 import {registerWebHits} from "./web-preview.mjs";
 const HEADERS = { "accept": "application/json", "user-agent": "WAE-Web/0.1 (https://github.com/aleexwae4-lab/Waeweb)" };
 const SOURCE_TIMEOUT = 6500;
@@ -467,7 +467,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
          ...((!spec.source||spec.source==="superuser")&&platformAllowed("superuser.com")
            ? [["Super User",()=>stackExchangeWeb(q,"superuser")]]:[]),
          ...((!spec.source||spec.source==="mdn")&&platformAllowed("developer.mozilla.org")
-           ? [["MDN Web Docs",()=>mdnWeb(q)]]:[])
+           ? [["MDN Web Docs",()=>mdnWeb(q)]]:[]),
+         ...((!spec.source||spec.source==="github")&&platformAllowed("github.com")
+           ? [["GitHub · repositorios públicos",()=>githubPublicRepositories(q)]]:[])
        ]:[]),
        // Discovery is a specialist public-link feed; it is not a general
        // Internet index. Wikipedia and Wikidata enrich, not replace, web hits.
@@ -547,7 +549,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     searchCoverage:selected==="all"?{
       generalIndexes:["Brave","Google","SearXNG"].filter(name=>available.includes(name)),
       specialistSources:["WAE Discovery","WAE Index local","Stack Overflow",
-        "Super User","MDN Web Docs","Wikipedia","Wikidata"]
+        "Super User","MDN Web Docs","GitHub · repositorios públicos","Wikipedia","Wikidata"]
         .filter(name=>available.includes(name)),
       unconfigured:sources.map(([name])=>name).filter(name=>available.includes(name+" no configurado")),
       failed:errors,inlineExcerpt:true,entireWebIndexed:false
