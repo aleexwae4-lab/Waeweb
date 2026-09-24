@@ -8,7 +8,7 @@ const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
 const css=readFileSync(new URL("../public/styles.css",import.meta.url),"utf8");
 
 test("organic results read inside WAE WEB and retain explicit browser and origin actions",()=>{
-  assert.match(app,/state\.type === "all"\s*\? button\(item\.title,\(\)=>webReadingToggle\?\.\(\),"result-title web-result-title"\)/);
+  assert.match(app,/state\.type === "all"\s*\? button\(item\.title,\(\)=>item\.siteLink===true\s*\? openBrowser\(url\):webReadingToggle\?\.\(\),"result-title web-result-title"\)/);
   assert.match(app,/↗ Fuente original/);
   assert.match(app,/▤ Leer aquí/);
   assert.match(app,/◎ Navegar dentro/);
