@@ -462,8 +462,10 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
        // Real destinations for a named website: curated exact-match URLs and
        // Wikidata P856. These do not claim broad web-index coverage.
        ...(page===1&&!spec.source&&!spec.site&&navigationalName(q)
-         ? [["WAE WEB · directorio",()=>directorySites(q)],
-            ["Wikidata · sitios web",()=>wikidataOfficialSites(q)]]:[]),
+         ? (directorySites(q).length
+           ? [["WAE WEB · directorio",()=>directorySites(q)]]
+           : [["Wikidata · sitios web",()=>wikidataOfficialSites(q)]])
+         : []),
        ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
        ...(!spec.source||spec.source==="searxng"
