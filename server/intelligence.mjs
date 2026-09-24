@@ -109,11 +109,11 @@ export function scoreResult(item, query, type = "all") {
 export function webResultKind(item){
   if(item?.siteLink===true)return "named_site";
   let host="";
-  try{host=new URL(item?.url).hostname.toLowerCase().replace(/^www\\./,"");}
+  try{host=new URL(item?.url).hostname.toLowerCase().replace(/^www\./,"");}
   catch{return "web_page";}
-  const encyclopedia=/(?:^|\\.)(?:wikipedia|wikidata)\\.org$/.test(host)||
+  const encyclopedia=/(?:^|\.)(?:wikipedia|wikidata)\.org$/.test(host)||
     host==="commons.wikimedia.org"||
-    /^(?:wikipedia|wikidata|wikimedia commons)(?:\\s|$)/.test(sourceName(item?.source));
+    /^(?:wikipedia|wikidata|wikimedia commons)(?:\s|$)/.test(sourceName(item?.source));
   return encyclopedia?"encyclopedia":"web_page";
 }
 // Domain diversity is applied only to general web results and only when
