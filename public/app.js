@@ -2013,7 +2013,10 @@ function renderMapPlaces(data) {
       street_centroid:"Centro aproximado de calle",
       locality_centroid:"Centro aproximado de localidad"
     }[place.precision]||"Ubicación geocodificada";
-    placeDetail.textContent=(place.detail||"Ubicación geográfica")+" · "+accuracy;
+    placeDetail.textContent=(place.detail||"Ubicación geográfica")+" · "+accuracy+
+      (Number.isFinite(place.distanceMeters)?" · "+(place.distanceMeters/1000).toFixed(1)+" km aprox.":"")+
+      (place.openingHours?" · Horario registrado: "+place.openingHours:"")+
+      (place.phone?" · Teléfono: "+place.phone:"");
     coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
     visit.href=osmPlaceUrl(place);
     options.forEach((option,i)=>{
