@@ -1164,3 +1164,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .wae-site-primary{border:1px solid rgba(114,207,175,.56);color:#d6fff0;background:rgba(32,125,98,.19);font-weight:650}
 .wae-site-primary:hover{background:rgba(41,153,120,.28)}
 @media(max-width:550px){.wae-site-kind{font-size:10px}.wae-site-primary{font-size:12px}}
+
+/* Instant source-backed navigation stays as one compact result, not a fake full SERP. */
+.wae-instant-site-status{margin:0 0 10px;color:#abd3ff;font-size:12px;line-height:1.5}
+@media(max-width:550px){.wae-instant-site-status{font-size:11px}}

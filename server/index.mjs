@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { search, weather } from "./search.mjs";
+import {directorySites} from "./site-discovery.mjs";
 import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
 import {previewWebHit} from "./web-preview.mjs";
 import {wikipediaIntroduction,EncyclopediaError} from "./encyclopedia.mjs";
@@ -546,6 +547,17 @@ export async function handler(req, res) {
           return write(res,400,{error:"Ventana de noticias no válida."});
         const force=u.searchParams.get("fresh");
         if(force!==null&&force!=="1")return write(res,400,{error:"Parámetro fresh inválido."});
+        const nav=u.searchParams.get("nav");
+        if(nav!==null&&nav!=="1")return write(res,400,{error:"Parámetro nav inválido."});
+        // Instant named-site discovery is a bounded local directory lookup:
+        // no third-party requests, fabricated URL, or full-index claim.
+        if(nav==="1"){
+          if(req.method!=="GET"&&req.method!=="HEAD")
+            return write(res,405,{error:"Solo lectura GET."},{allow:"GET, HEAD"});
+          const site=q.length>=2?directorySites(q)[0]||null:null;
+          return write(res,200,{kind:"named_site_preview",query:q,site,
+            scope:"known_named_sites_only",completeSearch:false});
+        }
         const data = await search(q, u.searchParams.get("type") || "all",
           {page:Number(rawPage),collection,newsWindow,fresh:force==="1"});
         return write(res, data.error ? 400 : 200, data);
