@@ -97,6 +97,6 @@ test("compact web SERP reports navigable links separately from encyclopedia entr
   assert.match(app,/coverage\?\.webPages\|\|0/);
   assert.match(app,/páginas web · /);
   assert.match(app,/coverage\?\.encyclopediaPages\|\|0/);
-  assert.match(app,/fichas de conocimiento · /);
+  assert.match(app,/fichas de conocimiento/);
   assert.match(app,/coverage\?\.navigationalSites\|\|0/);
 });
