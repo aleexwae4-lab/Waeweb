@@ -21,12 +21,12 @@ test("city geocoder attributes real coordinates and excludes malformed records",
   let calls=0;
   globalThis.fetch=async url=>{
     calls++;
-    assert.match(String(url),/geocoding-api.open-meteo.com/);
-    return new Response(JSON.stringify({results:[
-      {id:123,name:"Guadalajara",admin1:"Jalisco",country:"México",latitude:20.6767,longitude:-103.3475},
-      {name:"Falso",latitude:140,longitude:0},
-      {id:123,name:"Guadalajara",admin1:"Jalisco",country:"México",latitude:20.6767,longitude:-103.3475}
-    ]}),{status:200});
+    assert.match(String(url),/nominatim\.openstreetmap\.org\/search/);
+    return new Response(JSON.stringify([
+      {osm_type:"relation",osm_id:123,name:"Guadalajara",display_name:"Guadalajara, Jalisco, México",lat:"20.6767",lon:"-103.3475",type:"city"},
+      {osm_type:"node",osm_id:999,name:"Falso",display_name:"Falso",lat:"140",lon:"0",type:"place"},
+      {osm_type:"relation",osm_id:123,name:"Guadalajara",display_name:"Guadalajara, Jalisco, México",lat:"20.6767",lon:"-103.3475",type:"city"}
+    ]),{status:200});
   };
   try{
     const data=await findPlaces("Guadalajara prueba geográfica");
