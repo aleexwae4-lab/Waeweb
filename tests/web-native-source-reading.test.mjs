@@ -1,0 +1,41 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
+const css=readFileSync(new URL("../public/styles.css",import.meta.url),"utf8");
+const start=app.indexOf("function createWebSourceReader(item,url)");
+const end=app.indexOf("function renderResult(item, index)",start);
+const reader=app.slice(start,end);
+const result=app.slice(end,app.indexOf("// Image galleries use only original provider records.",end));
+test("organic titles expand native reading instead of an iframe, with explicit navigation alternative",()=>{
+  assert.ok(start>0&&end>start);
+  assert.match(result,/button\(item\.title,\(\)=>webReadingToggle\?\.\(\),"result-title web-result-title"\)/);
+  assert.match(result,/const reader=createWebSourceReader\(item,url\)/);
+  assert.match(result,/meta\.append\(reader\.control\)/);
+  assert.match(result,/if\(webReadingSlot\)card\.append\(webReadingSlot\)/);
+  assert.match(reader,/const slot=element\("section","wae-web-source-reader"\)/);
+  assert.match(reader,/slot\.hidden=true/);
+  assert.match(reader,/function toggle\(\)/);
+  assert.match(reader,/control\.setAttribute\("aria-expanded",String\(open\)\)/);
+  assert.match(reader,/button\("◎ Navegar dentro",\(\)=>openBrowser\(url\)/);
+  assert.match(reader,/external\(url,"↗ Fuente original"/);
+});
+test("source content is on-demand, verified as an excerpt and never fabricated",()=>{
+  assert.match(reader,/if\(url\.startsWith\("https:\/\/"\)\)/);
+  assert.match(reader,/getJSON\("\/api\/web\/preview\?url="\+encodeURIComponent\(url\)/);
+  assert.match(reader,/data\?\.kind!=="source_excerpt"/);
+  assert.match(reader,/data\.url!==canonical\.href/);
+  assert.match(reader,/data\.excerpt\.length<30/);
+  assert.match(reader,/if\(!slot\.isConnected\)return/);
+  assert.match(reader,/recovered=data\.excerpt/);
+  assert.match(reader,/readAloud\(recovered/);
+  assert.match(reader,/data\.disclaimer/);
+  assert.match(reader,/Se conserva el fragmento inicial y el enlace original/);
+  assert.doesNotMatch(reader,/artículo completo recuperado/);
+});
+test("new compact mobile reader stays hidden until requested",()=>{
+  assert.match(css,/\.wae-web-source-reader\[hidden\],\.wae-web-reader-body\[hidden\]\{display:none!important\}/);
+  assert.match(css,/\.result-card\.web-result \.snippet\{display:-webkit-box/);
+  assert.match(css,/\.wae-web-source-reader\{display:flex/);
+  assert.match(css,/@media\(max-width:600px\)\{\.wae-web-source-reader\{padding:10px 11px/);
+});
