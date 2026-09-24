@@ -12,6 +12,7 @@ import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb,githu
 import {registerWebHits} from "./web-preview.mjs";
 import {directorySites,wikidataOfficialSites,navigationalName} from "./site-discovery.mjs";
 import {diagnoseWebIndexes} from "./web-index-diagnostics.mjs";
+import {generalWebIndexAllowed} from "./web-source-planner.mjs";
 import {rustPackageIntentTerms,rustPublicCrates,CRATES_SOURCE} from "./rust-package-discovery.mjs";
 import {npmPackageIntentTerms,npmPublicPackages} from "./package-discovery.mjs";
 import {gitlabRepositoryIntentTerms,gitlabPublicRepositories,GITLAB_SOURCE} from "./gitlab-discovery.mjs";
@@ -550,9 +551,11 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
            ? [["WAE WEB · directorio",()=>directorySites(q)]]
            : [["Wikidata · sitios web",()=>wikidataOfficialSites(q)]])
          : []),
-       ["Brave", () => braveSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
-       ["Google", () => googleSearch(spec.site ? q + " site:" + spec.site : q,"web",page)],
-       ...(!spec.source||spec.source==="searxng"
+       ...(generalWebIndexAllowed(spec.source,"Brave")
+         ? [["Brave",()=>braveSearch(spec.site?q+" site:"+spec.site:q,"web",page)]]:[]),
+       ...(generalWebIndexAllowed(spec.source,"Google")
+         ? [["Google",()=>googleSearch(spec.site?q+" site:"+spec.site:q,"web",page)]]:[]),
+       ...(generalWebIndexAllowed(spec.source,"SearXNG")
          ? [["SearXNG",()=>searxngWeb(spec.site?q+" site:"+spec.site:q,page)]]:[]),
        ...(page===1&&technicalWebQuery(q,spec.site,spec.source)?[
          ...((!spec.source||spec.source==="stackoverflow")&&platformAllowed("stackoverflow.com")
