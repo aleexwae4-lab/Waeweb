@@ -44,6 +44,8 @@ if(!ready){
     ["/api/capabilities",r=>r.marker&&r.body?.mapsEnabled===true&&r.body?.previewMode===true],
     ["/api/maps?q=20.6767%2C-103.3475",r=>r.marker&&r.body?.results?.[0]?.precision==="coordinate"],
     ["/api/translate/capabilities",r=>r.marker&&Array.isArray(r.body?.languages)],
+    ["/api/encyclopedia/summary?pageid=invalid",r=>
+      r.status===400&&r.marker&&r.body?.code==="invalid_pageid"],
     ["/native-map.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("createNativeMap")],
     ["/translator.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("Reconectar")],
     ["/voice-reader.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&
@@ -57,14 +59,16 @@ if(!ready){
       r.body.includes("/api/web/preview?url=")&&
       r.body.includes("Panorama de fuentes para esta búsqueda")&&
       r.body.includes("wae-source-panorama")&&
-      r.body.includes("renderSummary(data)")],
+      r.body.includes("renderSummary(data)")&&
+      r.body.includes("function encyclopediaWidget(item)")&&
+      r.body.includes("/api/encyclopedia/summary?pageid=")],
     ["/book-gallery.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("renderBookCard")],
     ["/book-experience.js",r=>r.mime.includes("javascript")&&typeof r.body==="string"&&r.body.includes("openBookDetail")],
     ["/book-experience.css",r=>r.mime.includes("text/css")&&typeof r.body==="string"&&r.body.includes("wae-library-grid")]
   ];
   for(const[path,validate]of checks){
     const r=await request(path);
-    const good=r.ok&&validate(r);
+    const good=(r.ok||path.includes("/api/encyclopedia/summary?pageid=invalid"))&&validate(r);
     console.log(good?"LIVE PASS":"LIVE FAIL",path,"HTTP",r.status,
       r.marker?"WAEWEB API":"no API marker",r.mime);
     if(!good)process.exitCode=1;
@@ -87,8 +91,11 @@ if(!ready){
         ["limited","specialized"].includes(general.body?.webCoverage);
       const specialist=Array.isArray(items)&&items.length>0&&
         general.body?.webCoverage==="specialized"&&
-        items.every(item=>["Hacker News · web abierta","WAE Index local · HN"].includes(item.source)&&
-          /^https?:/i.test(item.url||"")&&!/wikimedia|wikipedia|wikidata/i.test(item.source));
+        items.every(item=>["Hacker News · web abierta","WAE Index local · HN",
+          "GitHub · repositorios públicos"].includes(item.source)&&
+          /^https?:/i.test(item.url||"")&&!/wikimedia|wikipedia|wikidata/i.test(item.source)&&
+          (item.source!=="GitHub · repositorios públicos"||
+            /^https:\/\/github\.com\/[^/]+\/[^/]+\/?$/.test(item.url)));
       const honest=general.ok&&general.marker&&(noHits||specialist);
       console.log(honest?"LIVE PASS":"LIVE FAIL","general web without general index",
         "HTTP",general.status,"count",items?.length??null,
