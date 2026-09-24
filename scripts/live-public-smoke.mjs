@@ -1,3 +1,4 @@
+import {webResultKind} from "../server/intelligence.mjs";
 // Checks the REAL public domain after a Git-source production deployment.
 // No preview bypasses, no cookies or secrets; 404/401 are failures.
 const base=process.env.WAEWEB_BASE_URL||"https://waeweb.onrender.com";
@@ -103,13 +104,23 @@ if(!ready){
       "&type=all&fresh=1");
     const first=navigation.body?.results?.[0];
     const host=first?.url?new URL(first.url).hostname.replace(/^www\./,""):null;
+    const rows=navigation.body?.results||[];
+    const coverage=navigation.body?.searchCoverage;
+    const kinds=rows.map(webResultKind);
+    const order={named_site:0,web_page:1,encyclopedia:2};
+    const webFirst=kinds.every((kind,i)=>i===0||
+      order[kinds[i-1]]<=order[kind]);
+    const honestCounts=coverage?.navigationalSites===kinds.filter(k=>k==="named_site").length&&
+      coverage?.webPages===kinds.filter(k=>k==="web_page").length&&
+      coverage?.encyclopediaPages===kinds.filter(k=>k==="encyclopedia").length;
     const good=navigation.ok&&navigation.marker&&
       navigation.body?.type==="all"&&first?.siteLink===true&&
       host===expectedHost&&
-      navigation.body?.searchCoverage?.navigationalSites>=1;
+      coverage?.navigationalSites>=1&&webFirst&&honestCounts;
     console.log(good?"LIVE PASS":"LIVE FAIL","real website navigation",query,
       "HTTP",navigation.status,"firstHost",host,
-      "generalIndexes",navigation.body?.searchCoverage?.generalIndexes?.length??null);
+      "generalIndexes",coverage?.generalIndexes?.length??null,
+      "webPages",coverage?.webPages??null,"encyclopediaPages",coverage?.encyclopediaPages??null);
     if(!good)process.exitCode=1;
   }
   // Provider readiness must be checked on the deployed runtime, never
