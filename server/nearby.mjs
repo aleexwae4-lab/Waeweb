@@ -14,7 +14,9 @@ const cache=new Map();
 export async function searchNearby({query,latitude,longitude},transport=fetch){
   const intent=nearbyIntent(query),lat=Number(latitude),lon=Number(longitude);
   if(!intent)throw new NearbyError("Consulta de lugares no reconocida.");
-  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)
+  if(latitude===null||latitude===undefined||longitude===null||longitude===undefined||
+    latitude===""||longitude===""||!Number.isFinite(lat)||!Number.isFinite(lon)||
+    Math.abs(lat)>90||Math.abs(lon)>180)
     throw new NearbyError("Necesitamos una ubicación autorizada y válida.");
   const key=[intent.category,lat.toFixed(3),lon.toFixed(3)].join(":");
   const cached=cache.get(key);
@@ -44,7 +46,8 @@ export async function searchNearby({query,latitude,longitude},transport=fetch){
   const seen=new Set(),results=[];
   for(const e of parsed.elements){
     const a=e.lat??e.center?.lat,b=e.lon??e.center?.lon;
-    if(!Number.isFinite(a)||!Number.isFinite(b)||!Number.isInteger(e.id))continue;
+    if(!Number.isFinite(a)||!Number.isFinite(b)||!Number.isInteger(e.id)||
+      !["node","way","relation"].includes(e.type))continue;
     const name=String(e.tags?.name??"").trim();
     if(!name||distance(a,b)>3500)continue;
     const id=e.type+":"+e.id;
