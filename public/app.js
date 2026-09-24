@@ -577,7 +577,12 @@ function createWebSourceReader(item,url){
     },"wae-web-reader-action wae-web-reader-recover");
     actions.append(recover);
   }
-  actions.append(button("◎ Navegar dentro",()=>openBrowser(url),
+  // A normal browser tab cannot bypass a third-party iframe restriction.
+  // Keep one useful navigation action rather than offering a dead embedded
+  // view alongside the same original website.
+  if(siteVisitMode(url,window.waeDesktop?.isNative===true)==="original")
+    actions.append(external(url,"↗ Visitar sitio original","wae-web-reader-action"));
+  else actions.append(button("◎ Navegar dentro",()=>openBrowser(url),
       "wae-web-reader-action"),
     external(url,"↗ Fuente original","wae-web-reader-action"));
   slot.append(actions,status,body);
@@ -2226,8 +2231,9 @@ async function performSearch(query, type = "all", push = true, collection = "web
       .then(preview=>{
         if(fullSearchFinished||signal.aborted||sequence!==state.sequence||
           preview?.kind!=="specialist_web_preview"||
-          !["hacker_news_story_links","public_technical_and_story_links",
-            "public_code_and_story_links","public_rust_package_links"].includes(preview.scope)||
+          !["hacker_news_story_links","public_specialist_story_links",
+            "public_technical_and_story_links","public_code_and_story_links",
+            "public_rust_package_links","verified_local_web_links_only"].includes(preview.scope)||
           preview.completeSearch!==false||!Array.isArray(preview.results))return;
         earlyPages=preview.results.slice(0,8).filter(item=>
           ["Hacker News · web abierta","WAE Index local · HN",
