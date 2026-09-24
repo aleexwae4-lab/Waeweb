@@ -50,7 +50,7 @@ export function indexLinkedPage(hit,now=Date.now()){
 }
 // Bounded BM25 on genuine metadata / robots-permitted content only.
 // This is NOT a global web ranking engine: the local corpus is 500 volatile docs.
-function bag(value){const counts=new Map();for(const word of (fold(value).match(/[\\p{L}\\p{N}]{3,}/gu)||[])){
+function bag(value){const counts=new Map();for(const word of (fold(value).match(/[\p{L}\p{N}]{3,}/gu)||[])){
  counts.set(word,(counts.get(word)||0)+1);}return counts;}
 export function rankLocalBM25(items,query){
  const terms=tokenise(query);if(!terms.length||items.length<2)return [...items];
