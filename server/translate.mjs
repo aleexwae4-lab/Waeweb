@@ -11,6 +11,7 @@ let quota={provider:null,until:0};
 const remainingQuota=provider=>quota.provider===provider
   ?Math.max(0,Math.ceil((quota.until-Date.now())/1000)):0;
 function quotaSeconds(header){
+  if(header==null||String(header).trim()==="")return QUOTA_DEFAULT_SECONDS;
   const parsed=Number(header);
   if(Number.isFinite(parsed)&&parsed>=0)return Math.max(30,Math.min(QUOTA_MAX_SECONDS,Math.ceil(parsed)));
   const date=Date.parse(String(header||""));
