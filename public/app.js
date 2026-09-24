@@ -916,9 +916,11 @@ function renderSummary(data) {
   answer.replaceChildren();
   if (!data.brief?.notes?.length) return;
   const notes = data.brief.notes;
-  const card = element("section", "answer-card");
+  const card = element("section", "answer-card wae-source-panorama");
   append(card, element("p", "eyebrow", "◈ WAE Research Core · Evidencias rastreables"),
     element("h2", "", "Panorama de fuentes para esta búsqueda"),
+    element("p", "wae-panorama-intro",
+      "Resumen extractivo construido únicamente con fragmentos devueltos por las fuentes. No es una respuesta generada ni una verificación independiente."),
     element("p", "research-disclaimer", data.brief.disclaimer));
   const noteList = element("ol", "brief-notes");
   notes.forEach((note, i) => {
@@ -926,9 +928,17 @@ function renderSummary(data) {
     if (!url) return;
     const li = element("li", "brief-note");
     const head = element("div", "brief-title");
-    append(head, element("span", "tag", String(i + 1) + " · " + note.source), external(url, note.title, "brief-link"));
+    const source=element("span","tag",String(i + 1)+" · "+note.source);
+    const title=button(note.title,()=>openBrowser(url),"brief-link wae-panorama-title");
+    title.title="Explorar esta fuente dentro de WAE WEB";
+    append(head,source,title);
     append(li, head, element("p", "", note.statement));
     if (note.date) li.append(element("span", "tag", formatDate(note.date)));
+    const noteActions=element("div","wae-panorama-note-actions");
+    noteActions.append(
+      button("◎ Explorar aquí",()=>openBrowser(url),"wae-panorama-action"),
+      external(url,"↗ Origen","wae-panorama-action"));
+    li.append(noteActions);
     noteList.append(li);
   });
   card.append(noteList);
@@ -1996,6 +2006,9 @@ async function performSearch(query, type = "all", push = true, collection = "web
     }
     if (sequence !== state.sequence) return;
     renderData(data);
+    // Research and Knowledge expose a compact, cited panorama above their
+    // organic results. It is deliberately extractive: no generated claims.
+    if (["knowledge","research"].includes(type)) renderSummary(data);
   } catch (e) {
     if (e.name === "AbortError" || sequence !== state.sequence) return;
     stats.textContent = "No se pudo completar la consulta.";
