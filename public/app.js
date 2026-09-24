@@ -2160,7 +2160,7 @@ async function performSearch(query, type = "all", push = true, collection = "web
         ?"◎ Sitio declarado en Wikidata · Otras páginas en recuperación…"
         :earlySite
           ?"◎ Sitio conocido disponible · Otras páginas en recuperación…"
-          :"◎ Páginas publicadas en Hacker News · Búsqueda completa en curso…");
+          :"◎ Enlaces de fuentes públicas · Búsqueda completa en curso…");
     note.setAttribute("role","status");
     resultsContainer.replaceChildren(note,...cards);
     stats.textContent=earlyPages.length
@@ -2180,17 +2180,18 @@ async function performSearch(query, type = "all", push = true, collection = "web
           showProgressiveWebResults();
         }).catch(()=>{});
     }
-    // Independent public story-link metadata, shared with the full federated
-    // search on the server. No Wikipedia-only preview or duplicate provider
-    // request. An outage here cannot block or rewrite the full result.
+    // Source-attributed public story links and, for focused technical
+    // searches, documentation and community Q&A. Calls are shared with the
+    // federated search; no synthetic domains or general-index claims.
     void getJSON("/api/search?q="+encodeURIComponent(q)+"&type=all&quick=1",signal)
       .then(preview=>{
         if(fullSearchFinished||signal.aborted||sequence!==state.sequence||
           preview?.kind!=="specialist_web_preview"||
-          preview.scope!=="hacker_news_story_links"||
+          !["hacker_news_story_links","public_technical_and_story_links"].includes(preview.scope)||
           preview.completeSearch!==false||!Array.isArray(preview.results))return;
-        earlyPages=preview.results.slice(0,4).filter(item=>
-          ["Hacker News · web abierta","WAE Index local · HN"].includes(item.source)&&
+        earlyPages=preview.results.slice(0,6).filter(item=>
+          ["Hacker News · web abierta","WAE Index local · HN",
+            "Stack Overflow · comunidad","MDN Web Docs · documentación"].includes(item.source)&&
           safeUrl(item.url)&&item.title);
         earlyPagesShown=earlyPages.length>0;
         if(earlyPagesShown)showProgressiveWebResults();

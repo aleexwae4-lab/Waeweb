@@ -83,7 +83,21 @@ export const technicalWebQuery=(query,site=null,source=null)=>
   ["stackoverflow","superuser","mdn"].includes(source)||
   ["stackoverflow.com","superuser.com","developer.mozilla.org"].includes(site)||
   TECH.test(query);
-export async function stackExchangeWeb(query,site="stackoverflow"){
+// Concurrent first-page and complete SERP requests reuse the SAME public
+// technical-source call. Completed results and failures are not cached here.
+const technicalRequests=new Map();
+function shareTechnical(key,run){
+  if(technicalRequests.has(key))return technicalRequests.get(key);
+  const task=run();
+  technicalRequests.set(key,task);
+  void task.then(()=>{if(technicalRequests.get(key)===task)technicalRequests.delete(key);},
+    ()=>{if(technicalRequests.get(key)===task)technicalRequests.delete(key);});
+  return task;
+}
+export function stackExchangeWeb(query,site="stackoverflow"){
+  return shareTechnical("stack:"+site+":"+query,()=>loadStackExchangeWeb(query,site));
+}
+async function loadStackExchangeWeb(query,site="stackoverflow"){
   if(!["stackoverflow","superuser"].includes(site))throw Error("invalid_stackexchange_site");
   const url=new URL("https://api.stackexchange.com/2.3/search/advanced");
   url.search=new URLSearchParams({q:query,site,order:"desc",sort:"relevance",pagesize:"8"}).toString();
@@ -137,7 +151,10 @@ export async function githubPublicRepositories(query){
       indexedScope:"repository_metadata_only"}];
   });
 }
-export async function mdnWeb(query){
+export function mdnWeb(query){
+  return shareTechnical("mdn:"+query,()=>loadMdnWeb(query));
+}
+async function loadMdnWeb(query){
   const url=new URL("https://developer.mozilla.org/api/v1/search");
   url.search=new URLSearchParams({q:query,locale:"en-US"}).toString();
   const data=await loadJson(url);

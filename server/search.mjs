@@ -351,34 +351,58 @@ export function dedupe(items) {
   });
 }
 const cache = new Map();
-// A deliberately limited early answer: public Hacker News story links ONLY.
-// No encyclopedias, synthetic domains, or general-index coverage claims.
-// Filters/advanced operators are left to the complete search to avoid
-// displaying provisional results that violate the user's restrictions.
+// A deliberately limited early answer: real public story links and, ONLY
+// for technical intent, source-attributed documentation/questions. Never a
+// general Internet index or synthetic domain. Advanced filters are deferred
+// to the complete search so provisional cards cannot contradict them.
+const FAST_TECHNICAL=/\b(?:javascript|typescript|python|react|node(?:\.js)?|html|css|docker|postgres(?:ql)?|sqlite|sql|npm|prisma|linux|programaci[oó]n|c[oó]digo|backend|frontend)\b/i;
 export async function quickOpenWeb(query){
   const spec=parseQuery(normalizeQuery(query));
   const q=spec.query;
+  const technical=FAST_TECHNICAL.test(q);
   const base={kind:"specialist_web_preview",query:q,
-    scope:"hacker_news_story_links",completeSearch:false,
-    generalIndexes:[],results:[]};
+    scope:technical?"public_technical_and_story_links":"hacker_news_story_links",
+    completeSearch:false,generalIndexes:[],results:[]};
   if(spec.errors.length||q.length<2||spec.site||spec.source||
     spec.after||spec.before||spec.excludes.length||spec.phrases.length)
     return {...base,sourceStatus:"not_applicable"};
   const previous=localWebSearch(q);
-  // The volatile local index contains only previously discovered source
-  // records. Return them immediately rather than waiting for a provider.
-  if(previous.length>=3){
+  // A local-only fast return is safe for ordinary searches; for technical
+  // intent, add independent documentation even if a few old HN links exist.
+  if(!technical&&previous.length>=3){
     const hits=rankResults(dedupe(previous),spec,"all").slice(0,4);
     registerWebHits(hits);
     return {...base,results:hits,sourceStatus:"local_cache"};
   }
-  let discovered=[],sourceStatus="retrieved";
-  try{discovered=await discoverOpenWeb(q);}
-  catch{sourceStatus="unavailable";}
-  const hits=rankResults(dedupe([...discovered,...previous]),spec,"all").slice(0,4);
+  const feeds=[["Hacker News",()=>discoverOpenWeb(q)],
+    ...(technical?[
+      ["Stack Overflow",()=>stackExchangeWeb(q,"stackoverflow")],
+      ["MDN Web Docs",()=>mdnWeb(q)]
+    ]:[])];
+  const settled=await Promise.allSettled(feeds.map(async([name,run])=>
+    ({name,items:await run()})));
+  const found=settled.flatMap(entry=>entry.status==="fulfilled"?
+    entry.value.items:[]);
+  const failures=settled.filter(entry=>entry.status==="rejected").length;
+  // Balance the first screen between independent sources rather than
+  // letting one site crowd out all documentation, without discarding links.
+  const ranked=rankResults(dedupe([...found,...previous].filter(item=>
+    typeof item.url==="string"&&item.url.startsWith("https://"))),spec,"all");
+  const sourceCounts=new Map(),limit=technical?6:4;
+  const hits=ranked.filter(item=>{
+    const count=sourceCounts.get(item.source)||0;
+    if(count>=2&&technical)return false;
+    sourceCounts.set(item.source,count+1);
+    return true;
+  }).slice(0,limit);
   registerWebHits(hits);
-  return {...base,results:hits,sourceStatus:hits.length?sourceStatus:
-    sourceStatus==="unavailable"?"unavailable":"no_match"};
+  const sourceStatus=hits.length?"retrieved":
+    failures===feeds.length?"unavailable":"no_match";
+  return {...base,results:hits,sourceStatus,
+    retrievedSources:feeds.filter(([,],i)=>settled[i].status==="fulfilled")
+      .map(([name])=>name),
+    failedSources:feeds.filter(([,],i)=>settled[i].status==="rejected")
+      .map(([name])=>name)};
 }
 export async function search(query, type = "all", { fresh = false, page = 1, collection = "web", newsWindow = "7d" } = {}) {
   const spec = parseQuery(normalizeQuery(query));
