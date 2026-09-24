@@ -502,7 +502,10 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     if (entry.status === "rejected") errors.push(sources[i][0]);
     else if (entry.value.items === null) available.push(sources[i][0] + " no configurado");
     else {
-      available.push(entry.value.name);
+      // An empty named-site lookup must not masquerade as web coverage.
+      if(entry.value.items.length ||
+        !["WAE WEB · directorio","Wikidata · sitios web"].includes(entry.value.name))
+        available.push(entry.value.name);
       results.push(...entry.value.items);
       if(selected==="all" && page<5 && (
         (entry.value.items.hasMorePage ?? (
