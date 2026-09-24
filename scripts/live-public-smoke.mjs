@@ -96,6 +96,25 @@ if(!ready){
       "HTTP",instant.status,"host",actualHost);
     if(!valid)process.exitCode=1;
   }
+  // The remote early lookup must expose genuine P856 provenance when it
+  // succeeds. Wikidata may time out or have no record: do not fail live CI
+  // merely for an independent external-source outage.
+  const unknown=await request("/api/search?nav=1&type=all&q="+
+    encodeURIComponent("Spotify oficial"));
+  const candidate=unknown.body?.site;
+  const dynamicGood=unknown.ok&&unknown.marker&&
+    unknown.body?.kind==="named_site_preview"&&
+    unknown.body?.scope==="wikidata_P856_exact_name"&&
+    unknown.body?.completeSearch===false&&
+    (candidate
+      ?candidate.linkBasis==="wikidata_P856"&&
+        /^https:\/\/www\\.wikidata\\.org\/wiki\/Q[1-9]\\d*$/.test(candidate.provenanceUrl||"")&&
+        /^https:\/\//.test(candidate.url||"")
+      :["unavailable","no_match"].includes(unknown.body?.sourceStatus));
+  console.log(dynamicGood?"LIVE PASS":"LIVE FAIL","early P856 named site",
+    candidate?"site with provenance":unknown.body?.sourceStatus||"invalid",
+    "HTTP",unknown.status);
+  if(!dynamicGood)process.exitCode=1;
   // Guard against the reported regression on the ACTUAL public server:
   // searching a named website must return a usable first-page destination,
   // not only a wiki entity or a random repository with that name.
