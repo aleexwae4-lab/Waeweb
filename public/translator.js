@@ -150,7 +150,9 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
         config=info;
         languageOptions(info.languages?.length?info.languages:fallbackLanguages,info.autoDetect===true);
         translate.disabled=false;
-        if(visible)status.textContent=localAvailable()?
+        if(visible)status.textContent=info.quotaLimited?
+          "El servicio externo alcanzó su cuota; prueba el motor local si está disponible. "+
+          "El acceso se podrá reintentar después.":localAvailable()?
           "Traducción local opcional · servicio "+(info.available?"conectado.":"sin configurar."):
           info.available?labelProvider(info)+" listo para traducir.":
             "Servicio no configurado. Puedes volver a comprobar la conexión.";
@@ -227,9 +229,12 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
       if(!result){
         if(!config?.available)await bounded(()=>loadConfig(true),6500,signal);
         if(!config?.available)
-          throw new Error(localError?
-            "No hay un motor disponible. Reconecta o prueba otro par de idiomas.":
-            "Servicio sin conexión. Pulsa ↻ Reconectar.");
+          throw new Error(config?.quotaLimited?
+            "El proveedor alcanzó su cuota. El texto sigue en el editor; "+
+            "puedes usar el motor local si lo admite tu navegador.":
+            localError?
+              "No hay un motor disponible. Reconecta o prueba otro par de idiomas.":
+              "Servicio sin conexión. Pulsa ↻ Reconectar.");
         const bytes=new TextEncoder().encode(text).length;
         if(bytes>config.maxBytes)throw new Error("El servicio admite "+config.maxBytes+
           " bytes; reduce el texto o utiliza el motor local.");
@@ -241,6 +246,12 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
           }),TRANSLATE_TIMEOUT_MS,signal);
         }catch(providerError){
           const quota=/HTTP 429|límite|limite|cuota|quota/i.test(providerError.message||"");
+          if(quota){
+            // Refresh quota state without changing the result box, focus or
+            // language selection. The provider is not described as ready.
+            void getJSON("/api/translate/capabilities",signal)
+              .then(info=>{if(id===sequence)config=info;}).catch(()=>{});
+          }
           if(!quota||engine!=="auto"||!localAvailable()||from.value==="auto")
             throw providerError;
           // Provider quotas cannot be bypassed. Retry locally only when the

@@ -241,6 +241,24 @@ if(!ready){
       own?"WAEWEB API":"no API marker",
       "result",valid?"nonempty translation":
         providerQuota?"external MyMemory quota; no translation claimed":"translation unavailable");
+    // If the free upstream exhausted its quota, production must expose a
+    // truthful cooldown and Retry-After; repeated public checks should not
+    // trigger new upstream requests pretending the provider is ready.
+    if(providerQuota){
+      const capability=await request("/api/translate/capabilities");
+      const cooldown=Number(response.headers.get("retry-after"));
+      const circuitGood=capability.ok&&capability.marker&&
+        capability.body?.configured===true&&
+        capability.body?.available===false&&
+        capability.body?.quotaLimited===true&&
+        Number(capability.body?.retryAfterSeconds)>0&&
+        Number.isInteger(cooldown)&&cooldown>0;
+      console.log(circuitGood?"LIVE PASS":"LIVE FAIL",
+        "translator quota circuit","configured",capability.body?.configured,
+        "quotaLimited",capability.body?.quotaLimited,
+        "retryAfterSeconds",capability.body?.retryAfterSeconds);
+      if(!circuitGood)process.exitCode=1;
+    }
     // Failure of the external free provider is visible and should not mark
     // the WAE WEB deployment broken. A WAE-side rate limit still fails CI.
     if(!valid&&!providerQuota)process.exitCode=1;

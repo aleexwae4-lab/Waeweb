@@ -577,7 +577,10 @@ export async function handler(req, res) {
     } catch (error) {
       if (error instanceof GeocodeError)return write(res,error.status,{error:error.message,code:error.code});
       if (error instanceof DirectionsError)return write(res,error.status,{error:error.message,code:error.code});
-      if (error instanceof TranslateError) return write(res,error.status,{error:error.message,code:error.code});
+      if (error instanceof TranslateError) return write(res,error.status,
+        {error:error.message,code:error.code,
+          ...(error.retryAfterSeconds?{retryAfterSeconds:error.retryAfterSeconds}:{})},
+        error.retryAfterSeconds?{"retry-after":String(error.retryAfterSeconds)}:{});
       if (error instanceof MapsError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof BillingError) return write(res, error.status, { error: error.message, code: error.code });
       if (error instanceof MarketplaceError) return write(res,error.status,{error:error.message,code:error.code});

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import {translatorConfig,publicTranslateConfig,translateText,TranslateError} from "../server/translate.mjs";
+import {translatorConfig,publicTranslateConfig,translateText,TranslateError,resetTranslationCooldown} from "../server/translate.mjs";
 import api from "../api/translate.js";
 import {handler} from "../server/index.mjs";
 const keys=["WAE_TRANSLATE_PROVIDER","WAE_TRANSLATE_URL","WAE_TRANSLATE_API_KEY","WAE_TRANSLATE_ALLOW_LOCAL","WAE_PREVIEW_MODE","VERCEL_ENV"];
@@ -58,6 +58,7 @@ test("provider failure and quota fail honestly",async()=>{
     process.env.WAE_TRANSLATE_PROVIDER="mymemory";
     globalThis.fetch=async()=>new Response("{}",{status:429});
     await assert.rejects(translateText({text:"Hola",source:"es",target:"en"}),e=>e.code==="provider_quota");
+    resetTranslationCooldown();
     globalThis.fetch=async()=>new Response(JSON.stringify({responseStatus:200,responseData:{}}),{status:200});
     await assert.rejects(translateText({text:"Hola",source:"es",target:"en"}),e=>e.code==="provider_unavailable");
   }finally{restore(old);globalThis.fetch=fetchOld;}
