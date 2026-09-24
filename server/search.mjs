@@ -1,4 +1,4 @@
-import { parseQuery, rankResults, researchBrief } from "./intelligence.mjs";
+import { parseQuery, rankResults, researchBrief, webResultKind } from "./intelligence.mjs";
 import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResults, peertubeEmbed} from "./video-discovery.mjs";
 import {internetArchiveVideos} from "./archive-videos.mjs";
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
@@ -537,6 +537,11 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   }
   const imageRanked=selected==="images"
     ?rankImageResults(rankResults(labelPinterestImages(results),spec,selected),q):null;
+  const rankedItems=selected==="images"?imageRanked.results
+    :selected==="news"
+      ?rankNewsResults(rankResults(dedupe(results),spec,selected),q,newsWindow)
+      :rankResults(selected==="videos"
+        ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected);
   const payload = {
     query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, page,
@@ -554,11 +559,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
     }:null, mediaCollection: ["images","videos"].includes(selected)
       ? (archive?"commons":"web"):null,
     hasMore: selected==="all" && moreFromProviders,
-    results: selected==="images"?imageRanked.results
-      :selected==="news"
-        ?rankNewsResults(rankResults(dedupe(results),spec,selected),q,newsWindow)
-        :rankResults(selected==="videos"
-          ?dedupeVideoResults(dedupe(results)):dedupe(results), spec, selected),
+    results: rankedItems,
     sources: available,
     searchCoverage:selected==="all"?{
       generalIndexes:["Brave","Google","SearXNG"].filter(name=>available.includes(name)),
@@ -567,7 +568,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
         .filter(name=>available.includes(name)),
       unconfigured:sources.map(([name])=>name).filter(name=>available.includes(name+" no configurado")),
       failed:errors,inlineExcerpt:true,entireWebIndexed:false,
-      navigationalSites:results.filter(item=>item.siteLink===true).length,
+      navigationalSites:rankedItems.filter(item=>webResultKind(item)==="named_site").length,
+      webPages:rankedItems.filter(item=>webResultKind(item)==="web_page").length,
+      encyclopediaPages:rankedItems.filter(item=>webResultKind(item)==="encyclopedia").length,
       generalIndexDiagnosis
     }:null,
     newsCoverage:selected==="news"?{
