@@ -2117,6 +2117,7 @@ async function performSearch(query, type = "all", push = true, collection = "web
   const signal = state.controller.signal;
   const sequence = ++state.sequence;
   state.query = q; state.type = type;
+  state.data=null;
   state.selectedSource = "";
   state.visibleCount = 10;
   state.readingVisibleCount = 12;
@@ -2145,6 +2146,26 @@ async function performSearch(query, type = "all", push = true, collection = "web
   stats.textContent = "Consultando fuentes reales…";
   panel.replaceChildren(); answer.replaceChildren(); weatherSlot.replaceChildren();
   resultsContainer.replaceChildren(stateCard("Buscando información", "Conectando con las fuentes disponibles.", true));
+  let fullSearchFinished=false,earlySiteShown=false;
+  if(type==="all"&&collection==="web"&&q.length<=85){
+    // An independently bounded local lookup may show a verified known URL
+    // while the complete federated request is still recovering other sources.
+    // Never relabel this single directory hit as a general web index.
+    void getJSON("/api/search?q="+encodeURIComponent(q)+"&type=all&nav=1",signal)
+      .then(preview=>{
+        if(fullSearchFinished||signal.aborted||sequence!==state.sequence||
+          preview?.kind!=="named_site_preview"||preview.completeSearch!==false||
+          preview.site?.siteLink!==true||!safeUrl(preview.site.url))return;
+        const card=renderResult(preview.site,0);
+        if(!card)return;
+        const note=element("p","wae-instant-site-status",
+          "◎ Sitio conocido disponible · Recuperando más fuentes…");
+        note.setAttribute("role","status");
+        resultsContainer.replaceChildren(note,card);
+        stats.textContent="Sitio reconocido · La búsqueda completa continúa.";
+        earlySiteShown=true;
+      }).catch(()=>{}); // The complete search never depends on this optional hint.
+  }
   // Weather is an independent public API; a search provider failure must not
   // suppress the weather card or misreport it as an invalid vault credential.
   if (type === "all") void renderWeather(q,signal,sequence);
@@ -2180,12 +2201,21 @@ async function performSearch(query, type = "all", push = true, collection = "web
       data.fetchedAt = new Date().toISOString();
     }
     if (sequence !== state.sequence) return;
+    fullSearchFinished=true;
     renderData(data);
     // Research and Knowledge expose a compact, cited panorama above their
     // organic results. It is deliberately extractive: no generated claims.
     if (["knowledge","research"].includes(type)) renderSummary(data);
   } catch (e) {
+    fullSearchFinished=true;
     if (e.name === "AbortError" || sequence !== state.sequence) return;
+    if(earlySiteShown){
+      // Keep a real destination accessible when an unrelated provider fails.
+      stats.textContent="Sitio disponible · No se completó la búsqueda adicional.";
+      const note=resultsContainer.querySelector(".wae-instant-site-status");
+      if(note)note.textContent="◎ Sitio conocido disponible · Otras fuentes no respondieron.";
+      return;
+    }
     stats.textContent = "No se pudo completar la consulta.";
     resultsContainer.replaceChildren(type==="index"||type==="businesses"
       ?stateCard("Consulta no disponible",e.message)
