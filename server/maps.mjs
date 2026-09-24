@@ -1,85 +1,72 @@
-// Public, opt-in geographical lookup. Open-Meteo resolves populated places,
-// not street-level addresses or verified business listings.
-const cache = new Map();
-const TTL_MS = 15 * 60_000;
-const COORDS = /^\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*[,;]\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*$/;
-export class MapsError extends Error {
-  constructor(message, status = 400, code = "map_query_invalid") {
-    super(message); this.status = status; this.code = code;
-  }
-}
-export function mapCoordinates(value) {
-  const match = String(value ?? "").match(COORDS);
-  if (!match) return null;
-  const latitude = Number(match[1]), longitude = Number(match[2]);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
-      latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
+// WAEWEB P0 maps: free/open geographic search.
+// Nominatim resolves addresses + named POIs. Results are cached aggressively to
+// respect the public service policy; production scale should use a self-hosted
+// instance or another OSM-compatible endpoint. No paid API is required.
+const cache=new Map();
+const TTL_MS=30*60_000;
+const COORDS=/^\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*[,;]\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*$/;
+const HEADERS={accept:"application/json","user-agent":"WAEWEB/1.0 (https://github.com/aleexwae4-lab/Waeweb)"};
+export class MapsError extends Error{constructor(message,status=400,code="map_query_invalid"){super(message);this.status=status;this.code=code;}}
+export function mapCoordinates(value){
+  const match=String(value??"").match(COORDS);if(!match)return null;
+  const latitude=Number(match[1]),longitude=Number(match[2]);
+  if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||latitude < -90||latitude > 90||longitude < -180||longitude > 180)
     throw new MapsError("Coordenadas fuera de rango: latitud -90 a 90 y longitud -180 a 180.");
-  return { latitude, longitude };
+  return {latitude,longitude};
 }
-function usablePosition(latitude, longitude) {
-  return typeof latitude === "number" && Number.isFinite(latitude) && latitude >= -90 &&
-    latitude <= 90 && typeof longitude === "number" && Number.isFinite(longitude) &&
-    longitude >= -180 && longitude <= 180;
+const finite=n=>Number.isFinite(Number(n));
+const sanitize=value=>String(value??"").replace(/<[^>]*>/g," ").replace(/[\u0000-\u001F\u007F]/g," ").replace(/\s+/g," ").trim();
+const kindOf=x=>x.type||x.addresstype||x.class||"place";
+const category=x=>[x.category||x.class,x.type||x.addresstype].filter(Boolean).join(" · ");
+function normalizeNominatim(item,index){
+  if(!finite(item.lat)||!finite(item.lon))return null;
+  const latitude=Number(item.lat),longitude=Number(item.lon);
+  if(Math.abs(latitude)>90||Math.abs(longitude)>180)return null;
+  const display=sanitize(item.display_name).slice(0,280);
+  const named=sanitize(item.name||item.namedetails?.name||display.split(",")[0]).slice(0,140);
+  if(!named)return null;
+  const address=item.address&&typeof item.address==="object"?item.address:{};
+  const locality=sanitize(address.city||address.town||address.village||address.municipality||address.county);
+  const state=sanitize(address.state),country=sanitize(address.country);
+  const detail=display||[named,locality,state,country].filter(Boolean).join(", ");
+  const osmType=String(item.osm_type||"").toLowerCase(),osmId=String(item.osm_id||"");
+  return {id:(osmType&&osmId?osmType+":"+osmId:String(index)+":"+latitude.toFixed(6)+":"+longitude.toFixed(6)),
+    name:named,detail,latitude,longitude,precision:["house","building","amenity","shop","office","tourism","leisure"].includes(kindOf(item))?"place_point":"geocoded",
+    category:category(item)||null,osmType:osmType||null,osmId:osmId||null,
+    importance:finite(item.importance)?Number(item.importance):null,
+    boundingBox:Array.isArray(item.boundingbox)?item.boundingbox.map(Number).filter(Number.isFinite):null};
 }
-export async function findPlaces(input, { fresh = false } = {}) {
-  if (typeof input !== "string" || input.length > 180)
-    throw new MapsError("La consulta geográfica supera 180 caracteres.");
-  const query = input.replace(/<[^>]*>/g," ").replace(/[\u0000-\u001F]/g," ").replace(/\s+/g," ").trim();
-  if (query.length < 2) throw new MapsError("Escribe una ciudad o dos coordenadas separadas por coma.");
-  const pair = mapCoordinates(query);
-  if (pair) return {
-    query, source: "Coordenadas proporcionadas", precision: "coordinate",
-    results: [{ id: "coordinates", name: "Ubicación por coordenadas",
-      detail: "Punto indicado por el usuario · sin dirección verificada",
-      ...pair, precision: "coordinate" }]
-  };
-  // An apparent coordinate pair with out-of-range values may not silently
-  // become a place name; mapCoordinates above rejects it.
-  const key = query.toLocaleLowerCase("es");
-  const old = cache.get(key);
-  if (!fresh && old && old.expires > Date.now()) return old.value;
-  const endpoint = new URL("https://geocoding-api.open-meteo.com/v1/search");
-  endpoint.search = new URLSearchParams({ name: query, count: "8", language: "es", format: "json" }).toString();
-  let data;
-  try {
-    const response = await fetch(endpoint, {
-      headers: { accept: "application/json", "user-agent": "WAEWEB/1.0 (https://github.com/aleexwae4-lab/Waeweb)" },
-      signal: AbortSignal.timeout(6500)
-    });
-    if (!response.ok) throw new Error("HTTP " + response.status);
-    const raw = await response.text();
-    if (raw.length > 1000000) throw new Error("Respuesta demasiado grande");
-    data = JSON.parse(raw);
-    if (!data || typeof data !== "object") throw new Error("Respuesta vacía");
-  } catch {
-    throw new MapsError("No se pudo consultar el proveedor geográfico. Puedes abrir la búsqueda en OpenStreetMap.", 502, "map_source_unavailable");
-  }
-  const seen = new Set();
-  const results = (Array.isArray(data.results) ? data.results : []).filter(item =>
-    usablePosition(item.latitude, item.longitude) && typeof item.name === "string"
-  ).map(item => {
-    const name = item.name.trim().slice(0, 140);
-    const detail = [item.admin2, item.admin1, item.country].filter(x => typeof x === "string" && x.trim())
-      .filter((part, i, arr) => arr.indexOf(part) === i).join(", ").slice(0, 260);
-    return {
-      id: String(item.id ?? name + ":" + item.latitude + ":" + item.longitude),
-      name, detail, latitude: item.latitude, longitude: item.longitude,
-      precision: "locality_centroid"
-    };
-  }).filter(item => {
-    const id = item.latitude + "," + item.longitude + ":" + item.name;
-    if (!item.name || seen.has(id)) return false;
-    seen.add(id); return true;
-  });
-  const result = {
-    query, source: "Open-Meteo Geocoding", precision: "locality_centroid",
-    attribution: "Localidades de Open-Meteo; cartografía © colaboradores de OpenStreetMap.",
-    results,
-    message: results.length ? null :
-      "No se encontraron localidades coincidentes. Para una dirección específica, usa la búsqueda original de OpenStreetMap."
-  };
-  if (cache.size > 250) cache.clear();
-  cache.set(key, { value: result, expires: Date.now() + (results.length ? TTL_MS : 60_000) });
-  return result;
+async function nominatim(query){
+  const base=(process.env.WAE_NOMINATIM_URL||"https://nominatim.openstreetmap.org").trim().replace(/\/+$/,"");
+  let endpoint;try{endpoint=new URL(base+"/search");}catch{throw new MapsError("El motor geográfico no está configurado correctamente.",503,"map_config_invalid");}
+  endpoint.search=new URLSearchParams({q:query,format:"jsonv2",addressdetails:"1",namedetails:"1",limit:"20",
+    "accept-language":"es-MX,es,en",dedupe:"1",countrycodes:process.env.WAE_MAP_COUNTRY_CODES||"mx"}).toString();
+  let response;
+  try{response=await fetch(endpoint,{headers:HEADERS,signal:AbortSignal.timeout(6000),redirect:"error"});}
+  catch{throw new MapsError("No se pudo consultar el índice geográfico de OpenStreetMap.",502,"map_source_unavailable");}
+  if(response.status===429)throw new MapsError("El índice geográfico está limitando solicitudes. Intenta nuevamente en unos segundos.",429,"map_rate_limited");
+  if(!response.ok)throw new MapsError("El índice geográfico no respondió correctamente.",502,"map_source_unavailable");
+  const raw=await response.text();if(raw.length>900000)throw new MapsError("Respuesta geográfica demasiado grande.",502,"map_invalid_response");
+  let data;try{data=JSON.parse(raw);}catch{throw new MapsError("Respuesta geográfica inválida.",502,"map_invalid_response");}
+  if(!Array.isArray(data))throw new MapsError("Respuesta geográfica inválida.",502,"map_invalid_response");
+  const seen=new Set();
+  return data.map(normalizeNominatim).filter(Boolean).filter(place=>{
+    const key=place.latitude.toFixed(6)+","+place.longitude.toFixed(6)+":"+place.name.toLowerCase();
+    if(seen.has(key))return false;seen.add(key);return true;
+  }).slice(0,12);
+}
+export async function findPlaces(input,{fresh=false}={}){
+  if(typeof input!=="string"||input.length>180)throw new MapsError("La consulta geográfica supera 180 caracteres.");
+  const query=sanitize(input);if(query.length<2)throw new MapsError("Escribe un lugar, negocio, dirección o dos coordenadas.");
+  const pair=mapCoordinates(query);
+  if(pair)return {query,source:"Coordenadas proporcionadas",precision:"coordinate",results:[{id:"coordinates",name:"Ubicación por coordenadas",detail:"Punto indicado por el usuario · sin dirección verificada",...pair,precision:"coordinate"}]};
+  const key=query.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const old=cache.get(key);if(!fresh&&old&&old.expires>Date.now())return old.value;
+  const results=await nominatim(query);
+  const value={query,source:"OpenStreetMap · Nominatim",precision:"mixed",
+    attribution:"Datos © colaboradores de OpenStreetMap · ODbL. Nominatim localiza direcciones, lugares y POI indexados.",
+    results,message:results.length?null:"No se encontraron coincidencias. Añade colonia, ciudad o estado para precisar la búsqueda.",
+    capabilities:{addresses:true,namedPlaces:true,businesses:true,poi:true,routing:false,
+      note:"Las rutas se resuelven por el módulo de direcciones. Para búsquedas masivas de categorías se integrará Overpass con caché."}};
+  if(cache.size>500)cache.clear();cache.set(key,{value,expires:Date.now()+(results.length?TTL_MS:90_000)});return value;
 }
