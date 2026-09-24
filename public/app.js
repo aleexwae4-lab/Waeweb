@@ -2148,10 +2148,10 @@ async function performSearch(query, type = "all", push = true, collection = "web
   panel.replaceChildren(); answer.replaceChildren(); weatherSlot.replaceChildren();
   resultsContainer.replaceChildren(stateCard("Buscando información", "Conectando con las fuentes disponibles.", true));
   let fullSearchFinished=false,earlySiteShown=false;
-  if(type==="all"&&collection==="web"&&q.length<=85){
-    // An independently bounded local lookup may show a verified known URL
-    // while the complete federated request is still recovering other sources.
-    // Never relabel this single directory hit as a general web index.
+  if(type==="all"&&collection==="web"&&q.length<=120){
+    // Source-backed sites can appear while the full search recovers other
+    // sources. A Wikidata P856 site is declared, NOT ownership-verified.
+    // Neither directory nor Wikidata is a general web index.
     void getJSON("/api/search?q="+encodeURIComponent(q)+"&type=all&nav=1",signal)
       .then(preview=>{
         if(fullSearchFinished||signal.aborted||sequence!==state.sequence||
@@ -2159,11 +2159,15 @@ async function performSearch(query, type = "all", push = true, collection = "web
           preview.site?.siteLink!==true||!safeUrl(preview.site.url))return;
         const card=renderResult(preview.site,0);
         if(!card)return;
-        const note=element("p","wae-instant-site-status",
-          "◎ Sitio conocido disponible · Recuperando más fuentes…");
+        const declared=preview.site.linkBasis==="wikidata_P856";
+        const note=element("p","wae-instant-site-status",declared
+          ?"◎ Sitio declarado en Wikidata · Recuperando más fuentes…"
+          :"◎ Sitio conocido disponible · Recuperando más fuentes…");
         note.setAttribute("role","status");
         resultsContainer.replaceChildren(note,card);
-        stats.textContent="Sitio reconocido · La búsqueda completa continúa.";
+        stats.textContent=declared
+          ?"Sitio con procedencia Wikidata · La búsqueda completa continúa."
+          :"Sitio reconocido · La búsqueda completa continúa.";
         earlySiteShown=true;
       }).catch(()=>{}); // The complete search never depends on this optional hint.
   }
