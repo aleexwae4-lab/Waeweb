@@ -46,7 +46,7 @@ export function parsePoiQuery(value){
   const explicit=Boolean(match)||/^(?:negocio|comercio|sucursal|tienda de)\s+/i.test(term);
   const brand=category?null:term.replace(/^(?:negocio|comercio|sucursal|tienda de)\s+/i,"").trim();
   if(!category&&!brands.test(key)&&!explicit)return null;
-  if(locality.length>90||brand.length>70||brand.length<2&&!category)return null;
+  if(locality.length>90||brand?.length>70||!category&&brand.length<2)return null;
   return {query,term:category?category.label:brand,locality,
     category:category?{...category}:null,brand:category?null:brand};
 }
@@ -61,7 +61,7 @@ export function poiOverpassQuery(intent,point){
       ['nwr["shop"]'+around+';'];
     if(value==="pharmacy")selectors.push('nwr["shop"="chemist"]'+around+';');
   }else{
-    const brand=escapeRegex(intent.brand.replace(/[^\p{L}\p{N} .&'-]/gu," ").trim());
+    const brand=escapeRegex(intent.brand.replace(/^oxxos$/i,"Oxxo").replace(/[^\p{L}\p{N} .&'-]/gu," ").trim());
     if(!brand)throw new PoiError("Nombre de negocio inválido.");
     selectors=['nwr["name"~"'+brand+'",i]'+around+';',
       'nwr["brand"~"'+brand+'",i]'+around+';'];
