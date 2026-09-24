@@ -1077,3 +1077,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .news-live-header h2{font-size:21px}
  .knowledge-reading-actions .link-button{flex:0 1 auto}
 }
+
+/* WAE WEB — reading in place, with real-source excerpts and progressive result load. */
+.wae-information-reading[hidden]{display:none!important}
+.wae-information-card.is-reading{border-color:rgba(147,195,255,.58);background:linear-gradient(145deg,#122946,#0b1a2c)}
+.wae-information-card.is-reading .wae-information-snippet{display:block;-webkit-line-clamp:unset;overflow:visible;max-height:none;font-size:13px;line-height:1.75;color:#dde8f6;overflow-wrap:anywhere}
+.wae-information-reading{display:flex;flex-direction:column;gap:7px;margin:10px 0 0;padding:11px 12px;border:1px solid rgba(123,174,240,.28);border-radius:11px;background:rgba(11,29,53,.7)}
+.wae-information-reading-note{font-size:11px;line-height:1.5;color:#acc5e6;margin:0}
+.wae-information-reading-origin{font-size:11px;line-height:1.45;color:#c3d8f2;margin:0;overflow-wrap:anywhere}
+.wae-information-reading-link{display:inline-flex;align-items:center;align-self:flex-start;min-height:36px;padding:7px 10px;border:1px solid rgba(151,199,255,.48);border-radius:9px;background:#20446b;color:#f0f7ff;text-decoration:none;font-size:11px;font-weight:750}
+.wae-information-reading-link:hover{background:#315e91}
+.wae-reading-more{display:block;width:min(100%,410px);margin:14px auto 3px;min-height:40px;padding:8px 15px;border:1px solid rgba(154,197,248,.48);border-radius:24px;background:linear-gradient(125deg,#18375c,#1b2b4b);color:#e4f1ff;font-size:12px;font-weight:750}
+.wae-reading-more:hover{border-color:#b5d7ff;background:#285381}
+@media(max-width:600px){.wae-information-reading{padding:9px 10px}.wae-information-card.is-reading .wae-information-snippet{font-size:12px}.wae-reading-more{min-height:40px;margin-top:10px}}

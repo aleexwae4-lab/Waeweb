@@ -1,0 +1,43 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
+const css=readFileSync(new URL("../public/styles.css",import.meta.url),"utf8");
+const start=app.indexOf("function renderInformationCard(item,index)");
+const end=app.indexOf("function renderResult(item, index)",start);
+const render=app.slice(start,end);
+const data=app.slice(app.indexOf("function renderData(data)"),app.indexOf("async function loadMoreWebResults()"));
+test("news and knowledge titles open truthful in-page excerpt, not a blocked external frame",()=>{
+  assert.ok(start>0&&end>start);
+  assert.match(render,/const title=button\(item\.title,\(\)=>toggleReading\(\)/);
+  assert.match(render,/const open=button\("◎ Leer aquí",\(\)=>toggleReading\(\)/);
+  assert.match(render,/reading\.hidden=!next/);
+  assert.match(render,/card\.classList\.toggle\("is-reading",next\)/);
+  assert.match(render,/open\.setAttribute\("aria-expanded",String\(next\)\)/);
+  assert.match(render,/title\.setAttribute\("aria-expanded",String\(next\)\)/);
+  assert.match(render,/card\.append\(actions,reading\)/);
+  assert.doesNotMatch(render,/const open=button\("◎ Leer aquí",\(\)=>openBrowser\(url\)/);
+});
+test("in-page reader only displays actual item snippet and preserves original URL",()=>{
+  assert.match(render,/if\(item\.snippet\)card\.append\(element\("p","wae-information-snippet",item\.snippet\)\)/);
+  assert.match(render,/Extracto proporcionado por la fuente; no es el artículo ni documento completo/);
+  assert.match(render,/Esta fuente no entregó un extracto/);
+  assert.match(render,/Origen: "\+source/);
+  assert.match(render,/external\(url,"↗ Leer documento completo en la fuente"/);
+  assert.match(render,/function toggleReading/);
+  assert.match(css,/\.wae-information-reading\[hidden\]\{display:none!important\}/);
+  assert.match(css,/\.wae-information-card\.is-reading \.wae-information-snippet\{display:block;-webkit-line-clamp:unset/);
+});
+test("long research, knowledge and news results start at twelve with additive rendering",()=>{
+  assert.match(app,/readingVisibleCount: 12/);
+  assert.match(app,/state\.readingVisibleCount = 12/);
+  assert.match(app,/state\.readingVisibleCount=12/);
+  assert.match(data,/const readingMode=\["news","knowledge","research"\]\.includes\(state\.type\)/);
+  assert.match(data,/state\.results\.slice\(0,state\.readingVisibleCount\)/);
+  assert.match(data,/const end=Math\.min\(start\+12,state\.results\.length\)/);
+  assert.match(data,/cards\.append\(card\)/);
+  assert.match(data,/state\.readingVisibleCount=end/);
+  assert.match(data,/if\(end>=state\.results\.length\)more\.remove\(\)/);
+  assert.doesNotMatch(data,/state\.readingVisibleCount\+=12;\s*renderData\(state\.data\)/);
+  assert.match(css,/\.wae-reading-more\{display:block/);
+});
