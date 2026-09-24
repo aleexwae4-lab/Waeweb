@@ -574,7 +574,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
          ? [[CRATES_SOURCE,()=>rustPublicCrates(rustPackageIntentTerms(q)||q)]]:[]),
        ...(page===1&&(!spec.source||spec.source==="gitlab")&&
          platformAllowed("gitlab.com")&&
-         (gitlabRepositoryIntentTerms(q)||spec.source==="gitlab"&&q.length>=2)
+         (gitlabRepositoryIntentTerms(q)||
+           (spec.source==="gitlab"||spec.site==="gitlab.com")&&q.length>=2)
          ? [[GITLAB_SOURCE,()=>gitlabPublicRepositories(gitlabRepositoryIntentTerms(q)||q)]]:[]),
        ...(page===1&&!spec.source&&!spec.site&&npmPackageIntentTerms(q)
          ? [["npm · paquetes publicados",()=>npmPublicPackages(npmPackageIntentTerms(q))]]:[]),
