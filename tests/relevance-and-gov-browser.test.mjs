@@ -33,7 +33,7 @@ test("Flickr matches ALL meaningful metadata terms instead of unrelated any-tag 
 test("image results require metadata relevance and limit one landing page without collapsing distinct images",()=>{
   assert.equal(imageRelevant({title:"You first",snippet:"Autoría indicada"},"inteligencia artificial"),false);
   assert.equal(imageRelevant({title:"Robot",snippet:"Inteligencia artificial"},"inteligencia artificial"),true);
-  const base={url:"https://album.example.org/ai",snippet:"Inteligencia artificial",source:"Openverse"};
+  const base={url:"https://album.example.org/ai",snippet:"Inteligencia artificial",source:"Flickr · fotos públicas"};
   const items=[
     {...base,title:"You first",image:"https://cdn.example.org/bad.jpg",snippet:"Foto cotidiana"},
     ...Array.from({length:6},(_,i)=>({...base,title:"Inteligencia artificial imagen "+i,
