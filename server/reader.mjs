@@ -149,14 +149,28 @@ export function plainText(value) {
     return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : "";
   }).replace(/\s+/g, " ").trim();
 }
+// Prefer the page's actual article or main content over navigation, cookie
+// notices and site chrome. Preserve paragraph breaks for the native reader.
+function readableBody(html){
+  return String(html).replace(/<!--[\s\S]*?-->/g," ")
+    .replace(/<(head|script|style|noscript|svg|iframe|nav|footer|header|aside|form|dialog|button)\b[^>]*>[\s\S]*?<\/\1\s*>/gi," ")
+    .replace(/<br\b[^>]*\/?>/gi,"\n\n")
+    .replace(/<\/(?:p|div|section|article|main|h[1-6]|li|blockquote|tr)\s*>/gi,"\n\n")
+    .replace(/<[^>]+>/g," ")
+    .split(/\n+/).map(plainText).filter(Boolean).join("\n\n").slice(0,MAX_TEXT);
+}
 export function extractHtml(html) {
-  const raw = String(html);
-  const title = plainText((raw.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i) || [])[1] || "").slice(0, 240);
-  const stripped = raw.replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<(script|style|noscript|svg|iframe|nav|footer|header)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
-    .replace(/<\/(?:p|div|section|article|h[1-6]|li|br)\s*>/gi, "\n")
-    .replace(/<[^>]+>/g, " ");
-  return { title, text: plainText(stripped).slice(0, MAX_TEXT) };
+  const raw=String(html);
+  const title=plainText((raw.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i)||[])[1]||"").slice(0,240);
+  // A short isolated fragment is usually a teaser/card, not the article.
+  // In that case retain the wider page rather than manufacturing an article.
+  const article=(raw.match(/<article\b[^>]*>([\s\S]*?)<\/article\s*>/i)||[])[1];
+  const main=(raw.match(/<main\b[^>]*>([\s\S]*?)<\/main\s*>/i)||[])[1];
+  const articleText=article?readableBody(article):"";
+  const mainText=main?readableBody(main):"";
+  const text=articleText.length>=60?articleText:
+    mainText.length>=60?mainText:readableBody(raw);
+  return {title,text};
 }
 async function checkRobots(url, options) {
   const root = new URL("/robots.txt", url);
