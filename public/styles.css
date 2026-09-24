@@ -1371,3 +1371,41 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .map-explorer>.map-place{margin-top:7px}
 }
 @media(prefers-reduced-motion:reduce){.map-directions-disclosure>summary::after,.map-credits>summary::after{transition:none}}
+
+/* RC55 · one map, source-backed businesses, compact category browsing. */
+.map-explorer .map-category-chips{grid-column:1/-1;display:flex;gap:6px;
+  overflow-x:auto;scrollbar-width:thin;padding:2px 1px 3px;min-width:0}
+.map-explorer .map-category-chip{flex:0 0 auto;min-height:32px;padding:5px 11px;
+  border-radius:99px;border:1px solid rgba(143,192,253,.32);
+  background:rgba(67,111,167,.15);color:#d9edff;font-size:11px;font-weight:700}
+.map-explorer .map-category-chip:hover,.map-explorer .map-category-chip:focus-visible{
+  background:rgba(116,176,244,.28);border-color:#a2d0ff}
+.map-poi-explorer .map-heading h2{font-size:clamp(17px,2.5vw,22px);line-height:1.25}
+.map-poi-explorer .map-description{color:#b9d2ee;line-height:1.45}
+.map-poi-explorer .map-place{border-color:rgba(120,176,242,.32);
+  background:linear-gradient(135deg,rgba(29,63,102,.78),rgba(13,32,57,.9))}
+.map-poi-explorer .map-place-title{color:#f2f8ff;font-weight:760}
+.map-poi-explorer .map-coordinates{font-variant-numeric:tabular-nums}
+.map-poi-results{margin:9px 0 0;border:1px solid rgba(132,180,241,.24);
+  background:rgba(11,29,53,.8);border-radius:13px;overflow:hidden}
+.map-poi-results>summary{cursor:pointer;min-height:43px;padding:10px 13px;
+  display:flex;align-items:center;justify-content:space-between;
+  color:#dceeff;font-size:12px;font-weight:750;list-style:none}
+.map-poi-results>summary::-webkit-details-marker{display:none}
+.map-poi-results>summary::after{content:"⌄";font-size:17px;color:#adc9e8}
+.map-poi-results[open]>summary::after{transform:rotate(180deg)}
+.map-poi-results .map-picks{max-height:230px;overflow:auto;padding:4px 9px 10px;
+  margin:0;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:6px}
+.map-poi-results .map-pick{min-height:38px;padding:8px 11px;line-height:1.35;
+  border-radius:9px;box-shadow:none}
+.map-poi-results .map-pick.is-active{border-color:#aed6ff;
+  background:linear-gradient(125deg,#305a89,#1c3c61)}
+.map-poi-explorer .map-no-match{margin:8px 0;
+  background:rgba(28,61,105,.38);border-color:rgba(155,197,252,.32)}
+@media(max-width:550px){
+ .map-poi-explorer .map-picks{grid-template-columns:1fr;max-height:215px}
+ .map-explorer .map-category-chips{margin-top:0}
+ .map-explorer .map-category-chip{min-height:34px}
+ .map-poi-explorer .map-heading h2{font-size:17px}
+}
+@media(prefers-reduced-motion:reduce){.map-poi-results>summary::after{transition:none}}
