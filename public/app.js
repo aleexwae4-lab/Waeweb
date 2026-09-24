@@ -1889,6 +1889,7 @@ function showDirectionsWithoutLocality({query="",message=""}={}){
     section.append(empty);
   }
   const directions=createDirections({getJSON,element,button,external,copyText,
+    getMapAnchor:()=>mapSearchAnchor,
     onDestinationSelect:place=>{
       if(!validMapPlace(place))return;
       map.setView(place,3);
@@ -1979,6 +1980,7 @@ function renderMapPlaces(data) {
   const map=createNativeMap({onSelectPlace:index=>select(index)});
   activeMap=map;
   const directions=createDirections({getJSON,element,button,external,copyText,
+    getMapAnchor:()=>mapSearchAnchor,
     onDestinationSelect:place=>{
       if(!validMapPlace(place))return;
       mapOverride=place;
