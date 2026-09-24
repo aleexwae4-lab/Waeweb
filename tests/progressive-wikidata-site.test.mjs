@@ -114,7 +114,7 @@ test("unknown-name outage produces an honest optional preview and keeps the norm
 test("progressive UI indicates P856 as declared rather than independently verified",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(app,/q\.length<=120/);
-  assert.match(app,/preview\.site\.linkBasis==="wikidata_P856"/);
-  assert.match(app,/Sitio declarado en Wikidata · Recuperando más fuentes/);
+  assert.match(app,/earlySite\?\.linkBasis==="wikidata_P856"/);
+  assert.match(app,/Sitio declarado en Wikidata · Otras páginas en recuperación/);
   assert.match(app,/fullSearchFinished\|\|signal\.aborted\|\|sequence!==state\.sequence/);
 });
