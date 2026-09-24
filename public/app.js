@@ -1959,10 +1959,11 @@ function renderMapPlaces(data) {
   ];
   for(const [id,label]of poiItems)poiCategory.append(new Option(label,id));
   poiCategory.setAttribute("aria-label","Tipo de comercio cercano");
+  poiCategory.value=poiItems.some(([id])=>id===data.suggestedCategory)?data.suggestedCategory:"oxxo";
   const poiRadius=element("select","map-poi-radius");
   for(const [metres,label]of [["1000","1 km"],["2500","2.5 km"],["5000","5 km"],["10000","10 km"]])
     poiRadius.append(new Option(label,metres));
-  poiRadius.value="2500";
+  poiRadius.value=String(data.radiusMeters&&[1000,2500,5000,10000].includes(data.radiusMeters)?data.radiusMeters:2500);
   poiRadius.setAttribute("aria-label","Radio de búsqueda");
   const poiSubmit=element("button","map-search-submit","Buscar comercios cerca");
   poiSubmit.type="submit";
@@ -1989,6 +1990,11 @@ function renderMapPlaces(data) {
     }finally{poiSubmit.disabled=false;}
   });
   section.append(poiBar);
+  if(data.status==="choose_location")
+    section.append(element("p","map-search-status",data.message+
+      " Los puntos encontrados corresponden a ubicaciones, no a sucursales."));
+  if(data.status==="empty")
+    section.append(element("p","map-search-status",data.message));
   if(data.returnQuery){
     const back=button("← Volver a la ubicación",()=>void performSearch(data.returnQuery,"maps"),"map-action");
     section.append(back);
@@ -2069,6 +2075,29 @@ async function renderMap(query,signal,sequence) {
   resultsContainer.replaceChildren(stateCard("Buscando en el mapa",
     "Consultando lugares, direcciones y establecimientos indexados. No se generan ubicaciones ficticias.",true));
   try {
+    // Natural-language categories use a real OSM location and Overpass rather
+    // than sending "OXXO en Zapopan" as an ambiguous geocoder place name.
+    let nearby=null;
+    try{nearby=await getJSON("/api/poi/search?q="+encodeURIComponent(query),signal);}
+    catch(error){if(error.name==="AbortError")return;}
+    if(sequence!==state.sequence)return;
+    if(nearby?.matched){
+      if(nearby.status==="need_location"||nearby.status==="location_not_found"){
+        resultsContainer.replaceChildren();
+        stats.textContent="Se requiere una ubicación";
+        showDirectionsWithoutLocality({query,message:nearby.message});
+        return;
+      }
+      if(nearby.status==="empty"&&nearby.center){
+        renderMapPlaces({...nearby,results:[{
+          id:"poi-search-center",name:nearby.locationLabel||"Centro de búsqueda",
+          detail:"Punto de referencia · amplía el radio para encontrar negocios",
+          ...nearby.center,precision:"locality_centroid"
+        }]});
+        return;
+      }
+      renderMapPlaces(nearby);return;
+    }
     const [addressResponse,localityResponse]=await Promise.allSettled([
       getJSON("/api/places?q="+encodeURIComponent(query),signal),
       getJSON("/api/maps?q="+encodeURIComponent(query),signal)
