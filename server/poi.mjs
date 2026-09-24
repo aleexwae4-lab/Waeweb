@@ -1,3 +1,4 @@
+import {searchAddress} from "./geocode.mjs";
 // OpenStreetMap Overpass POI discovery. No paid API, no user-supplied query language.
 const cache=new Map(),pending=new Map(),TTL=10*60_000;
 const CATEGORIES=Object.freeze({
@@ -83,4 +84,73 @@ export async function searchPOI(input,{transport=fetch}={}){
  })();
  if(!shared)return task;pending.set(key,task);
  try{return await task;}finally{if(pending.get(key)===task)pending.delete(key);}
+}
+
+
+// Natural-language local intent; deliberately narrow so unknown queries remain
+// normal web/place searches. No location is inferred from IP or server address.
+const LOCAL_TERMS=Object.freeze([
+  ["oxxo",/^oxxos?(?=$|[\s,])/],
+  ["bancos",/^bancos?(?=$|[\s,])/],
+  ["cajeros",/^cajeros?(?: automaticos?)?(?=$|[\s,])/],
+  ["cines",/^cines?(?=$|[\s,])/],
+  ["restaurantes",/^restaurantes?(?=$|[\s,])/],
+  ["gasolineras",/^(?:gasolineras?|gasolina)(?=$|[\s,])/],
+  ["farmacias",/^farmacias?(?=$|[\s,])/],
+  ["supermercados",/^supermercados?(?=$|[\s,])/],
+  ["cafeterias",/^(?:cafeterias?|cafes?)(?=$|[\s,])/],
+  ["hospitales",/^hospitales?(?=$|[\s,])/],
+  ["hoteles",/^hoteles?(?=$|[\s,])/]
+]);
+export function parseLocalPoiIntent(query){
+  if(typeof query!=="string"||query.length>180)return null;
+  const input=query.trim().replace(/\s+/g," ");
+  if(!input)return null;
+  const normalized=fold(input);
+  for(const [category,pattern] of LOCAL_TERMS){
+    const hit=normalized.match(pattern);
+    if(!hit)continue;
+    const rest=input.slice(hit[0].length).replace(/^\s*,\s*/,"").trim()
+      .replace(/^(?:(?:cerca de|cerca del|en|por|de|del|a)\s+)/i,"").trim();
+    const vague=/^(?:mi|mí|aqui|aquí|cerca|alrededor|near me|me)$/i.test(rest);
+    return {category,location:vague?"":rest,needsLocation:!rest||vague,
+      nearMe:vague,originalQuery:input};
+  }
+  return null;
+}
+export async function searchLocalPlaces(query,{geocode=searchAddress,poi=searchPOI}={}){
+  const intent=parseLocalPoiIntent(query);
+  if(!intent)return {matched:false};
+  if(intent.needsLocation)return {
+    matched:true,status:"need_location",query:intent.originalQuery,
+    suggestedCategory:intent.category,results:[],
+    message:"Añade una ciudad o dirección, o pulsa «Mi ubicación» y después «Buscar comercios cerca»."
+  };
+  const geo=await geocode(intent.location);
+  const candidates=Array.isArray(geo?.results)?geo.results.filter(x=>
+    Number.isFinite(x?.latitude)&&Number.isFinite(x?.longitude)&&
+    Math.abs(x.latitude)<=90&&Math.abs(x.longitude)<=180).slice(0,8):[];
+  if(!candidates.length)return {
+    matched:true,status:"location_not_found",query:intent.originalQuery,
+    suggestedCategory:intent.category,results:[],
+    message:"No se encontró la ubicación solicitada. Prueba ciudad, estado y país."
+  };
+  if(candidates.length>1)return {
+    matched:true,status:"choose_location",query:intent.originalQuery,
+    suggestedCategory:intent.category,source:geo.source,
+    precision:"address_or_place",results:candidates,
+    message:"Hay varias ubicaciones posibles. Selecciona una y pulsa «Buscar comercios cerca»."
+  };
+  // A single geocoding hit is a real point but not a complete city-wide area.
+  const center=candidates[0],radius=5000;
+  const found=await poi({
+    latitude:center.latitude,longitude:center.longitude,
+    category:intent.category,radius
+  });
+  return {...found,matched:true,status:found.results?.length?"results":"empty",
+    query:intent.originalQuery,suggestedCategory:intent.category,
+    returnQuery:intent.location,locationLabel:center.name,
+    message:found.results?.length
+      ?"Coincidencias a 5 km del punto geocodificado; amplía el radio para buscar más."
+      :"No hay fichas registradas a 5 km de ese punto. Amplía el radio o elige otra ubicación."};
 }
