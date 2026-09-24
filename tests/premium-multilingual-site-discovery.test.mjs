@@ -60,9 +60,10 @@ test("dual outage remains a real provider failure; unknown name never creates a 
 });
 test("coverage label differentiates configured-but-failing from unconfigured",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
-  assert.match(app,/unavailableIndexes=\(coverage\?\.failed\|\|\[\]\)/);
-  assert.match(app,/webIndexStatus=indexes\.length\?"Índices web activos"/);
-  assert.match(app,/unavailableIndexes\.length\?"Índices web sin respuesta"/);
+  assert.match(app,/const diagnosis=coverage\?\.generalIndexDiagnosis/);
+  assert.match(app,/results:"Índice web · resultados recuperados"/);
+  assert.match(app,/empty:"Índices consultados · sin coincidencias"/);
+  assert.match(app,/unavailable:"Índices web sin respuesta"/);
   assert.match(app,/"Índice web general no configurado"/);
   assert.match(app,/El directorio y Wikidata no sustituyen un índice web general/);
 });
