@@ -365,7 +365,10 @@ const specialistStoryIntent=q=>FAST_TECHNICAL.test(q)||
   Boolean(repositoryIntentTerms(q)||rustPackageIntentTerms(q)||
     npmPackageIntentTerms(q)||gitlabRepositoryIntentTerms(q))||
   /\b(?:hacker\s*news|news\.ycombinator\.com)\b/i.test(q);
-const isStoryLink=item=>item?.source==="Hacker News · web abierta";
+const isStoryLink=item=>item?.source==="Hacker News · web abierta"||
+  item?.source==="WAE Index local · HN"||
+  typeof item?.hnStory==="string"&&
+    /^https:\/\/news\.ycombinator\.com\/item\?id=\d+$/.test(item.hnStory);
 export async function quickOpenWeb(query){
   const spec=parseQuery(normalizeQuery(query));
   const q=spec.query;
