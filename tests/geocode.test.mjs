@@ -28,45 +28,22 @@ const sample=()=>({
       properties:{name:"invalid",label:"invalid",layer:"venue"}}
   ]
 });
-test("address lookup OFF until server routing key is configured",async()=>{
-  const old=save(),prior=globalThis.fetch;
-  try{
-    process.env.WAE_ROUTING_PROVIDER="off";
-    process.env.WAE_ROUTING_API_KEY="test-placeholder-only-key";
-    assert.equal(addressCapabilities().enabled,false);
-    let calls=0;globalThis.fetch=()=>{calls++;throw Error("should not request provider");};
-    await assert.rejects(searchAddress("Calle 100, Guadalajara"),
-      e=>e instanceof GeocodeError&&e.status===503);
-    assert.equal(calls,0);
-  }finally{globalThis.fetch=prior;restore(old);}
-});
-test("Pelias search is explicit, keyed only on server, offers multiple selectable matches",async()=>{
-  const old=save();
-  try{
-    process.env.WAE_ROUTING_PROVIDER="ors";
-    process.env.WAE_ROUTING_API_KEY="test-placeholder-only-key";
-    let calls=0;
-    const data=await searchAddress("Calle 100, Guadalajara",async(url,options)=>{
-      calls++;
-      const u=new URL(url);
-      assert.equal(u.origin,"https://api.openrouteservice.org");
-      assert.equal(u.pathname,"/geocode/search");
-      assert.equal(u.searchParams.get("text"),"Calle 100, Guadalajara");
-      assert.equal(u.searchParams.get("size"),"6");
-      assert.equal(u.searchParams.has("api_key"),false);
-      assert.equal(options.headers.authorization,"test-placeholder-only-key");
-      assert.equal(options.redirect,"error");
-      return new Response(JSON.stringify(sample()),{status:200});
-    });
-    assert.equal(calls,1);
-    assert.equal(data.results.length,2);
-    assert.equal(data.results[0].precision,"address_point");
-    assert.equal(data.results[0].approximate,false);
-    assert.equal(data.results[1].precision,"street_centroid");
-    assert.equal(data.results[1].approximate,true);
-    assert.ok(data.results[0].detail.includes("Guadalajara"));
-    assert.equal(JSON.stringify(data).includes("test-placeholder-only-key"),false);
-  }finally{restore(old);}
+test("Nominatim address lookup is keyless and enabled",async()=>{
+  assert.equal(addressCapabilities().enabled,true);
+  const data=await searchAddress("OXXO Zapopan",async(url,options)=>{
+    const u=new URL(url);
+    assert.equal(u.origin,"https://nominatim.openstreetmap.org");
+    assert.equal(u.pathname,"/search");
+    assert.equal(u.searchParams.get("q"),"OXXO Zapopan");
+    assert.equal(u.searchParams.get("format"),"jsonv2");
+    assert.equal(options.headers.authorization,undefined);
+    return new Response(JSON.stringify([
+      {osm_type:"node",osm_id:1,name:"OXXO",display_name:"OXXO, Zapopan, Jalisco, México",lat:"20.70",lon:"-103.40",type:"convenience"}
+    ]),{status:200});
+  });
+  assert.equal(data.results.length,1);
+  assert.equal(data.results[0].name,"OXXO");
+  assert.equal(data.results[0].precision,"geocoded");
 });
 test("manual coordinates pass without external lookup and never become claimed postal addresses",async()=>{
   const old=save();
@@ -93,22 +70,11 @@ test("routes with ambiguous named places fail closed until user chooses coordina
     assert.equal(calls,0,"no fallback to first street or city centroid");
   }finally{globalThis.fetch=prior;restore(old);}
 });
-test("geocoder bad output, provider limit and empty results show honest statuses",async()=>{
-  const old=save();
-  try{
-    process.env.WAE_ROUTING_PROVIDER="ors";
-    process.env.WAE_ROUTING_API_KEY="test-placeholder-only-key";
-    await assert.rejects(searchAddress("Calle 100, Guadalajara",
-      async()=>new Response("{}",{status:429})),
-      e=>e.code==="geocode_quota"&&e.status===429);
-    await assert.rejects(searchAddress("Calle 100, Guadalajara",
-      async()=>new Response(JSON.stringify({features:[]}),{status:200})),
-      e=>e.code==="geocode_invalid_response"&&e.status===502);
-    const result=await searchAddress("Calle 100, Guadalajara",
-      async()=>new Response(JSON.stringify({type:"FeatureCollection",features:[]}),{status:200}));
-    assert.deepEqual(result.results,[]);
-    assert.match(result.message,/No hay coincidencias/);
-  }finally{restore(old);}
+test("geocoder provider limit, invalid output and empty results show honest statuses",async()=>{
+  await assert.rejects(searchAddress("Calle 100, Guadalajara",async()=>new Response("[]",{status:429})),e=>e.code==="geocode_quota"&&e.status===429);
+  await assert.rejects(searchAddress("Calle 100, Guadalajara",async()=>new Response("{}",{status:200})),e=>e.code==="geocode_invalid_response"&&e.status===502);
+  const result=await searchAddress("Calle 100, Guadalajara",async()=>new Response("[]",{status:200}));
+  assert.deepEqual(result.results,[]);assert.match(result.message,/No hay coincidencias/);
 });
 test("named public /api/places route stays public in preview while signup remains blocked",async()=>{
   const old=save(),prior=globalThis.fetch;const server=http.createServer(placesAPI);
@@ -117,8 +83,8 @@ test("named public /api/places route stays public in preview while signup remain
     process.env.WAE_ROUTING_PROVIDER="ors";
     process.env.WAE_ROUTING_API_KEY="test-placeholder-only-key";
     globalThis.fetch=async(url,options)=>{
-      if(String(url).startsWith("https://api.openrouteservice.org/geocode/search"))
-        return new Response(JSON.stringify(sample()),{status:200});
+      if(String(url).startsWith("https://nominatim.openstreetmap.org/search"))
+        return new Response(JSON.stringify([{osm_type:"node",osm_id:1,name:"Calle 100",display_name:"Calle 100, Guadalajara, Jalisco, México",lat:"20.6767",lon:"-103.3475",type:"house"}]),{status:200});
       return prior(url,options);
     };
     await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
@@ -126,7 +92,7 @@ test("named public /api/places route stays public in preview while signup remain
     const result=await fetch(base+"/api/places?q="+encodeURIComponent("Calle 100, Guadalajara"));
     assert.equal(result.status,200);
     assert.equal(result.headers.get("x-waeweb-api"),"1");
-    assert.equal((await result.json()).results.length,2);
+    assert.equal((await result.json()).results.length,1);
     assert.equal((await fetch(base+"/api/places",{method:"POST"})).status,503);
     assert.equal((await fetch(base+"/api/account/register",{method:"POST"})).status,503);
     assert.equal((await fetch(base+"/api/directions/capabilities")).status,200);
