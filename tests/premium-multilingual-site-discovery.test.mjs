@@ -52,7 +52,7 @@ test("dual outage remains a real provider failure; unknown name never creates a 
   const previous=globalThis.fetch;
   globalThis.fetch=async()=>new Response("unavailable",{status:503});
   try{
-    await assert.rejects(()=>wikidataOfficialSites("Unknown institution"),
+    await assert.rejects(()=>wikidataOfficialSites("sitio oficial de Unknown institution"),
       /wikidata_sites_search_unavailable/);
   }finally{globalThis.fetch=previous;}
   assert.equal(navigationalName("página oficial de National Research Council"),
