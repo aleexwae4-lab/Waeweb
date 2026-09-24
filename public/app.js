@@ -817,9 +817,8 @@ function renderResult(item, index) {
     };
     title.setAttribute("aria-expanded","false");
     if(item.siteLink===true){
-      meta.append(directSite
-        ? external(url,"↗ Visitar sitio original","save-button wae-site-primary")
-        : button("◎ Visitar sitio",()=>openBrowser(url),"save-button wae-site-primary"));
+      // The result title already opens the site; a second visit button is redundant.
+      if(item.snippet)meta.append(reader.control);
       if(safeUrl(item.provenanceUrl))
         meta.append(external(item.provenanceUrl,"ⓘ Procedencia","save-button"));
     }else meta.append(reader.control);
@@ -835,6 +834,27 @@ function renderResult(item, index) {
     "↗ Abrir sitio original", "save-button"));
   if (readerEnabled && url.startsWith("https://")) {
     meta.append(button("⌕ Leer e indexar", () => requestRead(url), "save-button"));
+  }
+  if(state.type==="all"){
+    // Keep reading and the original link one tap away. Save, voice and
+    // provenance are available without occupying four rows on a phone.
+    const secondary=element("div","web-result-secondary");
+    for(const child of [...meta.children]){
+      if(child===save||
+        child.classList.contains("wae-result-voice")||
+        child.classList.contains("web-index-action")||
+        child.classList.contains("source-engine")||
+        child.classList.contains("wae-web-read-toggle")&&item.siteLink===true||
+        child.textContent.includes("Procedencia")||
+        child.textContent.includes("Leer e indexar")){
+        secondary.append(child);
+      }
+    }
+    if(secondary.childElementCount){
+      const more=element("details","web-result-more");
+      more.append(element("summary","","⋯ Más"),secondary);
+      meta.append(more);
+    }
   }
   card.append(meta);
   if(webReadingSlot)card.append(webReadingSlot);
@@ -1497,16 +1517,7 @@ function renderData(data) {
     }
   } else {
     if(state.type==="videos" && state.query && state.mediaCollection!=="commons"){
-      const ready=sourceResults.filter(item=>["native","embed"].includes(item.playback)).length;
-      const hero=element("section","video-results-studio");
-      hero.setAttribute("aria-label","WAE WEB · Estudio de vídeo");
-      hero.append(element("span","tag","WAE WEB / ESTUDIO DE VÍDEO"),
-        element("h2","","Descubre. Reproduce. Continúa aquí."),
-        element("p","",ready+" clips con reproducción integrada entre "+
-          sourceResults.length+" resultados reales. "+
-          "Activa cada reproductor al pulsar Reproducir. "+
-          "Algunos propietarios restringen la inserción."));
-      resultsContainer.append(hero);
+      // The clips and filters lead the page; no introductory marketing panel.
       const platforms=[...new Set(sourceResults.map(item=>item.platform||"Web"))];
       if(platforms.length){
         const controls=element("nav","video-platform-filters");
@@ -1728,8 +1739,14 @@ function renderSearchFallback(query,message){
     ["https://es.wikipedia.org/w/index.php?search="+encoded,"↗ Buscar en Wikipedia"]
   ];
   for(const [url,label] of options[state.type]||defaults)links.append(external(url,label,"link-button"));
-  card.append(element("p","research-disclaimer",
-    "Continuar en servicios externos: estos enlaces no representan resultados recuperados por WAEWEB."),links);
+  if(state.type==="all"){
+    const retry=button("↻ Reintentar búsqueda",()=>
+      void performSearch(query,"all",false,"web",true),"link-button");
+    const alternatives=element("details","search-alternatives");
+    alternatives.append(element("summary","","Otras opciones de búsqueda"),links);
+    card.append(retry,alternatives);
+  }else card.append(element("p","research-disclaimer",
+    "Estos enlaces abren fuentes externas; no son resultados recuperados por WAE WEB."),links);
   return card;
 }
 async function renderWeather(query, signal, sequence) {
