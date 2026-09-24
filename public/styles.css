@@ -1311,3 +1311,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .image-gallery{gap:7px}
   .image-gallery-tile img{height:clamp(128px,42vw,220px)}
 }
+
+/* RC48 · Secondary business website option available without duplicate CTAs. */
+.business-website-more{width:100%;max-width:100%;font-size:11px;color:#b7cdea;margin:4px 0}
+.business-website-more>summary{list-style:none;cursor:pointer;padding:6px 0;min-height:34px;display:inline-flex;align-items:center;color:#b7cdea}
+.business-website-more>summary::-webkit-details-marker{display:none}
+.business-website-more .link-button{display:inline-flex;margin:5px 0 0;min-height:36px}
