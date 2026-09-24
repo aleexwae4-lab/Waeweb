@@ -32,7 +32,7 @@ test("city geocoder attributes real coordinates and excludes malformed records",
     const data=await findPlaces("Guadalajara prueba geográfica");
     assert.equal(data.results.length,1);
     assert.match(data.results[0].detail,/Jalisco/);
-    assert.equal(data.results[0].precision,"locality_centroid");
+    assert.equal(data.results[0].precision,"geocoded");
     assert.equal((await findPlaces("Guadalajara prueba geográfica")).results.length,1);
     assert.equal(calls,1,"cached repeat must not issue another public request");
   }finally{globalThis.fetch=original;}
@@ -43,7 +43,7 @@ test("provider failures and zero matches are never fabricated",async()=>{
   try {await assert.rejects(findPlaces("location source unavailable test"),e=>
     e.code==="map_source_unavailable"&&e.status===502);}
   finally{globalThis.fetch=prev;}
-  globalThis.fetch=async()=>new Response(JSON.stringify({results:[]}),{status:200});
+  globalThis.fetch=async()=>new Response(JSON.stringify([]),{status:200});
   try {
     const empty=await findPlaces("no match geographic test");
     assert.deepEqual(empty.results,[]);
