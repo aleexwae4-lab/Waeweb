@@ -48,6 +48,35 @@ export function indexLinkedPage(hit,now=Date.now()){
   local.set(url,entry);
   return entry;
 }
+// Bounded BM25 on genuine metadata / robots-permitted content only.
+// This is NOT a global web ranking engine: the local corpus is 500 volatile docs.
+function bag(value){const counts=new Map();for(const word of (fold(value).match(/[\p{L}\p{N}]{3,}/gu)||[])){
+ counts.set(word,(counts.get(word)||0)+1);}return counts;}
+export function rankLocalBM25(items,query){
+ const terms=tokenise(query);if(!terms.length||items.length<2)return [...items];
+ const docs=items.map((item,index)=>{
+   const title=bag(item.title),snippet=bag(item.snippet),
+     body=bag(item.contentRecovered?item.indexedText:"");
+   const length=[...title.values()].reduce((a,b)=>a+b,0)*3+
+     [...snippet.values()].reduce((a,b)=>a+b,0)*1.5+
+     [...body.values()].reduce((a,b)=>a+b,0);
+   return {item,index,title,snippet,body,length:Math.max(1,length)};
+ });
+ const average=docs.reduce((sum,doc)=>sum+doc.length,0)/docs.length;
+ const frequencies=new Map(terms.map(term=>[term,docs.filter(doc=>doc.title.has(term)||doc.snippet.has(term)||doc.body.has(term)).length]));
+ const ranked=docs.map(doc=>{
+  let score=0;
+  for(const term of terms){
+    const tf=(doc.title.get(term)||0)*3+(doc.snippet.get(term)||0)*1.5+(doc.body.get(term)||0);
+    const n=frequencies.get(term)||0;
+    const idf=Math.log(1+(docs.length-n+0.5)/(n+0.5));
+    if(tf)score+=idf*tf*2.2/(tf+1.2*(0.25+0.75*doc.length/average));
+    else if(fold(doc.item.title+" "+doc.item.snippet).includes(term))score+=0.01;
+  }
+  return {...doc,score};
+ });
+ return ranked.sort((a,b)=>b.score-a.score||a.index-b.index).map(x=>x.item);
+}
 export function localWebSearch(query,now=Date.now()){
   const terms=tokenise(query);
   if(!terms.length)return [];
@@ -62,7 +91,7 @@ export function localWebSearch(query,now=Date.now()){
       indexScope:"previously_discovered_HN_links"
     });
   }
-  return matched.slice(0,25);
+  return rankLocalBM25(matched,query).slice(0,25);
 }
 export function webIndexStats(){return {documents:local.size,maxDocuments:LIMIT,
   enrichedDocuments:[...local.values()].filter(item=>item.contentRecovered).length,
