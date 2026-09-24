@@ -55,3 +55,14 @@ export function osmSearchUrl(query){
   if(!name)throw new TypeError("Escribe un lugar para buscar.");
   return "https://www.openstreetmap.org/search?query="+encodeURIComponent(name);
 }
+
+
+// Only map queries that clearly request businesses are routed to OSM POIs.
+// Ordinary place names and coordinates still use the locality/address path.
+export function isPoiMapQuery(input){
+  const raw=String(input??"").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+  const term=raw.split(/\s+(?:en|cerca de|por|alrededor de)\s+/)[0];
+  return /^(?:oxxos?|7.?eleven|seven eleven|walmart|soriana|bodega aurrera|coppel|cinepolis|cinemex|starbucks|bbva|banorte|santander|hsbc|banco azteca|farmacias? guadalajara|farmacias? del ahorro|bancos?|cajeros?|cines?|cinemas|supermercados?|farmacias?|restaurantes?|cafeterias?|gasolineras?|comercios|tiendas|negocios)$/.test(term)||
+    /^(?:negocio|comercio|sucursal|tienda de)\s+[\p{L}\p{N}]/u.test(term);
+}
