@@ -73,7 +73,7 @@ test("both source-backed readers capture after verified preview with compact con
   const web=app.slice(app.indexOf("function createWebSourceReader(item,url)"),
     app.indexOf("function renderResult(item, index)"));
   for(const reader of [information,web]){
-    assert.match(reader,/data\.kind!=="source_excerpt"/);
+    assert.match(reader,/data\??\.kind!=="source_excerpt"/);
     assert.match(reader,/workspace\.capture\(/);
     assert.match(reader,/evidenceKind:"source_excerpt",fetchedAt:data\.fetchedAt/);
     assert.match(reader,/◇ Guardar extracto/);
