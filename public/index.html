@@ -235,7 +235,14 @@
     <div class="dialog-head"><h2>◇ Biblioteca WAE</h2><button type="button" id="close-library" class="icon-button" aria-label="Cerrar biblioteca">✕</button></div>
     <p>Guarda fuentes para investigar y expórtalas como documento Markdown. Tus hallazgos se conservan solamente en este navegador; no se sincronizan con servidores.</p>
     <div class="library-actions"><button id="export-library" type="button" class="link-button">↓ Exportar investigación .md</button></div>
+    <div class="wae-library-tools" role="search">
+      <label for="library-search">Buscar en mis fuentes</label>
+      <input id="library-search" type="search" autocomplete="off" maxlength="120" placeholder="Título, fuente o texto…">
+      <label for="library-kind">Tipo de material</label>
+      <select id="library-kind"><option value="all">Todos</option><option value="source_excerpt">Texto original recuperado</option><option value="search_snippet">Fragmentos de búsqueda</option></select>
+    </div>
     <p id="library-status" role="status" aria-live="polite"></p>
+    <div id="library-compare" class="wae-library-compare" hidden aria-label="Comparación de fuentes guardadas"></div>
     <div id="library-items" class="library-items"></div>
   </dialog>
   <dialog id="about-dialog" class="modal">
