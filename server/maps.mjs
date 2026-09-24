@@ -42,7 +42,7 @@ async function nominatim(query,transport=fetch){
   const base=(process.env.WAE_NOMINATIM_URL||"https://nominatim.openstreetmap.org").trim().replace(/\/+$/,"");
   let endpoint;try{endpoint=new URL(base+"/search");}catch{throw new MapsError("El motor geográfico no está configurado correctamente.",503,"map_config_invalid");}
   endpoint.search=new URLSearchParams({q:query,format:"jsonv2",addressdetails:"1",namedetails:"1",limit:"20",
-    "accept-language":"es-MX,es,en",dedupe:"1",countrycodes:process.env.WAE_MAP_COUNTRY_CODES||"mx"}).toString();
+    "accept-language":"es-MX,es,en",dedupe:"1",...(process.env.WAE_MAP_COUNTRY_CODES?{countrycodes:process.env.WAE_MAP_COUNTRY_CODES}:{})}).toString();
   let response;
   try{
     // Nominatim's public endpoint: at most one request/second per process.
