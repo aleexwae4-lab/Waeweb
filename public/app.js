@@ -1,6 +1,7 @@
 import { createWorkspace, asMarkdown } from "/workspace.js";
 import { openBrowser, hideBrowser } from "/browser.js";
 import {siteVisitMode} from "/browser-core.js";
+import {mergeWebPageResponse} from "/web-page-merge.js";
 import { classifyOmnibox } from "/omnibox.js";
 import { osmEmbedUrl, osmPlaceUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
 import {createDirections} from "/directions.js";
@@ -1713,15 +1714,7 @@ async function loadMoreWebResults(){
     const prior=state.data;
     state.page=page;
     state.visibleCount+=10;
-    state.data={
-      ...prior,
-      results:[...(prior.results||[]),...unique],
-      sources:[...new Set([...(prior.sources||[]),...(extra.sources||[])])],
-      failedSources:[...new Set([...(prior.failedSources||[]),...(extra.failedSources||[])])],
-      hasMore:unique.length>0 && extra.hasMore===true,
-      webCoverage:prior.webCoverage==="general-index"||extra.webCoverage==="general-index"
-        ?"general-index":"limited"
-    };
+    state.data=mergeWebPageResponse(prior,extra,unique);
     if(!unique.length)stats.textContent="No se recuperaron páginas web adicionales para esta consulta.";
     renderData(state.data);
     if(!unique.length)stats.textContent="No se recuperaron páginas web adicionales para esta consulta.";
