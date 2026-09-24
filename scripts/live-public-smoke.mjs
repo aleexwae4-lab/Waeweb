@@ -75,6 +75,26 @@ if(!ready){
       r.marker?"WAEWEB API":"no API marker",r.mime);
     if(!good)process.exitCode=1;
   }
+  // Guard against the reported regression on the ACTUAL public server:
+  // searching a named website must return a usable first-page destination,
+  // not only a wiki entity or a random repository with that name.
+  for(const [query,expectedHost] of [
+    ["github","github.com"],["Mercado Libre","mercadolibre.com.mx"],
+    ["instagram","instagram.com"]
+  ]){
+    const navigation=await request("/api/search?q="+encodeURIComponent(query)+
+      "&type=all&fresh=1");
+    const first=navigation.body?.results?.[0];
+    const host=first?.url?new URL(first.url).hostname.replace(/^www\./,""):null;
+    const good=navigation.ok&&navigation.marker&&
+      navigation.body?.type==="all"&&first?.siteLink===true&&
+      host===expectedHost&&
+      navigation.body?.searchCoverage?.navigationalSites>=1;
+    console.log(good?"LIVE PASS":"LIVE FAIL","real website navigation",query,
+      "HTTP",navigation.status,"firstHost",host,
+      "generalIndexes",navigation.body?.searchCoverage?.generalIndexes?.length??null);
+    if(!good)process.exitCode=1;
+  }
   // Provider readiness must be checked on the deployed runtime, never
   // inferred from local tests or fabricated sample search results.
   const capability=await request("/api/capabilities");
