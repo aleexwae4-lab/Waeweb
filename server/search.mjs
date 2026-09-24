@@ -8,7 +8,7 @@ import {rankImageResults} from "./image-intelligence.mjs";
 import {flickrPublicImages} from "./flickr-images.mjs";
 import {pinterestQuery,verifiedPinterestImages,labelPinterestImages}
   from "./pinterest-discovery.mjs";
-import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb,githubPublicRepositories} from "./web-providers.mjs";
+import {searxngWeb,searxngImages,technicalWebQuery,stackExchangeWeb,mdnWeb,githubPublicRepositories,repositoryIntentTerms} from "./web-providers.mjs";
 import {registerWebHits} from "./web-preview.mjs";
 import {directorySites,wikidataOfficialSites,navigationalName} from "./site-discovery.mjs";
 import {diagnoseWebIndexes} from "./web-index-diagnostics.mjs";
@@ -359,9 +359,11 @@ const FAST_TECHNICAL=/\b(?:javascript|typescript|python|react|node(?:\.js)?|html
 export async function quickOpenWeb(query){
   const spec=parseQuery(normalizeQuery(query));
   const q=spec.query;
+  const repoTerms=repositoryIntentTerms(q);
   const technical=FAST_TECHNICAL.test(q);
   const base={kind:"specialist_web_preview",query:q,
-    scope:technical?"public_technical_and_story_links":"hacker_news_story_links",
+    scope:repoTerms?"public_code_and_story_links":
+      technical?"public_technical_and_story_links":"hacker_news_story_links",
     completeSearch:false,generalIndexes:[],results:[]};
   if(spec.errors.length||q.length<2||spec.site||spec.source||
     spec.after||spec.before||spec.excludes.length||spec.phrases.length)
@@ -369,7 +371,7 @@ export async function quickOpenWeb(query){
   const previous=localWebSearch(q);
   // A local-only fast return is safe for ordinary searches; for technical
   // intent, add independent documentation even if a few old HN links exist.
-  if(!technical&&previous.length>=3){
+  if(!technical&&!repoTerms&&previous.length>=3){
     const hits=rankResults(dedupe(previous),spec,"all").slice(0,4);
     registerWebHits(hits);
     return {...base,results:hits,sourceStatus:"local_cache"};
@@ -378,7 +380,8 @@ export async function quickOpenWeb(query){
     ...(technical?[
       ["Stack Overflow",()=>stackExchangeWeb(q,"stackoverflow")],
       ["MDN Web Docs",()=>mdnWeb(q)]
-    ]:[])];
+    ]:[]),
+    ...(repoTerms?[["GitHub · repositorios públicos",()=>githubPublicRepositories(repoTerms)]]:[])];
   const settled=await Promise.allSettled(feeds.map(async([name,run])=>
     ({name,items:await run()})));
   const found=settled.flatMap(entry=>entry.status==="fulfilled"?
@@ -388,10 +391,10 @@ export async function quickOpenWeb(query){
   // letting one site crowd out all documentation, without discarding links.
   const ranked=rankResults(dedupe([...found,...previous].filter(item=>
     typeof item.url==="string"&&item.url.startsWith("https://"))),spec,"all");
-  const sourceCounts=new Map(),limit=technical?6:4;
+  const sourceCounts=new Map(),limit=technical||repoTerms?8:4;
   const hits=ranked.filter(item=>{
     const count=sourceCounts.get(item.source)||0;
-    if(count>=2&&technical)return false;
+    if(count>=2&&(technical||repoTerms))return false;
     sourceCounts.set(item.source,count+1);
     return true;
   }).slice(0,limit);
@@ -535,7 +538,7 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
          ...((!spec.source||spec.source==="mdn")&&platformAllowed("developer.mozilla.org")
            ? [["MDN Web Docs",()=>mdnWeb(q)]]:[]),
          ...((!spec.source||spec.source==="github")&&platformAllowed("github.com")
-           ? [["GitHub · repositorios públicos",()=>githubPublicRepositories(q)]]:[])
+           ? [["GitHub · repositorios públicos",()=>githubPublicRepositories(repositoryIntentTerms(q)||q)]]:[])
        ]:[]),
        // Discovery is a specialist public-link feed; it is not a general
        // Internet index. Wikipedia and Wikidata enrich, not replace, web hits.
