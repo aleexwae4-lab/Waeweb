@@ -158,13 +158,13 @@ export function wikidataOfficialSites(query){
   const name=navigationalName(query);
   if(!name)return Promise.resolve([]);
   if(inFlightSites.has(name))return inFlightSites.get(name);
-  const task=loadWikidataOfficialSites(name);
+  const task=loadWikidataOfficialSites(name,query);
   inFlightSites.set(name,task);
   void task.then(()=>{if(inFlightSites.get(name)===task)inFlightSites.delete(name);},
     ()=>{if(inFlightSites.get(name)===task)inFlightSites.delete(name);});
   return task;
 }
-async function loadWikidataOfficialSites(name){
+async function loadWikidataOfficialSites(name,originalQuery){
   // The public entry point has already validated the original navigation
   // intent. Re-parsing its normalized multiword name would discard valid
   // explicit website requests as if they were free-form topic searches.
@@ -190,5 +190,5 @@ async function loadWikidataOfficialSites(name){
   details.search=new URLSearchParams({action:"wbgetentities",ids:ids.join("|"),
     props:"labels|descriptions|aliases|claims",
     languages:"es|en",languagefallback:"1",format:"json"}).toString();
-  return wikidataSiteRecords(await sourceJson(details),name);
+  return wikidataSiteRecords(await sourceJson(details),originalQuery);
 }
