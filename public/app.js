@@ -3,7 +3,7 @@ import { openBrowser, hideBrowser } from "/browser.js";
 import {siteVisitMode} from "/browser-core.js";
 import {mergeWebPageResponse} from "/web-page-merge.js";
 import { classifyOmnibox } from "/omnibox.js";
-import { osmEmbedUrl, osmPlaceUrl, osmSearchUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
+import { osmEmbedUrl, osmPlaceUrl, osmSearchUrl, validMapPlace, localMapCoordinates, isPoiMapQuery } from "/maps-core.js";
 import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
 import { createTranslator } from "/translator.js";
@@ -34,6 +34,9 @@ const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
 let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, readingVisibleCount: 12, page: 1, loadingMore: false, videoPlatform: "all", videoPlayableOnly: false, mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24, imagePlatform: "all" };
 let activeDirections=null;
+// Session-only map context, established by an explicit point or selected result.
+// Never infer device coordinates or assume the user is in a particular city.
+let mapSearchAnchor=null;
 let activeMap=null;
 let activeInlineVideo=null;
 let activeVideoFrame=null;
@@ -1816,9 +1819,9 @@ function createMapQuickSearch(initial="") {
   form.setAttribute("role","search");
   const input=element("input","map-search-input");
   input.type="search";input.name="place";input.maxLength=180;
-  input.autocomplete="off";input.placeholder="Ciudad, región o latitud,longitud";
+  input.autocomplete="off";input.placeholder="Oxxo en Zapopan, bancos, cines o coordenadas";
   input.value=initial;
-  input.setAttribute("aria-label","Buscar localidad o coordenadas; las direcciones y negocios dependen del proveedor configurado");
+  input.setAttribute("aria-label","Buscar negocios, categorías, ciudades o coordenadas en una zona seleccionada");
   const search=element("button","map-search-submit","Buscar");
   search.type="submit";
   const locate=button("⌖ Mi ubicación",()=>{
@@ -1833,9 +1836,13 @@ function createMapQuickSearch(initial="") {
         feedback.textContent="No se pudo determinar una ubicación válida.";return;
       }
       const coordinates=latitude.toFixed(6)+", "+longitude.toFixed(6);
-      input.value=coordinates;
+      mapSearchAnchor={latitude,longitude};
+      // With a business term already entered, keep that term and search
+      // around the newly authorized point instead of discarding the request.
+      const wanted=input.value.trim();
+      input.value=isPoiMapQuery(wanted)?wanted:coordinates;
       feedback.textContent="Ubicación obtenida. Abriendo mapa…";
-      void performSearch(coordinates,"maps");
+      void performSearch(input.value,"maps");
     },error=>{
       locate.disabled=false;
       feedback.textContent=error.code===1
@@ -1846,6 +1853,13 @@ function createMapQuickSearch(initial="") {
   const feedback=element("p","map-search-status");
   feedback.setAttribute("role","status");feedback.setAttribute("aria-live","polite");
   form.append(input,search,locate,feedback);
+  const categories=element("nav","map-category-chips");
+  categories.setAttribute("aria-label","Buscar establecimientos por categoría");
+  for(const name of ["Oxxo","Bancos","Cines","Tiendas","Farmacias"]){
+    categories.append(button(name,()=>void performSearch(name,"maps"),
+      "map-category-chip"));
+  }
+  form.append(categories);
   form.addEventListener("submit",event=>{
     event.preventDefault();
     const q=input.value.trim();
@@ -1897,20 +1911,29 @@ function renderMapPlaces(data) {
   resultsContainer.replaceChildren();
   if (!places.length) {
     stats.textContent = "Sin coincidencias verificadas · " + data.source;
+    if(data.kind==="business_poi"){
+      showPoiSearchStatus(data);
+      return;
+    }
     showDirectionsWithoutLocality({query:state.query,message:data.message});
     return;
   }
 
   const section = element("section","map-explorer");
+  if(data.kind==="business_poi")section.classList.add("map-poi-explorer");
   const heading = element("div","map-heading");
   const headText = element("div");
   append(headText,element("span","tag","WAEWEB · MAPAS"),
-    element("h2","",data.precision==="coordinate"?"Punto en el mapa":places[0].name),
+    element("h2","",data.kind==="business_poi"
+      ?places.length+" establecimientos en "+(data.zone||"la zona seleccionada")
+      :data.precision==="coordinate"?"Punto en el mapa":places[0].name),
     element("p","map-description",data.precision === "coordinate"
       ? "Punto indicado por coordenadas. No equivale a una dirección postal verificada."
       : data.precision === "address_or_place"
         ? "Coincidencias de direcciones y lugares; selecciona el punto correcto antes de trazar una ruta."
-        : "Localidades geocodificadas. El marcador representa un centro aproximado, no una dirección exacta."));
+        : data.kind==="business_poi"
+          ? "Establecimientos registrados en OpenStreetMap · radio de 6,5 km · horarios no verificados."
+          : "Localidades geocodificadas. El marcador representa un centro aproximado, no una dirección exacta."));
   const mapSearch=createMapQuickSearch(data.query);
   const mapSearchInput=mapSearch.querySelector("input");
   const newSearch=button("⌕ Otro lugar",()=>{mapSearchInput.focus();mapSearchInput.scrollIntoView({behavior:"smooth",block:"center"});},"small-action");
@@ -1945,10 +1968,13 @@ function renderMapPlaces(data) {
     " · cartografía real © OpenStreetMap contributors · rutas solo desde un proveedor habilitado.");
   const picks = element("div","map-picks");
   picks.setAttribute("aria-label","Ubicaciones encontradas");
-  let selected = 0, zoom = data.precision === "coordinate" ? 3 : 2;
+  let selected = 0, zoom = data.kind==="business_poi"?4:data.precision === "coordinate" ? 3 : 2;
   let mapOverride=null,shownPlace=null;
   const options = places.map((place,index)=>{
-    const label = place.name + (place.detail ? " · " + place.detail : "");
+    const label = place.name +
+      (data.kind==="business_poi"&&Number.isFinite(place.distanceMeters)
+        ?" · "+(place.distanceMeters/1000).toFixed(1)+" km":"")+
+      (place.detail ? " · " + place.detail : "");
     const choice = button(label,()=>select(index),"map-pick");
     choice.setAttribute("aria-pressed","false");
     picks.append(choice);
@@ -1969,16 +1995,21 @@ function renderMapPlaces(data) {
     }[place.precision]||"Ubicación geocodificada";
     placeDetail.textContent=(place.detail||"Ubicación geográfica")+" · "+accuracy;
     coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
-    visit.href=osmPlaceUrl(place);
+    visit.href=data.kind==="business_poi"&&
+      ["node","way","relation"].includes(place.osmType)&&Number.isSafeInteger(place.osmId)
+      ?"https://www.openstreetmap.org/"+place.osmType+"/"+place.osmId
+      :osmPlaceUrl(place);
     options.forEach((option,i)=>{
       option.classList.toggle("is-active",!mapOverride&&i===selected);
       option.setAttribute("aria-pressed",String(!mapOverride&&i===selected));
     });
+    mapSearchAnchor={latitude:place.latitude,longitude:place.longitude};
     stats.textContent=places.length + (places.length===1 ? " ubicación" : " ubicaciones") +
       " · " + (mapOverride?"openrouteservice Pelias":data.source) + " · " + place.name;
   }
   function select(index){
-    selected=index;zoom=places[index].precision==="coordinate"?3:2;
+    selected=index;zoom=data.kind==="business_poi"?4:
+      places[index].precision==="coordinate"?3:2;
     directions.setDestination(places[index]);
     mapOverride=null;
     refresh();
@@ -1986,7 +2017,15 @@ function renderMapPlaces(data) {
   const details=element("div","map-place");
   details.append(placeTitle,placeDetail,coords,toolbar);
   section.append(stage,details);
-  if(places.length>1)section.append(element("h3","map-picks-title","Elegir ubicación"),picks);
+  if(places.length>1){
+    if(data.kind==="business_poi"){
+      const options=element("details","map-poi-results");
+      options.append(element("summary","",
+        "Explorar "+places.length+" establecimientos · selecciona un marcador"),
+        picks);
+      section.append(options);
+    }else section.append(element("h3","map-picks-title","Elegir ubicación"),picks);
+  }
   section.append(createMapDirectionsDisclosure(directions));
   const credits=element("details","map-credits");
   credits.append(element("summary","","Cartografía y precisión"),footnote);
@@ -1995,6 +2034,7 @@ function renderMapPlaces(data) {
   directions.setDestination(places[selected]);
   mapOverride=null;
   refresh();
+  if(data.kind==="business_poi"&&places.length>1)map.fitPlaces(places);
 }
 async function renderMap(query,signal,sequence) {
   // Coordinates supplied by the user can render without /api/maps. A deployment
