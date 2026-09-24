@@ -18,7 +18,7 @@ const request=async(path)=>{
   let body=null;
   try{
     if(mime.includes("application/json"))body=await response.json();
-    else body=(await response.text()).slice(0,30000);
+    else body=(await response.text()).slice(0,path==="/app.js"?180000:30000);
   }catch{}
   return {ok:response.ok,status:response.status,marker,mime,body};
 };
