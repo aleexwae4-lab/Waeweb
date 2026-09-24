@@ -47,7 +47,7 @@ test("real open-web discovery only ingests actual HN-linked articles and keeps s
   }finally{globalThis.fetch=old;}
 });
 
-test("default Web uses specialist public links without relabeling them general-index",async()=>{
+test("explicit Hacker News searches retain attributed specialist links without a general-index claim",async()=>{
   const old=globalThis.fetch;
   const keys=["BRAVE_SEARCH_API_KEY","GOOGLE_SEARCH_API_KEY","GOOGLE_SEARCH_ENGINE_ID"];
   const saved=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
@@ -59,7 +59,7 @@ test("default Web uses specialist public links without relabeling them general-i
       url:"https://site.example.org/wae-release",created_at:"2026-09-23T03:00:00Z"}]}),{status:200});
   };
   try{
-    const data=await search("WAE real web index release","all",{fresh:true});
+    const data=await search("hacker news WAE real web index release","all",{fresh:true});
     assert.equal(data.results.length,1);
     assert.equal(data.results[0].url,"https://site.example.org/wae-release");
     assert.equal(data.webCoverage,"specialized");
