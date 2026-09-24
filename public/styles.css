@@ -1284,3 +1284,26 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .statsbar .source-filter{width:auto}
 }
 @media(prefers-reduced-motion:reduce){.hero-business-details *, .web-result-more *{animation:none!important;transition:none!important}}
+
+
+/* RC46 · Clip audit: mobile browser is content, not a second dashboard. */
+@media(max-width:720px){
+  .results-main .browser-view:not(.is-external-first) .browser-heading{display:none}
+  .results-main .browser-view:not(.is-external-first) .browser-tabs{display:none}
+  .results-main .browser-view:not(.is-external-first) #browser-status{display:none}
+  .results-main .browser-view:not(.is-external-first) .browser-chrome{
+    border-radius:13px 13px 0 0;box-shadow:none;border-color:rgba(132,174,232,.25)
+  }
+  .results-main .browser-view:not(.is-external-first) .browser-toolbar{padding:5px;gap:3px}
+  .results-main .browser-view:not(.is-external-first) .browser-tool{
+    min-width:32px;min-height:34px;padding:5px 7px
+  }
+  .results-main .browser-view:not(.is-external-first) #browser-reader{display:none}
+  .results-main .browser-view:not(.is-external-first) .browser-form{padding:5px}
+  .results-main .browser-view:not(.is-external-first) .browser-address{min-height:38px;font-size:11px}
+  .results-main .browser-view:not(.is-external-first) .browser-go{min-height:38px;padding:6px 9px}
+  .results-main .browser-view:not(.is-external-first) .browser-external{
+    min-height:36px;max-width:66px;padding:5px 7px;font-size:10px
+  }
+  .results-main .browser-view:not(.is-external-first) .browser-stage{min-height:58dvh}
+}
