@@ -1,3 +1,4 @@
+import {lookupPOI,POIError} from "./poi.mjs";
 // Public, opt-in geographical lookup. Open-Meteo resolves populated places,
 // not street-level addresses or verified business listings.
 const cache = new Map();
@@ -22,7 +23,7 @@ function usablePosition(latitude, longitude) {
     latitude <= 90 && typeof longitude === "number" && Number.isFinite(longitude) &&
     longitude >= -180 && longitude <= 180;
 }
-export async function findPlaces(input, { fresh = false } = {}) {
+export async function findPlaces(input, { fresh = false, latitude, longitude } = {}) {
   if (typeof input !== "string" || input.length > 180)
     throw new MapsError("La consulta geográfica supera 180 caracteres.");
   const query = input.replace(/<[^>]*>/g," ").replace(/[\u0000-\u001F]/g," ").replace(/\s+/g," ").trim();
@@ -34,8 +35,13 @@ export async function findPlaces(input, { fresh = false } = {}) {
       detail: "Punto indicado por el usuario · sin dirección verificada",
       ...pair, precision: "coordinate" }]
   };
-  // An apparent coordinate pair with out-of-range values may not silently
-  // become a place name; mapCoordinates above rejects it.
+  try {
+    const poi=await lookupPOI(query,{lat:latitude,lon:longitude});
+    if(poi)return poi;
+  } catch(error) {
+    if(error instanceof POIError)throw new MapsError(error.message,error.status,error.code);
+    throw error;
+  }
   const key = query.toLocaleLowerCase("es");
   const old = cache.get(key);
   if (!fresh && old && old.expires > Date.now()) return old.value;
