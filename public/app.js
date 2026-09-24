@@ -1236,9 +1236,10 @@ function renderData(data) {
     const webIndexStatus=indexStates[diagnosis?.state]||
       "Estado del índice web no disponible";
     const metrics=element("p","web-search-metrics",
-      indexes.length+" índices web consultados · "+
-      (coverage?.navigationalSites||0)+" sitios web localizados · "+
-      specialists.length+" fuentes adicionales · "+
+      (coverage?.navigationalSites||0)+" sitios web · "+
+      (coverage?.webPages||0)+" páginas web · "+
+      (coverage?.encyclopediaPages||0)+" fichas de conocimiento · "+
+      indexes.length+" índices generales consultados · "+
       (data.results?.length||0)+" resultados");
     const commands=element("div","web-search-commands");
     commands.append(button("↻ Actualizar resultados",()=>void performSearch(state.query,"all",false,"web",true),
