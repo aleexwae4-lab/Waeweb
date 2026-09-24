@@ -119,11 +119,11 @@ if(!ready){
   // links. Provider outage may yield zero pages; never relabel the specialist
   // source as a fully operational general Internet index.
   const earlyWeb=await request("/api/search?quick=1&type=all&q="+
-    encodeURIComponent("GitHub"));
+    encodeURIComponent("hacker news"));
   const earlyRows=earlyWeb.body?.results;
   const earlyValid=earlyWeb.ok&&earlyWeb.marker&&
     earlyWeb.body?.kind==="specialist_web_preview"&&
-    earlyWeb.body?.scope==="hacker_news_story_links"&&
+    earlyWeb.body?.scope==="public_specialist_story_links"&&
     earlyWeb.body?.completeSearch===false&&
     Array.isArray(earlyRows)&&
     Array.isArray(earlyWeb.body?.generalIndexes)&&
