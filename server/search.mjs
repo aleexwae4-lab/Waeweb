@@ -355,7 +355,7 @@ const cache = new Map();
 // for technical intent, source-attributed documentation/questions. Never a
 // general Internet index or synthetic domain. Advanced filters are deferred
 // to the complete search so provisional cards cannot contradict them.
-const FAST_TECHNICAL=/\\b(?:javascript|typescript|python|react|node(?:\\.js)?|html|css|docker|postgres(?:ql)?|sqlite|sql|npm|prisma|linux|programaci[oó]n|c[oó]digo|backend|frontend)\\b/i;
+const FAST_TECHNICAL=/\b(?:javascript|typescript|python|react|node(?:\.js)?|html|css|docker|postgres(?:ql)?|sqlite|sql|npm|prisma|linux|programaci[oó]n|c[oó]digo|backend|frontend)\b/i;
 export async function quickOpenWeb(query){
   const spec=parseQuery(normalizeQuery(query));
   const q=spec.query;
@@ -386,7 +386,8 @@ export async function quickOpenWeb(query){
   const failures=settled.filter(entry=>entry.status==="rejected").length;
   // Balance the first screen between independent sources rather than
   // letting one site crowd out all documentation, without discarding links.
-  const ranked=rankResults(dedupe([...found,...previous]),spec,"all");
+  const ranked=rankResults(dedupe([...found,...previous].filter(item=>
+    typeof item.url==="string"&&item.url.startsWith("https://"))),spec,"all");
   const sourceCounts=new Map(),limit=technical?6:4;
   const hits=ranked.filter(item=>{
     const count=sourceCounts.get(item.source)||0;
