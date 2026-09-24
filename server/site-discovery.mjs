@@ -55,6 +55,7 @@ export function publicSiteUrl(value){
 }
 const DIRECTORY=[
   ["GitHub","https://github.com/","Plataforma para proyectos y repositorios de software",["github"]],
+  ["Telcel México","https://www.telcel.com/","Telefonía móvil y servicios · portal de México",["telcel","telcel mexico","telcel mx"]],
   ["Mercado Libre México","https://www.mercadolibre.com.mx/","Comercio electrónico · sitio de México",["mercado libre","mercadolibre","mercado livre","mercado libre mexico","mercado libre mx","mercadolibre mexico","mercadolibre mx"]],
   ["Facebook","https://www.facebook.com/","Red social",["facebook","fb"]],
   ["Instagram","https://www.instagram.com/","Red social y contenido visual",["instagram"]],
