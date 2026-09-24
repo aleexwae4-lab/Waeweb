@@ -174,7 +174,7 @@ export function createNativeMap({onSelectPlace=()=>{}}={}){
   }
   function toggleStreets(){streetsEnabled=!streetsEnabled;draw();}
   function setPlaces(items,activeIndex=0){
-    places=(Array.isArray(items)?items:[]).filter(validMapPlace).slice(0,12);
+    places=(Array.isArray(items)?items:[]).filter(validMapPlace).slice(0,20);
     selectedIndex=places.length&&activeIndex!==-1?clamp(Math.trunc(activeIndex)||0,0,places.length-1):-1;
     draw();
   }
