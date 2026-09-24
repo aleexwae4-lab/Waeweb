@@ -75,9 +75,16 @@ export function imageScore(item,query,intent=imageIntent(query)){
 export function rankImageResults(items,query){
   const intent=imageIntent(query);
   const chosen=[],keys=new Set(),counts=new Map();
+  const queryTerms=tokens(query);
   const sorted=items.filter(item=>item?.title&&imageCanonical(item.image)&&imageCanonical(item.url))
-    .map((item,index)=>({item,index,score:imageScore(item,query,intent)}))
-    .sort((a,b)=>b.score-a.score||a.index-b.index);
+    .map((item,index)=>({item,index,score:imageScore(item,query,intent),
+      lexicalHits:queryTerms.filter(term=>
+        fold([item.title,item.snippet].join(" ")).includes(term)).length}))
+    // Broad public photo feeds are useful only when their visible metadata
+    // actually matches the query. This prevents attractive but unrelated
+    // photos from filling the first screen when a general image index is absent.
+    .filter(entry=>!queryTerms.length||entry.lexicalHits>0||entry.score>=7)
+    .sort((a,b)=>b.score-a.score||b.lexicalHits-a.lexicalHits||a.index-b.index);
   for(const {item} of sorted){
     const asset=imageCanonical(item.fullImage||item.image),url=imageCanonical(item.url);
     // Preserve separate images on the same source page when assets differ.
