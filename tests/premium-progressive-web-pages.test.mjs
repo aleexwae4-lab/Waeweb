@@ -128,7 +128,7 @@ test("progressive UI protects search races and keeps actual source links on late
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(app,/getJSON\("\/api\/search\?q="\+encodeURIComponent\(q\)\+"&type=all&quick=1",signal\)/);
   assert.match(app,/fullSearchFinished\|\|signal\.aborted\|\|sequence!==state\.sequence/);
-  assert.match(app,/preview.scope!=="hacker_news_story_links"/);
+  assert.match(app,/public_technical_and_story_links/);
   assert.match(app,/Hacker News · web abierta/);
   assert.match(app,/resultsContainer\.replaceChildren\(note,\.\.\.cards\)/);
   assert.match(app,/if\(earlySiteShown\|\|earlyPagesShown\)\{/);
