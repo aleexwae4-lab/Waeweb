@@ -1104,3 +1104,21 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .wae-reading-recovery-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
 .wae-reading-recovery-actions .wae-information-link{min-height:36px}
 @media(max-width:600px){.wae-reading-recovery{padding:8px 0;gap:6px}.wae-reading-recovery-text{padding:9px 10px;font-size:12px}.wae-reading-recovery-toggle{padding:7px 10px}}
+
+/* RC40 · source-grounded research panorama, compact and navigable. */
+.wae-source-panorama{margin:0 0 16px;padding:16px 18px;border:1px solid rgba(139,190,255,.27);border-left:3px solid #92baff;background:linear-gradient(145deg,rgba(18,38,66,.92),rgba(8,20,37,.94));box-shadow:0 15px 42px rgba(0,0,0,.18)}
+.wae-source-panorama h2{margin:5px 0 4px;font-size:18px;letter-spacing:-.015em}
+.wae-panorama-intro{margin:0 0 5px;max-width:800px;color:#d8e5f6;font-size:12px;line-height:1.6}
+.wae-source-panorama .research-disclaimer{font-size:10px;line-height:1.5;color:#93a8c3}
+.wae-source-panorama .brief-notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.wae-source-panorama .brief-note{min-width:0;padding:11px 12px;border:1px solid rgba(148,187,234,.17);border-radius:11px;background:rgba(9,24,43,.57)}
+.wae-source-panorama .brief-note:last-child{border-bottom:1px solid rgba(148,187,234,.17)}
+.wae-source-panorama .brief-title{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.wae-panorama-title{padding:0;border:0;background:transparent;color:#f1f7ff;text-align:left;font-size:13px;font-weight:760;line-height:1.35;cursor:pointer}
+.wae-panorama-title:hover{text-decoration:underline;text-underline-offset:3px}
+.wae-source-panorama .brief-note p{margin:7px 0;font-size:11px;line-height:1.55;color:#c7d6e9}
+.wae-panorama-note-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px}
+.wae-panorama-action{display:inline-flex;align-items:center;min-height:31px;padding:5px 8px;border:1px solid rgba(146,190,242,.25);border-radius:8px;background:rgba(29,62,99,.5);color:#dcecff;text-decoration:none;font-size:10px;font-weight:700}
+.wae-source-panorama .answer-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.wae-source-panorama .answer-actions button{min-height:35px;padding:7px 10px;font-size:10px}
+@media(max-width:720px){.wae-source-panorama{padding:13px 12px}.wae-source-panorama .brief-notes{grid-template-columns:1fr}.wae-source-panorama h2{font-size:16px}}
