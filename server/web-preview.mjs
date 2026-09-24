@@ -1,4 +1,4 @@
-import {readPage,safeReaderUrl,ReaderError} from "./reader.mjs";
+import {readPage,safeReaderUrl,sameSiteRedirect,ReaderError} from "./reader.mjs";
 // Read only a result actually returned by WAE WEB recently. Public excerpt,
 // not a copy of paywalled content or a permanent full-web crawler.
 const links=new Map();
@@ -29,12 +29,17 @@ export async function previewWebHit(input,{now=Date.now(),read=readPage}={}){
       "La página no pertenece a una búsqueda reciente. Búscala nuevamente.");
   }
   const page=await read(url);
-  if(canonical(page.url)!==url)
-    throw new ReaderError("redirected","La página cambió de dirección.");
+  let resolvedUrl;
+  try{resolvedUrl=canonical(page.url);}
+  catch{throw new ReaderError("redirected","La página cambió de dirección.");}
+  // Keep the searched URL as the reading authorization key, while exposing
+  // the actual on-site HTTPS canonical destination for provenance.
+  if(resolvedUrl!==url&&!sameSiteRedirect(url,resolvedUrl))
+    throw new ReaderError("redirected","La página cambió de sitio.");
   const excerpt=String(page.text||"").slice(0,1200);
   if(excerpt.length<30)
     throw new ReaderError("empty_page","La página no contiene texto legible.");
-  return {url,title:page.title||entry.title,source:entry.source,
+  return {url,resolvedUrl,title:page.title||entry.title,source:entry.source,
     excerpt,hasMore:String(page.text||"").length>1200,
     fetchedAt:page.fetchedAt,kind:"source_excerpt",
     disclaimer:"Extracto limitado de la página original, sujeto a robots.txt. No verificado como verdadero. Consulta la fuente para el texto completo."};
