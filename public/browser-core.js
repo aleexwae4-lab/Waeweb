@@ -20,12 +20,20 @@ export function browserPresentation(value){
     return {externalFirst:false,reason:""};
   }
   const restricted=["youtube.com","youtu.be","tiktok.com","facebook.com",
-    "instagram.com","accounts.google.com","google.com","x.com","twitter.com"];
+    "instagram.com","accounts.google.com","google.com","x.com","twitter.com",
+    "github.com","mercadolibre.com.mx","mercadolibre.com",
+    "linkedin.com","whatsapp.com"];
   const externalFirst=restricted.some(domain=>host===domain||host.endsWith("."+domain))||
     /^google\.[a-z]{2,}(?:\.[a-z]{2,})?$/.test(host);
   return externalFirst
     ?{externalFirst:true,reason:"Esta plataforma suele restringir la vista dentro de otras páginas."}
     :{externalFirst:false,reason:""};
+}
+
+// Browser edition cannot force an embedded view of a third-party website.
+// Native desktop Chromium retains internal navigation for the same domains.
+export function siteVisitMode(url, native=false){
+  return native || !browserPresentation(url).externalFirst?"integrated":"original";
 }
 
 export function browserInputTarget(input, appOrigin = "") {
