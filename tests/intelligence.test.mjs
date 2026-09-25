@@ -1,8 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseQuery, scoreResult, rankResults, researchBrief } from "../server/intelligence.mjs";
+import { analyzeQuery, calculationAnswer, parseQuery, scoreResult, rankResults, researchBrief, spellingSuggestion } from "../server/intelligence.mjs";
 import { search, openAlexAbstract } from "../server/search.mjs";
 import { createWorkspace, asMarkdown } from "../public/workspace.js";
+
+test("local query engine identifies intent, corrects bounded typos and calculates without a provider",async()=>{
+  const analysis=analyzeQuery("  OXXxO  ");
+  assert.equal(analysis.normalized,"OXXxO");
+  assert.equal(analysis.intent,"general");
+  assert.equal(analysis.suggestion,"oxxo");
+  assert.equal(spellingSuggestion("site:example.org oxxxo"),null);
+  assert.equal(calculationAnswer("cuánto es (12 + 8) / 4")?.value,"5");
+  assert.match(calculationAnswer("10 km a millas")?.value,/6[.,]213/);
+  const prior=globalThis.fetch;
+  globalThis.fetch=async()=>{throw Error("no provider should be called");};
+  try{
+    const response=await search("2 + 2","all",{fresh:true});
+    assert.equal(response.queryIntelligence.answer.value,"4");
+    assert.equal(response.webCoverage,"instant");
+    assert.deepEqual(response.results,[]);
+  }finally{globalThis.fetch=prior;}
+});
 
 test("advanced query parser preserves terms and extracts operators", () => {
   const p = parseQuery('energía solar site:example.org after:2024-01-01 before:2026-01-01 -marketing "energía solar"');

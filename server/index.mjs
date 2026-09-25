@@ -9,8 +9,9 @@ import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
 import {previewWebHit,registerWebHits} from "./web-preview.mjs";
 import {wikipediaIntroduction,EncyclopediaError} from "./encyclopedia.mjs";
 import {searxngConfig} from "./web-providers.mjs";
-import { findPlaces, MapsError } from "./maps.mjs";
+import { findPlaces, mapCoordinates, MapsError } from "./maps.mjs";
 import {searchPOI,searchLocalPlaces,poiCategories,PoiError} from "./poi.mjs";
+import {nativePoiStatus} from "./native-poi.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
 import {searchAddress,addressCapabilities,GeocodeError} from "./geocode.mjs";
 import {translateText,publicTranslateConfig,TranslateError} from "./translate.mjs";
@@ -65,6 +66,7 @@ const files = new Map([
   ["/browser-core.js", ["browser-core.js", "text/javascript; charset=utf-8"]],
   ["/web-page-merge.js", ["web-page-merge.js", "text/javascript; charset=utf-8"]],
   ["/omnibox.js", ["omnibox.js", "text/javascript; charset=utf-8"]],
+  ["/local-intent.js", ["local-intent.js", "text/javascript; charset=utf-8"]],
   ["/maps-core.js", ["maps-core.js", "text/javascript; charset=utf-8"]],
   ["/native-map.js", ["native-map.js", "text/javascript; charset=utf-8"]],
   ["/map-tiles.js", ["map-tiles.js", "text/javascript; charset=utf-8"]],
@@ -77,7 +79,11 @@ const files = new Map([
   ["/workspace.js", ["workspace.js", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
   ["/favicon.svg", ["favicon.svg", "image/svg+xml"]],
-  ["/robots.txt", ["robots.txt", "text/plain; charset=utf-8"]]
+  ["/robots.txt", ["robots.txt", "text/plain; charset=utf-8"]],
+  ["/manifest.webmanifest", ["manifest.webmanifest", "application/manifest+json; charset=utf-8"]],
+  ["/opensearch.xml", ["opensearch.xml", "application/opensearchdescription+xml; charset=utf-8"]],
+  ["/sitemap.xml", ["sitemap.xml", "application/xml; charset=utf-8"]],
+  ["/sw.js", ["sw.js", "text/javascript; charset=utf-8"]]
 ]);
 const rate = new Map();
 const accountRate = new Map();
@@ -147,7 +153,7 @@ async function jsonBody(req, maxBytes = 3000) {
   } catch { throw new AccountError("invalid_json", "JSON inválido.", 400); }
 }
 const security = {
-  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; media-src https://upload.wikimedia.org https://archive.org https://*.us.archive.org; connect-src 'self'; font-src 'self'; frame-src https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'",
+  "content-security-policy": "default-src 'none'; script-src 'self' 'sha256-oXknGNaFCaLlC25C1+r+1LeprK15Z3okj7N4Erv+cxw='; style-src 'self'; img-src 'self' https: data:; media-src https://upload.wikimedia.org https://archive.org https://*.us.archive.org; connect-src 'self'; font-src 'self'; frame-src https:; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'",
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-frame-options": "DENY",
@@ -185,7 +191,7 @@ export async function handler(req, res) {
            (req.method==="POST" && ["/api/translate","/api/directions"].includes(u.pathname))) ||
         !([ "/api/translate","/api/directions" ].includes(u.pathname) ||
           ["/api/health","/api/capabilities","/api/search",
-           "/api/weather","/api/maps","/api/places","/api/poi","/api/poi/search","/api/poi/categories","/api/marketplace",
+           "/api/weather","/api/maps","/api/places","/api/poi","/api/poi/search","/api/poi/categories","/api/poi/status","/api/marketplace",
            "/api/web-index/read","/api/web/preview",
            "/api/encyclopedia/summary",
            "/api/translate/capabilities","/api/directions/capabilities"].includes(u.pathname))))
@@ -201,8 +207,12 @@ export async function handler(req, res) {
     publicMode:previewMode() ? "isolated" : "full", 
     revision: (process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA)?.slice(0,12) || null });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
-    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Google News RSS", "BBC Mundo RSS", "El País RSS", "Open-Meteo", "OpenStreetMap/Nominatim", "OpenStreetMap/Overpass"],
-    mapsEnabled: true, mapPrecision: "nominatim_address_place_poi_or_user_coordinates", poiCategories:poiCategories(),
+    providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Google News RSS", "BBC Mundo RSS", "El País RSS", "Open-Meteo", "OpenStreetMap Nominatim", "OpenStreetMap Overpass"],
+    mapsEnabled: true, mapPrecision: "nominatim_address_place_poi_or_user_coordinates",
+    poiCategories:poiCategories(),
+    mapsSearch:{providers:["Nominatim","WAEWEB native POI index","Overpass fallback"],
+      manualOnly:true,autocomplete:false,cached:true,countryBias:process.env.WAE_MAP_COUNTRY_CODES||"mx",
+      nearbyPoisRequireUserLocation:true,nativePoiIndex:nativePoiStatus()},
     directions: {...routingCapabilities(),addressSearch:addressCapabilities()},
     translator: publicTranslateConfig(),
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
@@ -606,9 +616,17 @@ export async function handler(req, res) {
         if(!["GET","HEAD"].includes(req.method))return write(res,405,{error:"Método no permitido."},{allow:"GET, HEAD"});
         return write(res,200,{categories:poiCategories()});
       }
+      if(u.pathname==="/api/poi/status"){
+        if(!["GET","HEAD"].includes(req.method))return write(res,405,{error:"Método no permitido."},{allow:"GET, HEAD"});
+        return write(res,200,{native:nativePoiStatus(),
+          externalFallback:process.env.WAE_NEARBY_EXTERNAL_FALLBACK!=="false"});
+      }
       if (u.pathname === "/api/maps") {
         if (req.method !== "GET" && req.method !== "HEAD") return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
-        const data = await findPlaces(u.searchParams.get("q") || "");
+        const lat=u.searchParams.get("lat"),lon=u.searchParams.get("lon");
+        if((lat===null)!==(lon===null))throw new MapsError("La ubicación de referencia requiere latitud y longitud.");
+        const bias=lat===null?null:mapCoordinates(lat+","+lon);
+        const data = await findPlaces(u.searchParams.get("q") || "",{bias});
         return write(res, 200, data);
       }
       if (u.pathname === "/api/weather") {

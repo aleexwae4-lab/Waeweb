@@ -4,15 +4,25 @@ import {nearbyIntent} from "../public/local-intent.js";
 import {searchNearby,NearbyError} from "../server/nearby.mjs";
 
 test("local POI intent is only triggered by explicit nearby wording",()=>{
-  for(const [q,category] of [
-    ["Oxxo cerca","oxxo"],["Banco cerca","bank"],
-    ["cajeros cerca de mí","atm"],["cines cercanos","cinema"],
-    ["farmacias próximas","pharmacy"],["Telcel cerca","telcel"]]){
+  for(const [q,category,poiCategory] of [
+    ["Oxxo cerca","oxxo","oxxo"],["Banco cerca","bank","bancos"],
+    ["cajeros cerca de mí","atm","cajeros"],["cines cercanos","cinema","cines"],
+    ["farmacias próximas","pharmacy","farmacias"],["Telcel cerca","telcel","telcel"]]){
     assert.equal(nearbyIntent(q)?.category,category,q);
+    assert.equal(nearbyIntent(q)?.poiCategory,poiCategory,q);
   }
   for(const q of ["Facebook","Telcel","Banco de México","historia del Oxxo",
     "Banco cerca source:wikipedia","Mercado Libre",""])
     assert.equal(nearbyIntent(q),null,q);
+});
+
+test("browser routes explicit nearby intent through consent and the native-first POI API",async()=>{
+  const {readFile}=await import("node:fs/promises");
+  const app=await readFile(new URL("../public/app.js",import.meta.url),"utf8");
+  assert.match(app,/import \{nearbyIntent\} from "\/local-intent\.js"/);
+  assert.match(app,/type==="all"&&nearbyIntent\(q\)/);
+  assert.match(app,/getJSON\("\/api\/poi\?"\+params,signal\)/);
+  assert.match(app,/navigator\.geolocation\.getCurrentPosition/);
 });
 
 test("nearby uses opt-in coordinates, a fixed OSM category and real returned locations",async()=>{

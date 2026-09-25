@@ -9,8 +9,9 @@ import {once} from "node:events";
 import {fileURLToPath} from "node:url";
 import {validPoi} from "../server/native-poi.mjs";
 const OUT=fileURLToPath(new URL("../data/pois.ndjson",import.meta.url));
-const CATEGORIES=new Set(["bank","atm","cinema","pharmacy","restaurant","fuel","hospital"]);
+const CATEGORIES=new Set(["bank","atm","cinema","pharmacy","restaurant","fuel","hospital","cafe"]);
 const SHOPS=new Set(["convenience","mobile_phone","chemist","supermarket"]);
+const TOURISM=new Set(["hotel"]);
 const str=v=>typeof v==="string"?v.trim().slice(0,120):"";
 export function extractPoi(feature){
   if(feature?.type!=="Feature"||feature.geometry?.type!=="Point"||
@@ -20,12 +21,16 @@ export function extractPoi(feature){
   const id=/^(node|way|relation)\/\d+$/.test(raw)?raw:
     /^(node|way|relation)$/.test(p.osm_type)&&/^\d+$/.test(String(p.osm_id||""))
       ?p.osm_type+"/"+p.osm_id:null;
-  const name=str(tags.name),amenity=str(tags.amenity),shop=str(tags.shop);
+  const name=str(tags.name),amenity=str(tags.amenity),shop=str(tags.shop),tourism=str(tags.tourism);
   const [longitude,latitude]=feature.geometry.coordinates;
-  const row={id,name,latitude,longitude,amenity,shop,
+  const website=str(tags.website||tags["contact:website"]);
+  const row={id,name,latitude,longitude,amenity,shop,tourism,
     brand:str(tags.brand),street:str(tags["addr:street"]),
-    houseNumber:str(tags["addr:housenumber"]),city:str(tags["addr:city"])};
-  return id&&(CATEGORIES.has(amenity)||SHOPS.has(shop))&&validPoi(row)?row:null;
+    houseNumber:str(tags["addr:housenumber"]),city:str(tags["addr:city"]),
+    phone:str(tags.phone||tags["contact:phone"]),
+    website:/^https?:\/\//i.test(website)?website:"",
+    openingHours:str(tags.opening_hours)};
+  return id&&(CATEGORIES.has(amenity)||SHOPS.has(shop)||TOURISM.has(tourism))&&validPoi(row)?row:null;
 }
 async function* records(path){
   if(/\.geojson$|\.json$/i.test(path)){

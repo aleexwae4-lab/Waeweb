@@ -20,6 +20,156 @@ export function classifyIntent(text){
   return "information";
 }
 export const tokens = text => [...new Set(fold(text).match(/[\p{L}\p{N}]{2,}/gu) || [])].slice(0, 30);
+
+// Query understanding is deliberately local and deterministic. It does not
+// send the user's text to an LLM or claim semantic understanding that WAEWEB
+// cannot verify. These signals are safe to expose as an explanation of how a
+// query was interpreted and can later feed a separately audited reranker.
+const SPELLING_TERMS = Object.freeze([
+  "amazon","chatgpt","facebook","farmacia","gasolinera","github","google",
+  "guadalajara","instagram","mercado","mexico","openai","oxxo","restaurante",
+  "tiktok","wikipedia","whatsapp","youtube","zapopan"
+]);
+const QUERY_ALIASES = Object.freeze({
+  auto:["automovil","coche"],automovil:["auto","coche"],coche:["auto","automovil"],
+  celular:["telefono","smartphone"],telefono:["celular","smartphone"],
+  computadora:["ordenador","pc"],ordenador:["computadora","pc"],
+  oxxo:["tienda","conveniencia"],farmacia:["medicamentos"],
+  gasolinera:["combustible","gasolina"]
+});
+function editDistance(a,b){
+  const left=[...fold(a)],right=[...fold(b)];
+  const row=Array.from({length:right.length+1},(_,i)=>i);
+  for(let i=1;i<=left.length;i++){
+    let diagonal=row[0];row[0]=i;
+    for(let j=1;j<=right.length;j++){
+      const above=row[j],cost=left[i-1]===right[j-1]?0:1;
+      row[j]=Math.min(row[j]+1,row[j-1]+1,diagonal+cost);diagonal=above;
+    }
+  }
+  return row[right.length];
+}
+export function spellingSuggestion(value){
+  const input=String(value??"").trim();
+  if(!input||/(?:^|\s)(?:site|source|after|before):|"|(?:^|\s)-\p{L}/iu.test(input))return null;
+  const parts=input.split(/\s+/);let changed=false;
+  const corrected=parts.map(part=>{
+    const bare=fold(part).replace(/[^\p{L}\p{N}]/gu,"");
+    if(bare.length<4||SPELLING_TERMS.includes(bare))return part;
+    let best=null,bestDistance=Infinity;
+    for(const term of SPELLING_TERMS){
+      const distance=editDistance(bare,term);
+      if(distance<bestDistance){best=term;bestDistance=distance;}
+    }
+    const limit=bare.length>=8?2:1;
+    if(bestDistance>limit)return part;
+    changed=true;return best==="mexico"?"México":best;
+  });
+  const suggestion=corrected.join(" ");
+  return changed&&fold(suggestion)!==fold(input)?suggestion:null;
+}
+export function expandQueryAliases(value){
+  const found=[];
+  for(const term of tokens(value))for(const alias of QUERY_ALIASES[term]||[])
+    if(!found.includes(alias))found.push(alias);
+  return found.slice(0,6);
+}
+export function detectQueryLanguage(value){
+  const input=fold(value),words=tokens(input);
+  if(/[¿¡ñ]/i.test(String(value||""))||words.some(word=>
+    ["como","donde","que","para","cerca","comprar","noticias","imagenes"].includes(word)))return "es";
+  if(words.some(word=>["how","where","what","near","buy","news","images"].includes(word)))return "en";
+  return "und";
+}
+const LOCAL_TERMS=/\b(?:cerca de mi|cerca|abierto ahora|restaurante|farmacia|gasolinera|banco|cine|tienda|sucursal|direccion|mapa|ruta)\b/i;
+export function classifyQueryIntent(value){
+  const query=fold(value).trim();
+  if(!query)return "unknown";
+  if(calculationAnswer(query))return "calculation";
+  if(/\b(?:noticias?|ultima hora|actualidad)\b/.test(query))return "news";
+  if(/\b(?:imagenes?|fotos?|fotografias?|logo)\b/.test(query))return "image";
+  if(/\b(?:videos?|youtube|tiktok)\b/.test(query))return "video";
+  if(/\b(?:doi|paper|articulo cientifico|investigacion|estudio|bibliografia)\b/.test(query))return "research";
+  if(LOCAL_TERMS.test(query)||/\b(?:en|de)\s+[a-z]{3,}(?:\s+[a-z]{3,})?$/.test(query))return "local";
+  if(/\b(?:comprar|precio|oferta|tienda|producto|servicio)\b/.test(query))return "purchase";
+  if(/^(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+\.[a-z]{2,}/.test(query)||
+     SPELLING_TERMS.includes(query)||query.split(/\s+/).length<=2&&
+     ["mercado libre"].includes(query))return "navigation";
+  if(/^(?:que|quien|como|cuando|donde|por que|cual|what|who|how|when|where)\b/.test(query))return "information";
+  return "general";
+}
+function numberLabel(value){
+  const rounded=Math.abs(value)<1e-12?0:Number(value.toPrecision(12));
+  return new Intl.NumberFormat("es-MX",{maximumFractionDigits:10}).format(rounded);
+}
+function evaluateArithmetic(expression){
+  const compact=expression.replace(/\s+/g,"").replace(/,/g,".");
+  if(!compact||compact.length>80||!/^[0-9.+\-*/^()]+$/.test(compact))return null;
+  const pieces=compact.match(/\d+(?:\.\d+)?|[()+\-*/^]/g)||[];
+  if(pieces.join("")!==compact||pieces.length>50)return null;
+  let cursor=0;
+  const primary=()=>{
+    const token=pieces[cursor++];
+    if(token==="+")return primary();
+    if(token==="-")return -primary();
+    if(token==="("){
+      const value=sum();if(pieces[cursor++]!==")")throw Error("parenthesis");return value;
+    }
+    const number=Number(token);if(!Number.isFinite(number))throw Error("number");return number;
+  };
+  const power=()=>{let value=primary();while(pieces[cursor]==="^"){cursor++;value**=power();}return value;};
+  const product=()=>{let value=power();while(pieces[cursor]==="*"||pieces[cursor]==="/"){
+    const op=pieces[cursor++],right=power();if(op==="/"&&right===0)throw Error("zero");
+    value=op==="*"?value*right:value/right;
+  }return value;};
+  const sum=()=>{let value=product();while(pieces[cursor]==="+"||pieces[cursor]==="-"){
+    const op=pieces[cursor++],right=product();value=op==="+"?value+right:value-right;
+  }return value;};
+  try{const value=sum();return cursor===pieces.length&&Number.isFinite(value)?value:null;}catch{return null;}
+}
+const UNIT_GROUPS=Object.freeze({
+  m:{kind:"longitud",factor:1,label:"m"},metro:{kind:"longitud",factor:1,label:"m"},metros:{kind:"longitud",factor:1,label:"m"},
+  km:{kind:"longitud",factor:1000,label:"km"},kilometro:{kind:"longitud",factor:1000,label:"km"},kilometros:{kind:"longitud",factor:1000,label:"km"},
+  mi:{kind:"longitud",factor:1609.344,label:"mi"},milla:{kind:"longitud",factor:1609.344,label:"mi"},millas:{kind:"longitud",factor:1609.344,label:"mi"},
+  ft:{kind:"longitud",factor:.3048,label:"ft"},pie:{kind:"longitud",factor:.3048,label:"ft"},pies:{kind:"longitud",factor:.3048,label:"ft"},
+  kg:{kind:"masa",factor:1,label:"kg"},kilogramo:{kind:"masa",factor:1,label:"kg"},kilogramos:{kind:"masa",factor:1,label:"kg"},
+  g:{kind:"masa",factor:.001,label:"g"},gramo:{kind:"masa",factor:.001,label:"g"},gramos:{kind:"masa",factor:.001,label:"g"},
+  lb:{kind:"masa",factor:.45359237,label:"lb"},libra:{kind:"masa",factor:.45359237,label:"lb"},libras:{kind:"masa",factor:.45359237,label:"lb"}
+});
+export function calculationAnswer(value){
+  let query=fold(value).trim().replace(/[?¿]/g,"");
+  query=query.replace(/^(?:cuanto es|calcula|calcular)\s+/,"");
+  const conversion=query.match(/^([+-]?\d+(?:[.,]\d+)?)\s*([a-z]+)\s+(?:a|en)\s+([a-z]+)$/);
+  if(conversion){
+    const amount=Number(conversion[1].replace(",",".")),from=UNIT_GROUPS[conversion[2]],to=UNIT_GROUPS[conversion[3]];
+    if(from&&to&&from.kind===to.kind&&Number.isFinite(amount)){
+      const result=amount*from.factor/to.factor;
+      return {kind:"conversion",label:"Conversión local",value:numberLabel(result)+" "+to.label,
+        expression:numberLabel(amount)+" "+from.label+" = "+numberLabel(result)+" "+to.label,
+        source:"Motor determinista WAEWEB",disclaimer:"Conversión matemática; no utiliza tipos de cambio ni una API externa."};
+    }
+  }
+  const temperature=query.match(/^([+-]?\d+(?:[.,]\d+)?)\s*(?:°\s*)?(c|f|celsius|fahrenheit)\s+(?:a|en)\s+(c|f|celsius|fahrenheit)$/);
+  if(temperature){
+    const amount=Number(temperature[1].replace(",",".")),from=temperature[2][0],to=temperature[3][0];
+    if(from!==to&&Number.isFinite(amount)){
+      const result=from==="c"?amount*9/5+32:(amount-32)*5/9;
+      return {kind:"conversion",label:"Conversión de temperatura",value:numberLabel(result)+" °"+to.toUpperCase(),
+        expression:numberLabel(amount)+" °"+from.toUpperCase()+" = "+numberLabel(result)+" °"+to.toUpperCase(),
+        source:"Motor determinista WAEWEB",disclaimer:"Conversión matemática local."};
+    }
+  }
+  const arithmetic=evaluateArithmetic(query);
+  return arithmetic===null?null:{kind:"calculation",label:"Cálculo local",value:numberLabel(arithmetic),
+    expression:query+" = "+numberLabel(arithmetic),source:"Motor determinista WAEWEB",
+    disclaimer:"Resultado calculado localmente; comprueba cifras críticas antes de utilizarlas."};
+}
+export function analyzeQuery(value){
+  const normalized=String(value??"").normalize("NFKC").replace(/\s+/g," ").trim().slice(0,180);
+  return {normalized,folded:fold(normalized),language:detectQueryLanguage(normalized),
+    intent:classifyQueryIntent(normalized),suggestion:spellingSuggestion(normalized),
+    aliases:expandQueryAliases(normalized),answer:calculationAnswer(normalized)};
+}
 function validDate(value) {
   if (!/^\d{4}(?:-\d{2}-\d{2})?$/.test(value)) return null;
   const full = value.length === 4 ? value + "-01-01" : value;
@@ -130,7 +280,32 @@ export function scoreResult(item, query, type = "all") {
     const year = Number(String(item.date).slice(0, 4));
     if (Number.isInteger(year)) score += Math.max(0, Math.min(5, year - new Date().getUTCFullYear() + 5));
   }
+  let host="";
+  try{host=new URL(item.url).hostname.toLowerCase().replace(/^www\./,"");}catch{}
+  if(/(?:^|\.)(?:gob\.mx|gov|edu|ac\.uk)$/.test(host))score+=4;
+  if(host.endsWith(".mx")&&/\b(?:mexico|jalisco|guadalajara|zapopan)\b/.test(normalizedQuery))score+=2;
+  const titleTerms=fold(item.title).match(/[\p{L}\p{N}]{2,}/gu)||[];
+  if(titleTerms.length>=7&&new Set(titleTerms).size/titleTerms.length<.46)score-=7;
+  if(host.startsWith("xn--")||(host.match(/-/g)||[]).length>4)score-=3;
   return score;
+}
+
+function bm25Scores(items,query){
+  const queryTerms=[...new Set([...tokens(query),...expandQueryAliases(query)])];
+  const documents=items.map(item=>{
+    const title=fold(item.title).match(/[\p{L}\p{N}]{2,}/gu)||[];
+    const snippet=fold(item.snippet).match(/[\p{L}\p{N}]{2,}/gu)||[];
+    return {terms:[...title,...title,...snippet],length:title.length+snippet.length};
+  });
+  const average=documents.reduce((sum,doc)=>sum+doc.length,0)/Math.max(1,documents.length)||1;
+  return documents.map(doc=>queryTerms.reduce((score,term)=>{
+    const frequency=doc.terms.reduce((sum,word)=>sum+(word===term?1:0),0);
+    if(!frequency)return score;
+    const containing=documents.reduce((sum,other)=>sum+(other.terms.includes(term)?1:0),0);
+    const idf=Math.log(1+(documents.length-containing+.5)/(containing+.5));
+    const denominator=frequency+1.2*(1-.75+.75*doc.length/average);
+    return score+idf*(frequency*2.2/denominator);
+  },0));
 }
 // Web intent must not be crowded out by encyclopedia records just because
 // their entity titles match the query. Only source-backed URLs enter this
@@ -180,8 +355,10 @@ export function diversifyKnowledgeResults(items){
   return ordered;
 }
 export function rankResults(items, spec, type = "all") {
-  const ranked=items.filter(item => eligible(item, spec))
-    .map((item, i) => ({ ...item, _score: scoreResult(item, spec.query, type), _order: i }))
+  const candidates=items.filter(item => eligible(item, spec));
+  const lexical=bm25Scores(candidates,spec.query);
+  const ranked=candidates
+    .map((item, i) => ({ ...item, _score: scoreResult(item, spec.query, type)+lexical[i], _order: i }))
     .sort((a, b) => b._score - a._score || a._order - b._order)
     .map(({ _score, _order, ...item }) => item);
   if(type==="knowledge"&&!spec.source)return diversifyKnowledgeResults(ranked);

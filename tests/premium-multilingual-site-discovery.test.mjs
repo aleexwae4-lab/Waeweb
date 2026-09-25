@@ -63,7 +63,8 @@ test("coverage label differentiates configured-but-failing from unconfigured",()
   assert.match(app,/const diagnosis=coverage\?\.generalIndexDiagnosis/);
   assert.match(app,/results:"Índice web · resultados recuperados"/);
   assert.match(app,/empty:"Índices consultados · sin coincidencias"/);
-  assert.match(app,/unavailable:"Índices web sin respuesta"/);
-  assert.match(app,/"Índice web general no configurado"/);
+  assert.match(app,/unavailable:"Cobertura web temporalmente reducida"/);
+  assert.match(app,/unconfigured:"Cobertura con fuentes abiertas especializadas"/);
+  assert.doesNotMatch(app,/Google no configurado|Brave no configurado|SearXNG no configurado/);
   assert.match(app,/El directorio y Wikidata no sustituyen un índice web general/);
 });

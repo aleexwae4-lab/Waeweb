@@ -10,14 +10,14 @@ test("known non-embeddable named sites never get a giant default iframe", () => 
     "https://openai.com/", "https://chatgpt.com/", "https://www.instagram.com/",
     "https://www.pinterest.com/", "https://github.com/", "https://www.mercadolibre.com.mx/"
   ]) assert.equal(browserPresentation(url).externalFirst,true,url);
-  assert.equal(browserPresentation("https://openai.com.evil.example/").externalFirst,false);
-  assert.equal(browserPresentation("https://docs.example.org/").externalFirst,false);
+  assert.equal(browserPresentation("https://openai.com.evil.example/").externalFirst,true);
+  assert.equal(browserPresentation("https://docs.example.org/").externalFirst,true);
   const browser=read("browser.js");
   const css=read("styles.css");
   assert.match(browser,/view\.classList\.toggle\("is-external-first", blocked\)/);
   assert.match(css,/\.browser-view\.is-external-first \.browser-stage\{display:none!important\}/);
   assert.match(browser,/accessLink\.href=current\.url/);
-  assert.match(browser,/attempt\.addEventListener\("click"/);
+  assert.doesNotMatch(browser,/attempt\.addEventListener\("click"|createElement\("iframe"\)/);
 });
 test("web results appear before optional provider diagnostics on mobile",()=>{
   const css=read("styles.css"),app=read("app.js"),html=read("index.html");

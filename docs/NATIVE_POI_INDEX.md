@@ -1,6 +1,6 @@
 # WAEWEB Native POI Index — no paid API
 
-The live `/api/nearby` endpoint is now **native-first**. If an operator-provided
+The live `/api/poi` endpoint is now **native-first**. If an operator-provided
 index exists and covers the user's authorized coordinate, the request is answered
 from local, self-owned search logic. It makes **zero upstream Overpass requests**.
 This is not a claim that WAEWEB already has a Mexico-wide POI dataset.
@@ -17,7 +17,7 @@ This is not a claim that WAEWEB already has a Mexico-wide POI dataset.
    `WAE_OSM_SNAPSHOT=2026-09-24 WAE_OSM_COVERAGE=Zapopan node scripts/import-pois.mjs /path/to/poi.geojsonseq`
 3. Install the generated `data/pois.ndjson` in the running release, or set
    `WAE_POI_INDEX_PATH=/absolute/path/to/pois.ndjson` to a persistent mounted
-   file. Check `GET /api/nearby/status` for the **real** document count,
+   file. Check `GET /api/poi/status` for the **real** document count,
    snapshot, coverage label and availability. No secret or private geolocation
    is imported.
 4. To prohibit upstream POI calls, set
@@ -33,12 +33,13 @@ an operator-uploaded ephemeral runtime file durable.
 
 ## What is / is not native
 
-- Native now: POI category matching, geographic bucket index, 3.5 km radius,
+- Native now: POI category matching, geographic bucket index, selectable
+  radius from 100 m to 10 km,
   straight-line distance sorting, deterministic response, local source
   metadata, consent-gated location UX, exact-site directory (including Telcel).
 - Transitionally external until switched off: Overpass fallback when no local
   dataset covers a coordinate. Its behavior is visible in
-  `/api/nearby/status`.
+  `/api/poi/status`.
 - Separately external: map background tiles, routing, geocoding, news,
   websites not yet discovered/indexed, and any other third-party provider.
   A POI index does **not** make the map renderer or full web search offline.

@@ -139,10 +139,9 @@ test("known domains suppress alternate Wikidata P856 navigation while keeping en
 test("native result cards visit site with explicit provenance; no full-web claims",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(app,/state\.type === "all" && item\.siteLink===true/);
-  assert.match(app,/button\(item\.title,\(\)=>openBrowser\(url\),"result-title web-result-title"\)/);
   assert.match(app,/directSite\s*\? external\(url,item\.title,"result-title web-result-title wae-external-site-title"\)/);
   assert.doesNotMatch(app,/meta\.append\(directSite\s*\?/);
   assert.match(app,/ⓘ Procedencia/);
-  assert.match(app,/Índice web general no configurado/);
-  assert.match(app,/La búsqueda web amplia requiere que Brave, Google o SearXNG esté configurado y responda/);
+  assert.doesNotMatch(app,/Google no configurado|Brave no configurado|SearXNG no configurado/);
+  assert.match(app,/La búsqueda web amplia requiere un índice general operado y disponible/);
 });

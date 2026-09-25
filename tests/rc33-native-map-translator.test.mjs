@@ -38,7 +38,10 @@ test("Mapas is a first-party SVG geographic interaction, not an iframe or fake r
   assert.match(map,/toggleStreets/);
   assert.match(map,/OpenStreetMap contributors/);
   assert.doesNotMatch(map,/fetch\(|<iframe/i);
+  assert.match(app,/\/api\/maps\?q=/);
+  assert.match(app,/state\.mapUserLocation/);
   assert.match(app,/\/api\/places\?q=/);
+  assert.match(app,/\/api\/poi\?/);
   assert.match(directions,/onRoute\(result\)/);
 });
 

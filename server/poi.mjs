@@ -1,4 +1,5 @@
 import {searchAddress} from "./geocode.mjs";
+import {searchNativePoi} from "./native-poi.mjs";
 // OpenStreetMap Overpass POI discovery. No paid API, no user-supplied query language.
 const cache=new Map(),pending=new Map(),TTL=10*60_000;
 const CATEGORIES=Object.freeze({
@@ -12,12 +13,15 @@ const CATEGORIES=Object.freeze({
   supermercados:{label:"Supermercados",filters:['["shop"="supermarket"]']},
   cafeterias:{label:"Cafeterías",filters:['["amenity"="cafe"]']},
   hospitales:{label:"Hospitales",filters:['["amenity"="hospital"]']},
-  hoteles:{label:"Hoteles",filters:['["tourism"="hotel"]']}
+  hoteles:{label:"Hoteles",filters:['["tourism"="hotel"]']},
+  conveniencia:{label:"Tiendas de conveniencia",filters:['["shop"="convenience"]']},
+  telcel:{label:"Tiendas Telcel",filters:['["shop"="mobile_phone"]["name"~"Telcel",i]','["brand"~"^Telcel$",i]']}
 });
 const ALIASES=Object.freeze({"banco":"bancos","cine":"cines","restaurante":"restaurantes",
  "gasolinera":"gasolineras","gasolina":"gasolineras","farmacia":"farmacias",
  "supermercado":"supermercados","cafe":"cafeterias","cafeteria":"cafeterias",
- "hospital":"hospitales","hotel":"hoteles","cajero":"cajeros"});
+ "hospital":"hospitales","hotel":"hoteles","cajero":"cajeros",
+ "convenience":"conveniencia","tienda de conveniencia":"conveniencia"});
 const fold=x=>String(x??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
 export const poiCategories=()=>Object.entries(CATEGORIES).map(([id,v])=>({id,label:v.label}));
 export class PoiError extends Error{constructor(message,status=400,code="poi_invalid"){super(message);this.status=status;this.code=code;}}
@@ -41,6 +45,11 @@ export function compilePoiQuery({latitude,longitude,radius=2500,category}={}){
 }
 export async function searchPOI(input,{transport=fetch}={}){
  const spec=compilePoiQuery(input),key=[spec.key,spec.lat.toFixed(5),spec.lon.toFixed(5),spec.metres].join(":");
+ const native=searchNativePoi({query:spec.definition.label,category:spec.key,
+   latitude:spec.lat,longitude:spec.lon,radius:spec.metres});
+ if(native)return {...native,category:spec.key};
+ if(process.env.WAE_NEARBY_EXTERNAL_FALLBACK==="false")
+   throw new PoiError("El índice geográfico nativo aún no cubre este punto. Importa un extracto OSM de la región.",503,"poi_native_index_missing");
  const shared=transport===globalThis.fetch,old=shared?cache.get(key):null;
  if(old&&old.expiry>Date.now())return old.data;
  if(shared&&pending.has(key))return pending.get(key);

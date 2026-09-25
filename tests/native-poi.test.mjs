@@ -4,8 +4,9 @@ import {mkdtemp,writeFile,readFile,rm} from "node:fs/promises";
 import {join} from "node:path";
 import {tmpdir} from "node:os";
 import {importPois,extractPoi} from "../scripts/import-pois.mjs";
-import {searchNativeNearby,nativePoiStatus} from "../server/native-poi.mjs";
+import {searchNativeNearby,searchNativePoi,nativePoiStatus} from "../server/native-poi.mjs";
 import {searchNearby,NearbyError} from "../server/nearby.mjs";
+import {searchPOI} from "../server/poi.mjs";
 import {directorySites} from "../server/site-discovery.mjs";
 const fixture=(id,lat,lon,name,fields={})=>({
   type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},
@@ -31,6 +32,10 @@ test("owned OSM import filters unsupported POIs and preserves provenance",async(
     assert.match(persisted,/ODbL-1.0/);
     assert.doesNotMatch(persisted,/Domicilio particular/);
     assert.equal(nativePoiStatus({filePath:index}).documents,3);
+    const categoryHit=searchNativePoi({query:"Bancos",category:"bancos",
+      latitude:20.675,longitude:-103.35,radius:2500,filePath:index});
+    assert.equal(categoryHit.results[0].name,"Banco Local");
+    assert.equal(categoryHit.engine,"native");
     const bank=searchNativeNearby({query:"Banco cerca",latitude:20.675,
       longitude:-103.35,filePath:index});
     assert.equal(bank.engine,"native");
@@ -51,6 +56,12 @@ test("owned OSM import filters unsupported POIs and preserves provenance",async(
       const native=await searchNearby({query:"Oxxo cerca",latitude:20.675,
         longitude:-103.35},async()=>{remoteCalled++;throw Error("external API must not run");});
       assert.equal(native.engine,"native");
+      const mapped=await searchPOI({latitude:20.675,longitude:-103.35,
+        radius:2500,category:"oxxo"},{transport:async()=>{
+          remoteCalled++;throw Error("external API must not run");
+        }});
+      assert.equal(mapped.engine,"native");
+      assert.equal(mapped.results[0].name,"OXXO Centro");
       assert.equal(remoteCalled,0);
     }finally{
       if(prior===undefined)delete process.env.WAE_POI_INDEX_PATH;

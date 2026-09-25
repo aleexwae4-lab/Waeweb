@@ -10,31 +10,24 @@ export function looksLikeWebAddress(input) {
 }
 
 
-// No web application can override X-Frame-Options or frame-ancestors imposed
-// by a third party. These destinations should be external-first, with an
-// explicit optional attempt at the embedded view. This does NOT claim that
-// every URL on these domains is blocked.
+// A hosted web application cannot provide a genuine browser inside an iframe:
+// X-Frame-Options/CSP, cookies, downloads and navigation state remain under
+// the destination's control. WAEWEB therefore treats every external URL as
+// origin-first on the web. The native desktop edition uses isolated Chromium.
 export function browserPresentation(value){
   let host;
   try{host=new URL(value).hostname.toLowerCase().replace(/^www\./,"");}catch{
     return {externalFirst:false,reason:""};
   }
-  const restricted=["youtube.com","youtu.be","tiktok.com","facebook.com",
-    "instagram.com","openai.com","chatgpt.com","pinterest.com",
-    "accounts.google.com","google.com","x.com","twitter.com",
-    "github.com","gob.mx","mercadolibre.com.mx","mercadolibre.com",
-    "linkedin.com","whatsapp.com"];
-  const externalFirst=restricted.some(domain=>host===domain||host.endsWith("."+domain))||
-    /^google\.[a-z]{2,}(?:\.[a-z]{2,})?$/.test(host);
-  return externalFirst
-    ?{externalFirst:true,reason:"Esta plataforma suele restringir la vista dentro de otras páginas."}
-    :{externalFirst:false,reason:""};
+  return host?{externalFirst:true,
+    reason:"WAEWEB abre páginas externas en su origen para respetar sus políticas de seguridad."}:
+    {externalFirst:false,reason:""};
 }
 
 // Browser edition cannot force an embedded view of a third-party website.
 // Native desktop Chromium retains internal navigation for the same domains.
 export function siteVisitMode(url, native=false){
-  return native || !browserPresentation(url).externalFirst?"integrated":"original";
+  return native&&browserPresentation(url).externalFirst?"integrated":"original";
 }
 
 export function browserInputTarget(input, appOrigin = "") {

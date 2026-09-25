@@ -81,7 +81,7 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
   root.append(actions);
   const status=$("p","translate-status","");status.setAttribute("role","status");status.setAttribute("aria-live","polite");
   const privacy=$("p","translate-privacy",
-    "Motor local cuando sea compatible. Si usas el servicio conectado, el texto se envía al proveedor solo al pulsar Traducir.");
+    "Motor local cuando sea compatible. Si usas un proveedor externo, el texto se envía solo al pulsar Traducir.");
   root.append(status,privacy);
   let config=null,configRequest=null,active=null,sequence=0,lastTranslation="",visible=false;
   const TRANSLATE_TIMEOUT_MS=12000;
@@ -91,7 +91,7 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
       return await Promise.race([
         job(),
         new Promise((_,reject)=>{
-          timer=setTimeout(()=>reject(new Error("Tiempo de espera agotado. Prueba el servicio conectado o reintenta.")),ms);
+          timer=setTimeout(()=>reject(new Error("Tiempo de espera agotado. Prueba el proveedor externo o reintenta.")),ms);
           abortHandler=()=>reject(new DOMException("Operación cancelada.","AbortError"));
           if(signal?.aborted)abortHandler();
           else signal?.addEventListener("abort",abortHandler,{once:true});
@@ -116,7 +116,7 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
   const engineRow=$("div","translate-engine-row");
   const engineLabel=$("label","translate-engine-label","Motor");
   const engineSelect=$("select","translate-select");
-  for(const [value,label]of [["auto","Automático · respuesta rápida"],["local","En este dispositivo"],["remote","Servicio conectado"]])
+  for(const [value,label]of [["auto","Automático · respuesta rápida"],["local","En este dispositivo"],["remote","Proveedor externo"]])
     engineSelect.add(new Option(label,value));
   engineSelect.addEventListener("change",()=>{engine=engineSelect.value;status.textContent="";});
   engineLabel.append(engineSelect);
@@ -224,8 +224,8 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
       }
       if(!result&&engine==="local")
         throw new Error(localAvailable()?
-          "El motor local no admite este par o no pudo instalarlo. Prueba el servicio conectado.":
-          "Tu navegador todavía no ofrece traducción local. Selecciona Servicio conectado.");
+          "El motor local no admite este par o no pudo instalarlo. Prueba el proveedor externo.":
+          "Tu navegador todavía no ofrece traducción local. Selecciona Proveedor externo.");
       if(!result){
         if(!config?.available)await bounded(()=>loadConfig(true),6500,signal);
         if(!config?.available)
@@ -302,7 +302,7 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
     answer.replaceChildren();weatherSlot.replaceChildren();panel.replaceChildren();
     sourceFilter.replaceChildren(new Option("Todas las fuentes",""));
     resultsContainer.replaceChildren(root);
-    stats.textContent="Traductor WAEWEB · dispositivo o servicio conectado";
+    stats.textContent="Traductor WAEWEB · motor automático";
     if(!ready){ready=true;languageOptions(fallbackLanguages,false);}
     void loadConfig();
     input.focus({preventScroll:true});

@@ -75,7 +75,7 @@ test("Node serves public map and diagnostic assets even in isolated preview",asy
     assert.equal(point.headers.get("x-waeweb-api"),"1");
     const health=await fetch(base+"/api/health");
     assert.equal(health.status,200);
-    assert.match((await health.json()).version,/rc\.35/);
+    assert.match((await health.json()).version,/rc\.55/);
     const blocked=await fetch(base+"/api/account/register",{method:"POST"});
     assert.equal(blocked.status,503,"diagnostics cannot unlock accounts");
   }finally{

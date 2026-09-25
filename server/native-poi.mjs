@@ -4,7 +4,7 @@ import {readFileSync,statSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import {nearbyIntent} from "../public/local-intent.js";
 const DEFAULT_PATH=fileURLToPath(new URL("../data/pois.ndjson",import.meta.url));
-const STEP=0.025,MAX_BYTES=40_000_000,RADIUS=3500;
+const STEP=0.025,MAX_BYTES=40_000_000,DEFAULT_RADIUS=3500;
 const byPath=new Map();
 const fold=value=>String(value??"").normalize("NFD")
   .replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
@@ -67,9 +67,19 @@ function matches(row,category){
     case "restaurant":return row.amenity==="restaurant";
     case "fuel":return row.amenity==="fuel";
     case "hospital":return row.amenity==="hospital";
+    case "cafe":return row.amenity==="cafe";
+    case "hotel":return row.tourism==="hotel";
     default:return false;
   }
 }
+const CATEGORY_ALIASES=Object.freeze({
+  oxxo:"oxxo",bancos:"bank",bank:"bank",cajeros:"atm",atm:"atm",
+  cines:"cinema",cinema:"cinema",conveniencia:"convenience",convenience:"convenience",
+  farmacias:"pharmacy",pharmacy:"pharmacy",supermercados:"supermarket",
+  supermarket:"supermarket",restaurantes:"restaurant",restaurant:"restaurant",
+  gasolineras:"fuel",fuel:"fuel",hospitales:"hospital",hospital:"hospital",
+  cafeterias:"cafe",cafe:"cafe",hoteles:"hotel",hotel:"hotel",telcel:"telcel"
+});
 const radians=n=>n*Math.PI/180;
 function distance(a,b,c,d){
   const dlat=radians(c-a),dlon=radians(d-b);
@@ -84,14 +94,17 @@ export function nativePoiStatus({filePath}={}){
     {ready:false,documents:0,source:"WAEWEB native POI index",
       reason:"No valid operator-imported OSM snapshot on this instance"};
 }
-export function searchNativeNearby({query,latitude,longitude,filePath}){
-  const index=load(filePath),intent=nearbyIntent(query);
-  if(!index?.count||!intent)return null;
+export function searchNativePoi({query="",category,latitude,longitude,
+  radius=DEFAULT_RADIUS,filePath}={}){
+  const index=load(filePath),normalizedCategory=CATEGORY_ALIASES[fold(category)];
+  if(!index?.count||!normalizedCategory)return null;
   const lat=Number(latitude),lon=Number(longitude);
   if(latitude==null||longitude==null||latitude===""||longitude===""||
     !Number.isFinite(lat)||!Number.isFinite(lon)||
     Math.abs(lat)>90||Math.abs(lon)>180)return null;
-  const dy=RADIUS/111000,dx=RADIUS/(111000*Math.max(.1,Math.cos(radians(lat))));
+  const metres=Number(radius);
+  if(!Number.isFinite(metres)||metres<100||metres>10000)return null;
+  const dy=metres/111000,dx=metres/(111000*Math.max(.1,Math.cos(radians(lat))));
   // Never imply a regional extract covers a coordinate outside its extent.
   const [south,west,north,east]=index.bounds;
   if(lat<south-dy||lat>north+dy||lon<west-dx||lon>east+dx)return null;
@@ -99,21 +112,31 @@ export function searchNativeNearby({query,latitude,longitude,filePath}){
   for(let y=Math.floor((lat-dy)/STEP);y<=Math.floor((lat+dy)/STEP);y++)
     for(let x=Math.floor((lon-dx)/STEP);x<=Math.floor((lon+dx)/STEP);x++)
       for(const row of index.buckets.get(y+":"+x)||[]){
-        if(!matches(row,intent.category))continue;
+        if(!matches(row,normalizedCategory))continue;
         const meters=distance(lat,lon,row.latitude,row.longitude);
-        if(meters>RADIUS)continue;
+        if(meters>metres)continue;
         hits.push({id:row.id.replace("/",":"),name:row.name,
           latitude:row.latitude,longitude:row.longitude,
           detail:[row.street,row.houseNumber,row.city].filter(Boolean).join(" ")||
             "Registrado en OpenStreetMap · dirección no verificada",
-          precision:"place_point",distanceMeters:meters});
+          precision:"place_point",distanceMeters:meters,
+          category:normalizedCategory,phone:row.phone||null,
+          website:row.website||null,openingHours:row.openingHours||null});
       }
   hits.sort((a,b)=>a.distanceMeters-b.distanceMeters);
   return {query,source:"WAEWEB · índice geográfico nativo (© OpenStreetMap contributors)",
     engine:"native",indexPersistence:"operator_snapshot",
     datasetSnapshot:index.snapshot,coverage:index.coverage,
-    precision:"address_or_place",results:hits.slice(0,30),
+    precision:"poi",center:{latitude:lat,longitude:lon},radiusMeters:metres,
+    results:hits.slice(0,60),
     message:hits.length?null:
-      "No hay puntos registrados en el índice local dentro de 3.5 km. La cobertura puede ser incompleta.",
+      "No hay puntos registrados en el índice local dentro del radio elegido. La cobertura puede ser incompleta.",
     notice:"Datos ODbL de OpenStreetMap. Distancias aproximadas en línea recta; no confirma horarios ni operación."};
+}
+
+export function searchNativeNearby({query,latitude,longitude,filePath}){
+  const intent=nearbyIntent(query);
+  if(!intent)return null;
+  return searchNativePoi({query,category:intent.category,latitude,longitude,
+    radius:DEFAULT_RADIUS,filePath});
 }

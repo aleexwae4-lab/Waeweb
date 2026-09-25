@@ -5,7 +5,7 @@
     {
       "id": "web-runtime",
       "status": "blocked",
-      "reason": "RC35 Render deployment: public translator prioritizes ready connected engine and bounds stalled local downloads/requests, cancels on navigation; blank category switches show native category state. Search adds real attributable Wikidata, Europe PMC, Wikimedia video, GDELT news and increased retrieval across existing providers. Removed preview banner payments wording only, with backend accounts/checkout/vaults still fail-closed. Render live API + mobile interaction remain required; full public commercial release HOLD.",
+      "reason": "RC55 candidate: free query intelligence, native-first OSM POI plus Nominatim/Overpass place discovery, hosted origin-first navigation, translation fallback/circuit state, compact provider diagnostics and first-party PWA shell are covered by the local suite. Render must serve the exact RC55 revision and pass live web/maps/translation/mobile smoke before this runtime control can advance. Accounts, checkout, vaults and private connectors remain fail-closed; full commercial release HOLD.",
       "evidence": ""
     },
     {

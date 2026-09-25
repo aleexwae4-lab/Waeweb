@@ -62,6 +62,9 @@ test("GET /api/poi stays public in preview; unsafe methods blocked",async()=>{
   const reply=await original(base+"/api/poi?lat=20.6767&lon=-103.3475&category=oxxo");
   assert.equal(reply.status,200);
   assert.equal((await reply.json()).results.length,2);
+  const status=await original(base+"/api/poi/status");
+  assert.equal(status.status,200);
+  assert.equal(typeof (await status.json()).native.ready,"boolean");
   assert.equal((await original(base+"/api/poi?lat=999&lon=0&category=oxxo")).status,400);
   assert.equal((await original(base+"/api/poi",{method:"POST"})).status,503);
  }finally{

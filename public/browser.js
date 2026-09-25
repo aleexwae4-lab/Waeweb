@@ -9,7 +9,6 @@ function syncNativeBounds() {
   const box = stage.getBoundingClientRect();
   void native.setBounds({ x: box.left, y: box.top, width: box.width, height: box.height }).catch(displayError);
 }
-const frames = new Map();
 const view = $("browser-view");
 const stage = $("browser-stage");
 const address = $("browser-address");
@@ -20,13 +19,11 @@ const back = $("browser-back");
 const forward = $("browser-forward");
 const reload = $("browser-reload");
 const reader = $("browser-reader");
+const accessReader=$("browser-access-reader");
 const empty = $("browser-empty");
-const gate=$("browser-frame-gate");
 const access=$("browser-access");
 const accessLabel=$("browser-access-label");
 const accessLink=$("browser-access-link");
-const attempt=$("browser-attempt");
-const previewOptIn=new Set();
 let lastView = "hero";
 
 // The web pane is CHILD of search results, not another page or product.
@@ -65,22 +62,6 @@ function displayError(error) {
   address.setAttribute("aria-invalid", "true");
   address.focus();
 }
-function makeFrame(tab) {
-  const frame = document.createElement("iframe");
-  frame.className = "browser-frame";
-  frame.title = "Página web: " + tab.title;
-  frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox");
-  frame.referrerPolicy = "no-referrer";
-  frame.loading = "eager";
-  frame.hidden = true;
-  frame.addEventListener("load", () => {
-    if (state.active()?.id === tab.id && !view.hidden)
-      status.textContent = "Si esta página queda vacía, utiliza «Abrir sitio original».";
-  });
-  stage.append(frame);
-  frames.set(tab.id, frame);
-  return frame;
-}
 function render() {
   const current = native ? nativeState?.tabs.find(tab => tab.id === nativeState.activeId) : state.active();
   const tabItems = native ? (nativeState?.tabs || []) : state.tabs();
@@ -112,9 +93,6 @@ function render() {
         }).catch(displayError);
         return;
       }
-      frames.get(tab.id)?.remove();
-      frames.delete(tab.id);
-      previewOptIn.delete(tab.id);
       const next = state.close(tab.id);
       if (!next) leaveBrowser();
       else render();
@@ -122,24 +100,15 @@ function render() {
     item.append(select, close);
     tabs.append(item);
   }
-  const planned=current?.url?browserPresentation(current.url):null;
-  const blocked=Boolean(!native && current?.url && planned.externalFirst &&
-    !previewOptIn.has(current.id));
-  // In hosted web mode, do not present a large empty iframe for known restricted sites.
+  const blocked=Boolean(!native&&current?.url&&browserPresentation(current.url).externalFirst);
+  // Hosted WAEWEB is origin-first for every external page. Only the desktop
+  // edition mounts a real, isolated Chromium view.
   view.classList.toggle("is-external-first", blocked);
-  if (!native) for (const [id, frame] of frames)
-    frame.hidden = !current || current.id !== id || blocked;
-  // Normal embedded pages already have a source link in the toolbar.
-  // The larger escape panel is reserved for known blocked destinations.
   access.hidden=!current?.url || !blocked;
   if(current?.url){
     accessLink.href=current.url;
-    accessLabel.textContent=blocked
-      ?"Este sitio puede impedir la vista integrada. Abre la página original."
-      :"Si la página no aparece aquí, puedes abrir el sitio original.";
+    accessLabel.textContent="Abre la página original. WAEWEB no intenta incrustarla ni eludir sus políticas de seguridad.";
   }else accessLink.removeAttribute("href");
-  attempt.hidden=!blocked;
-  gate.hidden=!blocked;
 
   address.value = current?.url || "";
   address.removeAttribute("aria-invalid");
@@ -158,19 +127,8 @@ function loadCurrent() {
   if (native) return;
   const tab = state.active();
   if (!tab?.url) { render(); return; }
-  const plan=browserPresentation(tab.url);
-  if(plan.externalFirst && !previewOptIn.has(tab.id)){
-    render();
-    status.textContent="Abre el sitio original o intenta la vista integrada.";
-    return;
-  }
-  const frame = frames.get(tab.id) || makeFrame(tab);
-  // Explicit address changes only: cross-origin navigations inside an iframe
-  // cannot be observed or rewritten into the app's address/history.
-  frame.src = tab.url;
-  frame.title = "Página web: " + tab.title;
   render();
-  status.textContent = "Abriendo " + new URL(tab.url).hostname + "…";
+  status.textContent="Página externa lista para abrir en su sitio original.";
 }
 export function openBrowser(value = "", { newTab = false } = {}) {
   showView();
@@ -194,7 +152,6 @@ export function openBrowser(value = "", { newTab = false } = {}) {
     else if (url) state.navigate(url);
   } catch (error) { render(); displayError(error); return false; }
   if(url) {
-    previewOptIn.delete(state.active().id);
     state.rename(state.active().id, new URL(url).hostname);
   }
   if (url) loadCurrent();
@@ -234,12 +191,6 @@ $("browser-reload").addEventListener("click", () => {
   else if (state.active()?.url) loadCurrent();
 });
 $("browser-new").addEventListener("click", () => openBrowser("", { newTab: true }));
-attempt.addEventListener("click",()=>{
-  const tab=state.active();
-  if(!tab?.url)return;
-  previewOptIn.add(tab.id);
-  loadCurrent();
-});
 $("browser-close").addEventListener("click", leaveBrowser);
 // Header entry uses the unified omnibox, never opens a second empty page.
 $("browser-open").addEventListener("click", () => {
@@ -252,6 +203,11 @@ $("browser-reader").addEventListener("click", () => {
   $("hero").hidden = true;
   $("results-view").hidden = false;
   document.dispatchEvent(new CustomEvent("wae:browser:read", { detail: { url: tab.url } }));
+});
+accessReader?.addEventListener("click",()=>{
+  const tab=state.active();
+  if(!tab?.url)return;
+  document.dispatchEvent(new CustomEvent("wae:browser:read",{detail:{url:tab.url}}));
 });
 document.addEventListener("wae:browser:open", event => openBrowser(event.detail?.url || ""));
 document.addEventListener("wae:browser:hide", hideBrowser);

@@ -1,4 +1,4 @@
-import { parseQuery, rankResults, researchBrief, webResultKind } from "./intelligence.mjs";
+import { analyzeQuery, parseQuery, rankResults, researchBrief, webResultKind } from "./intelligence.mjs";
 import {videoIdentity, verifiedVideoResults, youtubeDataVideos, dedupeVideoResults, peertubeEmbed} from "./video-discovery.mjs";
 import {internetArchiveVideos} from "./archive-videos.mjs";
 import {discoverOpenWeb,localWebSearch,webIndexStats} from "./web-index.mjs";
@@ -450,6 +450,26 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
   if(!["web","commons"].includes(collection) ||
     (collection==="commons" && !["images","videos"].includes(selected)))
     return {error:"Colección de búsqueda no válida para esta categoría."};
+  const queryIntelligence=analyzeQuery(spec.input);
+  const hasAdvancedFilters=Boolean(spec.site||spec.source||spec.after||spec.before||
+    spec.excludes.length||spec.phrases.length);
+  // Arithmetic and fixed-unit conversions are resolved locally in a few
+  // milliseconds. Contacting unrelated web providers would add latency and
+  // leak a query that WAEWEB can answer deterministically on its own.
+  if(selected==="all"&&page===1&&!hasAdvancedFilters&&queryIntelligence.answer){
+    return {
+      query:q,originalQuery:spec.input,queryIntelligence,
+      filters:{site:null,after:null,before:null,source:null,excludes:[],phrases:[]},
+      type:selected,page,newsWindow:null,bookCoverage:null,knowledgeCoverage:null,
+      mediaCollection:null,hasMore:false,results:[],sources:["Motor de consultas WAEWEB"],
+      searchCoverage:{generalIndexes:[],respondingGeneralIndexes:[],specialistSources:[],
+        unconfigured:[],failed:[],inlineExcerpt:false,entireWebIndexed:false,
+        navigationalSites:0,webPages:0,encyclopediaPages:0,generalIndexDiagnosis:null},
+      newsCoverage:null,imageDiscovery:null,mediaCoverage:null,videoCoverage:null,
+      webCoverage:"instant",webDiscovery:null,failedSources:[],
+      fetchedAt:new Date().toISOString(),message:null,brief:null
+    };
+  }
   // Commons enriches regular media results alongside independent providers.
   // The legacy explicit archive API remains available without a separate UI.
   const archive=collection==="commons" || spec.source==="wikimedia";
@@ -657,7 +677,8 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       rankedItems.filter(item=>webResultKind(item)===kind));
   }
   const payload = {
-    query: q, originalQuery: spec.input, filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
+    query: q, originalQuery: spec.input, queryIntelligence,
+    filters: { site: spec.site, after: spec.after, before: spec.before, source: spec.source, excludes: spec.excludes, phrases: spec.phrases },
     type: selected, page,
     newsWindow:selected==="news"?newsWindow:null,
     bookCoverage:selected==="books"?{
@@ -674,7 +695,9 @@ export async function search(query, type = "all", { fresh = false, page = 1, col
       ? (archive?"commons":"web"):null,
     hasMore: selected==="all" && moreFromProviders,
     results: rankedItems,
-    sources: available,
+    // Missing optional integrations remain available to operator diagnostics,
+    // but they are not user-facing "sources" and must not pollute the SERP.
+    sources: available.filter(name=>!name.endsWith(" no configurado")),
     searchCoverage:selected==="all"?{
       generalIndexes:generalIndexDiagnosis?.providers
         .filter(provider=>provider.state==="results").map(provider=>provider.name)||[],

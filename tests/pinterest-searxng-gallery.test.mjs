@@ -89,7 +89,8 @@ test("when all image indexes are unavailable, the normal gallery never invents P
     const response=await search("arquitectura sin servicios prueba","images",{fresh:true});
     assert.equal(response.imageDiscovery.pinterest.hits,0);
     assert.deepEqual(response.results,[]);
-    assert.ok(response.sources.includes("Pinterest · SearXNG no configurado"));
+    assert.ok(!response.sources.some(source=>source.endsWith(" no configurado")));
+    assert.ok(response.imageDiscovery.pinterest.unconfigured.includes("Pinterest · SearXNG"));
     assert.ok(response.failedSources.includes("Openverse"));
   });
 });

@@ -48,9 +48,8 @@ test("image results require metadata relevance and limit one landing page withou
 test("government portal and its subdomains avoid blank embedded frames on hosted web",()=>{
   for(const url of ["https://www.gob.mx/","https://www.gob.mx/tramites",
     "https://salud.gob.mx/","https://www.gob.mx.evil.test/"]){
-    const expected=!url.includes("evil");
-    assert.equal(browserPresentation(url).externalFirst,expected,url);
-    assert.equal(siteVisitMode(url,false),expected?"original":"integrated");
+    assert.equal(browserPresentation(url).externalFirst,true,url);
+    assert.equal(siteVisitMode(url,false),"original");
   }
   assert.equal(siteVisitMode("https://www.gob.mx/",true),"integrated");
 });

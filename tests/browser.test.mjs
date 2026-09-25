@@ -44,17 +44,17 @@ test("Browser Core default budgets enforce eight tabs and thirty history entries
   for (let i = 0; i < MAX_BROWSER_HISTORY + 7; i++) state.navigate("https://example.org/path/" + i);
   assert.equal(state.active().history.length, MAX_BROWSER_HISTORY);
 });
-test("Browser UI and HTML keep third party content isolated and provide escape hatches", async () => {
+test("hosted browser opens origins directly and keeps a separately controlled reader", async () => {
   const { readFile } = await import("node:fs/promises");
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const browser = await readFile(new URL("../public/browser.js", import.meta.url), "utf8");
   assert.match(html, /id="browser-address"/);
   assert.match(html, /id="browser-external"/);
   assert.match(html, /id="browser-reader"/);
-  assert.match(browser, /allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox/);
-  assert.doesNotMatch(browser, /allow-same-origin/);
-  assert.match(browser, /referrerPolicy = "no-referrer"/);
-  assert.match(html, /los sitios que impiden incrustación/i);
+  assert.match(html, /id="browser-access-reader"/);
+  assert.match(html, /las páginas externas se abren en su origen/i);
+  assert.doesNotMatch(browser, /document\.createElement\("iframe"\)/);
+  assert.doesNotMatch(browser, /allow-scripts|previewOptIn/);
 });
 
 test("Browser omnibox searches natural language and navigates explicit domains", () => {
@@ -65,7 +65,7 @@ test("Browser omnibox searches natural language and navigates explicit domains",
   assert.equal(browserInputTarget("javascript:alert(1)").kind, "invalid");
 });
 
-test("known iframe-hostile platforms get safe external-first handling, not a dead frame",()=>{
+test("every valid external page is origin-first in hosted mode",()=>{
   for(const url of [
     "https://www.google.com/search?q=test",
     "https://www.youtube.com/watch?v=aB3_-xyZ901",
@@ -76,20 +76,19 @@ test("known iframe-hostile platforms get safe external-first handling, not a dea
     "https://youtube.com.evil.example/video",
     "https://docs.example.org/news",
     "https://wae-os-enterprice22.onrender.com/"
-  ])assert.equal(browserPresentation(url).externalFirst,false,url);
+  ])assert.equal(browserPresentation(url).externalFirst,true,url);
   assert.equal(browserPresentation("javascript:bad").externalFirst,false);
 });
-test("browser keeps the real-site escape visible and requires click before restricted iframe",async()=>{
+test("browser keeps origin and reader actions without an iframe bypass",async()=>{
   const {readFile}=await import("node:fs/promises");
   const html=await readFile(new URL("../public/index.html",import.meta.url),"utf8");
   const browser=await readFile(new URL("../public/browser.js",import.meta.url),"utf8");
   const css=await readFile(new URL("../public/styles.css",import.meta.url),"utf8");
   const app=await readFile(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(html,/id="browser-access-link"/);
-  assert.match(html,/id="browser-frame-gate"/);
-  assert.match(html,/id="browser-attempt"/);
-  assert.match(browser,/if\(plan\.externalFirst && !previewOptIn\.has\(tab\.id\)\)/);
-  assert.match(browser,/attempt\.addEventListener\("click"/);
+  assert.doesNotMatch(html,/id="browser-frame-gate"|id="browser-attempt"/);
+  assert.doesNotMatch(browser,/previewOptIn|makeFrame|createElement\("iframe"\)/);
+  assert.match(browser,/Boolean\(!native&&current\?\.url&&browserPresentation\(current\.url\)\.externalFirst\)/);
   assert.match(browser,/accessLink\.href=current\.url/);
   assert.match(browser,/if \(lastView === "hero"\)/);
   assert.match(css,/\.browser-access-link/);

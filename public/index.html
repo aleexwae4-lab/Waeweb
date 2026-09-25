@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#030407">
   <meta name="description" content="WAE WEB: búsqueda federada, investigación académica y conocimiento global con fuentes rastreables.">
+  <meta name="application-name" content="WAE WEB">
+  <meta name="robots" content="noindex,nofollow">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_MX">
+  <meta property="og:site_name" content="WAE WEB">
+  <meta property="og:title" content="WAE WEB · Búsqueda de nueva generación">
+  <meta property="og:description" content="Busca fuentes abiertas, lugares, libros, noticias e investigación con atribución visible.">
+  <meta property="og:url" content="https://waeweb.onrender.com/">
+  <meta property="og:image" content="https://waeweb.onrender.com/favicon.svg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="WAE WEB · Búsqueda de nueva generación">
+  <meta name="twitter:description" content="Búsqueda federada y fuentes rastreables desde WAE WEB.">
+  <link rel="canonical" href="https://waeweb.onrender.com/">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="search" type="application/opensearchdescription+xml" title="WAE WEB" href="/opensearch.xml">
   <title>WAE WEB · Búsqueda de nueva generación</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
@@ -14,6 +29,7 @@
   <script type="module" src="/accounts.js"></script>
   <script type="module" src="/business-profile.js"></script>
   <script type="module" src="/marketplace.js"></script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"WAE WEB","url":"https://waeweb.onrender.com/","logo":"https://waeweb.onrender.com/favicon.svg"},{"@type":"WebSite","name":"WAE WEB","url":"https://waeweb.onrender.com/","inLanguage":"es-MX","potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://waeweb.onrender.com/?q={search_term_string}&type=all"},"query-input":"required name=search_term_string"}}]}</script>
 </head>
 <body>
   <div class="ambient" aria-hidden="true"><div class="blob one"></div><div class="blob two"></div><div class="blob three"></div></div>
@@ -154,9 +170,9 @@
         <div class="results-layout">
           <div class="results-main">
             <div class="statsbar"><p id="result-stats" role="status" aria-live="polite"></p><div class="results-controls"><label class="sr-only" for="source-filter">Filtrar por fuente</label><select id="source-filter" class="source-filter" aria-label="Filtrar por fuente"><option value="">Todas las fuentes</option></select><button type="button" id="copy-search" class="small-action" title="Copiar enlace de búsqueda">⧉ Compartir búsqueda</button></div></div>
-            <section id="browser-view" class="browser-view" hidden aria-label="Navegador integrado WAE WEB">
-              <div class="browser-heading"><div><span class="tag">WAEWEB · NAVEGACIÓN</span><h2>Explorar sitio</h2></div><button id="browser-close" type="button" class="small-action">✕ Cerrar vista</button></div>
-              <p class="browser-disclaimer">WAEWEB puede mostrar algunas páginas dentro de la búsqueda. Los sitios que impiden incrustación se abren en el navegador del dispositivo; ninguna vista en blanco significa que el sitio no exista.</p>
+            <section id="browser-view" class="browser-view" hidden aria-label="Acceso seguro a sitios web desde WAE WEB">
+              <div class="browser-heading"><div><span class="tag">WAEWEB · NAVEGACIÓN</span><h2>Abrir sitio original</h2></div><button id="browser-close" type="button" class="small-action">✕ Cerrar vista</button></div>
+              <p class="browser-disclaimer">En la edición web, las páginas externas se abren en su origen. El lector WAE recupera un extracto solo cuando robots.txt y los controles de seguridad lo permiten.</p>
               <div class="browser-chrome" role="region" aria-label="Controles de navegación">
                 <div class="browser-tabbar"><div id="browser-tabs" class="browser-tabs" aria-label="Pestañas abiertas"></div><button id="browser-new" type="button" class="browser-tool" aria-label="Nueva pestaña" title="Nueva pestaña">＋</button></div>
                 <div class="browser-toolbar">
@@ -173,8 +189,8 @@
                 </div>
                 <div class="browser-context"><span id="browser-status" role="status" aria-live="polite">Introduce una dirección para navegar.</span><button id="browser-reader" type="button" class="browser-tool">⌕ Leer con WAE</button></div>
               </div>
-              <div id="browser-access" class="browser-access" hidden role="region" aria-label="Abrir página web real"><span id="browser-access-label">Si no se muestra aquí, abre el sitio real.</span><a id="browser-access-link" class="browser-access-link" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">↗ Abrir página en el navegador</a><button id="browser-attempt" class="browser-tool" type="button" hidden>Intentar vista integrada</button></div>
-              <div id="browser-stage" class="browser-stage is-empty"><div id="browser-empty" class="browser-empty"><span aria-hidden="true">↗</span><h2>Escribe un dominio para explorar</h2><p>Usa el buscador principal o la dirección HTTPS de esta vista. Los resultados se conservan en la misma página.</p></div><div id="browser-frame-gate" class="browser-frame-gate" hidden><span aria-hidden="true">↗</span><h3>Continúa en el sitio original</h3><p>Esta plataforma suele bloquear la vista integrada en otras páginas. Abre el enlace real o intenta la vista opcional. Tu búsqueda en WAEWEB seguirá aquí.</p></div></div>
+              <div id="browser-access" class="browser-access" hidden role="region" aria-label="Abrir página web real"><span id="browser-access-label">Abre la página en su sitio original.</span><a id="browser-access-link" class="browser-access-link" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">↗ Abrir sitio original</a><button id="browser-access-reader" class="browser-tool" type="button">⌕ Leer extracto con WAE</button></div>
+              <div id="browser-stage" class="browser-stage is-empty"><div id="browser-empty" class="browser-empty"><span aria-hidden="true">↗</span><h2>Escribe un dominio para abrirlo</h2><p>WAEWEB conservará tus resultados y abrirá la página externa en su origen.</p></div></div>
             </section>
             <section id="reader-panel" class="reader-panel" hidden aria-label="Lector de páginas web">
               <div class="reader-heading"><h2>⌕ WAE Web Reader</h2><span class="tag">Bóveda privada · disco local</span><button id="vault-connect" type="button" class="link-button">Conectar bóveda</button><button id="vault-disconnect" type="button" class="link-button" hidden>Desconectar</button></div>

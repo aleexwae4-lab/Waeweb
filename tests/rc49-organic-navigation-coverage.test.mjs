@@ -54,7 +54,7 @@ test("organic restricted websites bypass a known dead iframe, retaining the read
   assert.equal(siteVisitMode("https://www.gob.mx/tramites",false),"original");
   assert.equal(siteVisitMode("https://www.instagram.com/explore/",false),"original");
   assert.equal(siteVisitMode("https://github.com/owner/repo",true),"integrated");
-  assert.equal(siteVisitMode("https://example.org/article",false),"integrated");
+  assert.equal(siteVisitMode("https://example.org/article",false),"original");
   assert.match(app,/const directSite=state\.type==="all"&&\s*siteVisitMode\(url,window\.waeDesktop\?\.isNative===true\)==="original"/);
   assert.match(app,/directSite\s*\? external\(url,item\.title,"result-title web-result-title wae-external-site-title"\)/);
   assert.match(app,/const reader=createWebSourceReader\(item,url\)/);

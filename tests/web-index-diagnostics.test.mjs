@@ -78,8 +78,9 @@ test("UI diagnosis stays inside existing collapsed coverage details",()=>{
   const app=readFileSync(new URL("../public/app.js",import.meta.url),"utf8");
   assert.match(app,/const details=element\("details","web-search-sources"\)/);
   assert.match(app,/const diagnosis=coverage\?\.generalIndexDiagnosis/);
-  assert.match(app,/diagnosis\.providers\.map\(provider=>provider\.name/);
-  assert.match(app,/unconfigured:"no configurado"/);
+  assert.match(app,/const publicProviders=\(diagnosis\?\.providers\|\|\[\]\)\.filter/);
+  assert.match(app,/publicProviders\.map\(provider=>provider\.name/);
+  assert.doesNotMatch(app,/unconfigured:"no configurado"/);
   assert.match(app,/empty:"respondió sin coincidencias"/);
-  assert.match(app,/unavailable:"sin respuesta"/);
+  assert.match(app,/Los errores técnicos se conservan en la telemetría del servidor/);
 });

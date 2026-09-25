@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>WAE WEB</ShortName>
+  <Description>Buscar en WAE WEB</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Image height="16" width="16" type="image/svg+xml">https://waeweb.onrender.com/favicon.svg</Image>
+  <Url type="text/html" template="https://waeweb.onrender.com/?q={searchTerms}&amp;type=all"/>
+</OpenSearchDescription>

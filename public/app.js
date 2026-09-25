@@ -3,6 +3,7 @@ import { openBrowser, hideBrowser } from "/browser.js";
 import {siteVisitMode} from "/browser-core.js";
 import {mergeWebPageResponse} from "/web-page-merge.js";
 import { classifyOmnibox } from "/omnibox.js";
+import {nearbyIntent} from "/local-intent.js";
 import { osmEmbedUrl, osmPlaceUrl, osmSearchUrl, validMapPlace, localMapCoordinates } from "/maps-core.js";
 import {createDirections} from "/directions.js";
 import {createNativeMap} from "/native-map.js";
@@ -32,7 +33,7 @@ const heroStatus = byId("hero-status");
 const panel = byId("knowledge-panel");
 const answer = byId("answer-slot");
 const weatherSlot = byId("weather-slot");
-let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, readingVisibleCount: 12, page: 1, loadingMore: false, videoPlatform: "all", videoPlayableOnly: false, mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24, imagePlatform: "all" };
+let state = { query: "", type: "all", results: [], data: null, selectedSource: "", controller: null, sequence: 0, summary: "", visibleCount: 10, readingVisibleCount: 12, page: 1, loadingMore: false, videoPlatform: "all", videoPlayableOnly: false, mediaCollection: "web", newsWindow: "24h", imageKind: "all", imageOrientation: "all", imageHighRes: false, imageVisibleCount: 24, imagePlatform: "all", mapUserLocation: null };
 let activeDirections=null;
 let activeMap=null;
 let activeInlineVideo=null;
@@ -121,6 +122,8 @@ function goHome() {
   state.sequence++;
   speechSynthesisSafeCancel();
   hero.hidden = false; resultsView.hidden = true;
+  document.title="WAE WEB · Búsqueda de nueva generación";
+  state.mapUserLocation=null;
   heroInput.value = ""; resultsInput.value = ""; heroInput.focus();
   history.pushState({}, "", location.pathname);
   scrollTo({ top: 0, behavior: "smooth" });
@@ -1145,6 +1148,32 @@ function renderSummary(data) {
   card.append(actions);
   answer.append(card);
 }
+function renderQueryIntelligence(data){
+  answer.replaceChildren();
+  const intelligence=data.queryIntelligence;
+  if(!intelligence?.answer&&!intelligence?.suggestion)return;
+  const card=element("section","answer-card wae-query-answer");
+  if(intelligence.answer){
+    card.append(element("p","eyebrow","✦ WAE Query Engine · respuesta local"),
+      element("h2","",intelligence.answer.label||"Resultado"),
+      element("strong","wae-query-answer-value",intelligence.answer.value),
+      element("p","wae-query-expression",intelligence.answer.expression),
+      element("p","research-disclaimer",intelligence.answer.disclaimer));
+  }
+  if(intelligence.suggestion){
+    const suggestion=button("Buscar «"+intelligence.suggestion+"»",()=>
+      void performSearch(intelligence.suggestion,state.type),"link-button wae-query-suggestion");
+    const line=element("div","wae-query-correction");
+    line.append(element("span","","Quizá quisiste decir:"),suggestion);
+    card.append(line);
+  }
+  const labels=element("p","wae-query-signals",
+    "Intención: "+(intelligence.intent||"general")+
+    " · Idioma: "+(intelligence.language==="es"?"español":
+      intelligence.language==="en"?"inglés":"no determinado"));
+  card.append(labels);
+  answer.append(card);
+}
 function refreshLibraryCount() {
   byId("library-count").textContent = String(workspace.count());
 }
@@ -1183,17 +1212,24 @@ function downloadLibrary() {
 }
 function renderPanel(data) {
   panel.replaceChildren();
-  const card = element("section", "panel");
-  card.append(element("h2", "", "◈ Transparencia de búsqueda"));
+  const card = element("section", "panel transparency-compact");
+  card.append(element("h2", "", "◈ Acerca de los resultados"));
   card.append(element("p", "", data.type === "businesses"
     ? "Fichas publicadas voluntariamente por sus propietarios. WAE WEB todavía no verifica identidad, titularidad ni información comercial."
-    : "Resultados devueltos por proveedores externos; WAE WEB no asigna una cifra global ficticia."));
-  const heading = element("strong", "", "Proveedores consultados");
-  card.append(heading);
-  const list = element("ul");
-  (data.sources || []).forEach(source => list.append(element("li", "", "✓ " + source)));
-  (data.failedSources || []).forEach(source => list.append(element("li", "", "⚠ " + source + " no respondió")));
-  card.append(list);
+    : "Enlaces y fragmentos recuperados de fuentes identificadas. WAEWEB no inventa una cifra total."));
+  const disclosure=element("details","transparency-details");
+  const sources=(data.sources||[]).filter(source=>!source.endsWith(" no configurado"));
+  disclosure.append(element("summary","",
+    sources.length+" fuente"+(sources.length===1?"":"s")+" con respuesta"+
+    (data.failedSources?.length?" · cobertura parcial":"")));
+  const list=element("ul");
+  sources.forEach(source=>list.append(element("li","","✓ "+source)));
+  if(!sources.length)list.append(element("li","","Aún no hay una fuente con resultados para esta consulta."));
+  disclosure.append(list);
+  if(data.failedSources?.length)disclosure.append(element("p","legend",
+    data.failedSources.length+" fuente"+(data.failedSources.length===1?" no respondió.":"s no respondieron.")+
+    " Los errores técnicos se conservan en la telemetría del servidor."));
+  card.append(disclosure);
   if (data.filters) {
     const active = Object.entries(data.filters).filter(([, value]) => value && (!Array.isArray(value) || value.length));
     if (active.length) card.append(element("p", "legend", "Filtros aplicados: " + active.map(([name, value]) => name + ": " + (Array.isArray(value) ? value.join(", ") : value)).join(" · ")));
@@ -1272,9 +1308,9 @@ function renderData(data) {
     const indexStates={
       results:"Índice web · resultados recuperados",
       empty:"Índices consultados · sin coincidencias",
-      unavailable:"Índices web sin respuesta",
-      unconfigured:"Índice web general no configurado",
-      not_queried:"Índices web no consultados"
+      unavailable:"Cobertura web temporalmente reducida",
+      unconfigured:"Cobertura con fuentes abiertas especializadas",
+      not_queried:"Cobertura especializada para esta consulta"
     };
     const webIndexStatus=indexStates[diagnosis?.state]||
       "Estado del índice web no disponible";
@@ -1288,14 +1324,14 @@ function renderData(data) {
     toolbar.append(top,metrics,commands);
     const details=element("details","web-search-sources");
     details.append(element("summary","","Fuentes y cobertura · "+webIndexStatus));
-    if(diagnosis?.providers?.length){
+    const publicProviders=(diagnosis?.providers||[]).filter(provider=>
+      provider.state==="results"||provider.state==="empty");
+    if(publicProviders.length){
       const explanations={
-        results:"páginas recuperadas",empty:"respondió sin coincidencias",
-        unavailable:"sin respuesta",unconfigured:"no configurado",
-        not_queried:"no consultado"
+        results:"páginas recuperadas",empty:"respondió sin coincidencias"
       };
       const providerSummary=element("p","",
-        diagnosis.providers.map(provider=>provider.name+": "+
+        publicProviders.map(provider=>provider.name+": "+
           (provider.state==="results"?provider.results+" "+explanations.results:
             explanations[provider.state]||"estado no disponible")).join(" · "));
       details.append(providerSummary);
@@ -1304,9 +1340,9 @@ function renderData(data) {
       "Índices web que respondieron: "+(respondingIndexes.join(", ")||"ninguno")+
       ". Índices con páginas: "+(indexes.join(", ")||"ninguno")+
       ". Fuentes adicionales: "+(specialists.join(", ")||"ninguna")+
-      ". "+(data.failedSources?.length?"Sin respuesta: "+data.failedSources.join(", ")+". ":"")+
+      ". "+(data.failedSources?.length?"La consulta tuvo cobertura parcial. ":"")+
       "El directorio incluye solo sitios conocidos; Wikidata aporta direcciones declaradas por sus colaboradores. "+
-      "La búsqueda web amplia requiere que Brave, Google o SearXNG esté configurado y responda. " +
+      "La búsqueda web amplia requiere un índice general operado y disponible. " +
       "El directorio y Wikidata no sustituyen un índice web general."));
     toolbar.append(details);
     resultsContainer.append(toolbar);
@@ -1491,7 +1527,8 @@ function renderData(data) {
     : count+" resultado"+(count===1?"":"s")+
       " · "+(data.failedSources?.length ? "Algunas fuentes no respondieron" : "Consulta completada");
   renderPanel(data);
-  if (["research","knowledge","index"].includes(state.type)) {
+  if(state.type==="all")renderQueryIntelligence(data);
+  else if (["research","knowledge","index"].includes(state.type)) {
     const filteredBrief = state.selectedSource ? {
       ...data, brief: { ...data.brief, notes: (data.brief?.notes || []).filter(note => note.source === state.selectedSource) }
     } : data;
@@ -1833,8 +1870,9 @@ function createMapQuickSearch(initial="") {
         feedback.textContent="No se pudo determinar una ubicación válida.";return;
       }
       const coordinates=latitude.toFixed(6)+", "+longitude.toFixed(6);
+      state.mapUserLocation={latitude,longitude};
       input.value=coordinates;
-      feedback.textContent="Ubicación obtenida. Abriendo mapa…";
+      feedback.textContent="Ubicación usada solo en esta sesión. Abriendo mapa…";
       void performSearch(coordinates,"maps");
     },error=>{
       locate.disabled=false;
@@ -1905,11 +1943,13 @@ function renderMapPlaces(data) {
   const heading = element("div","map-heading");
   const headText = element("div");
   append(headText,element("span","tag","WAEWEB · MAPAS"),
-    element("h2","",data.precision==="coordinate"?"Punto en el mapa":places[0].name),
+    element("h2","",data.nearby
+      ?"Lugares cercanos · "+(nearbyIntent(data.query)?.label||"Resultados")
+      :data.precision==="coordinate"?"Punto en el mapa":places[0].name),
     element("p","map-description",data.precision === "coordinate"
       ? "Punto indicado por coordenadas. No equivale a una dirección postal verificada."
       : data.precision === "address_or_place" || data.precision === "poi"
-        ? "Coincidencias geográficas reales de OpenStreetMap; selecciona el punto correcto antes de trazar una ruta."
+        ? "Coincidencias abiertas de negocios, direcciones y lugares; confirma la ficha y selecciona el punto correcto antes de trazar una ruta."
         : "Ubicaciones geocodificadas. Confirma el punto antes de trazar una ruta."));
   const mapSearch=createMapQuickSearch(data.query);
   const mapSearchInput=mapSearch.querySelector("input");
@@ -1920,6 +1960,7 @@ function renderMapPlaces(data) {
   const placeTitle = element("h3","map-place-title");
   const placeDetail = element("p","map-place-detail");
   const coords = element("p","map-coordinates");
+  const placeMeta=element("div","map-place-meta");
   const toolbar = element("div","map-toolbar");
   const copy = button("⧉ Copiar coordenadas",()=>copyText(
     (mapOverride||places[selected]).latitude.toFixed(6) + ", " +
@@ -1955,7 +1996,8 @@ function renderMapPlaces(data) {
     ["oxxo","OXXO"],["bancos","Bancos"],["cajeros","Cajeros"],
     ["cines","Cines"],["restaurantes","Restaurantes"],["gasolineras","Gasolineras"],
     ["farmacias","Farmacias"],["supermercados","Supermercados"],
-    ["cafeterias","Cafeterías"],["hospitales","Hospitales"],["hoteles","Hoteles"]
+    ["cafeterias","Cafeterías"],["hospitales","Hospitales"],["hoteles","Hoteles"],
+    ["conveniencia","Tiendas de conveniencia"],["telcel","Tiendas Telcel"]
   ];
   for(const [id,label]of poiItems)poiCategory.append(new Option(label,id));
   poiCategory.setAttribute("aria-label","Tipo de comercio cercano");
@@ -2024,6 +2066,16 @@ function renderMapPlaces(data) {
       (place.openingHours?" · Horario registrado: "+place.openingHours:"")+
       (place.phone?" · Teléfono: "+place.phone:"");
     coords.textContent="Lat. " + place.latitude.toFixed(6) + " · Lon. " + place.longitude.toFixed(6);
+    placeMeta.replaceChildren();
+    if(place.category)placeMeta.append(element("span","tag",place.category));
+    if(Number.isFinite(place.distanceKm))placeMeta.append(element("span","tag",
+      place.distanceKm<1?Math.round(place.distanceKm*1000)+" m":place.distanceKm.toFixed(1)+" km"));
+    if(place.openingHours)placeMeta.append(element("span","tag","Horario: "+place.openingHours));
+    if(place.phone&&/^\+?[0-9 ()-]{7,30}$/.test(place.phone)){
+      const phone=element("a","map-action","☎ "+place.phone);
+      phone.href="tel:"+place.phone.replace(/[^+0-9]/g,"");placeMeta.append(phone);
+    }
+    if(safeUrl(place.website))placeMeta.append(external(place.website,"↗ Sitio web","map-action"));
     visit.href=osmPlaceUrl(place);
     options.forEach((option,i)=>{
       option.classList.toggle("is-active",!mapOverride&&i===selected);
@@ -2039,7 +2091,7 @@ function renderMapPlaces(data) {
     refresh();
   }
   const details=element("div","map-place");
-  details.append(placeTitle,placeDetail,coords,toolbar);
+  details.append(placeTitle,placeDetail,coords,placeMeta,toolbar);
   section.append(stage,details);
   if(places.length>1)section.append(element("h3","map-picks-title","Elegir ubicación"),picks);
   section.append(createMapDirectionsDisclosure(directions));
@@ -2050,6 +2102,60 @@ function renderMapPlaces(data) {
   directions.setDestination(places[selected]);
   mapOverride=null;
   refresh();
+}
+async function renderNearby(query,signal,sequence){
+  const intent=nearbyIntent(query);
+  if(!intent)return;
+  stopDirections();
+  panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
+  state.data=null;state.results=[];state.selectedSource="";
+  sourceFilter.hidden=true;
+  resultsContainer.replaceChildren();
+  const intro=element("section","map-explorer");
+  intro.append(element("span","tag","WAEWEB · NEGOCIOS CERCANOS"),
+    element("h2","",intent.label+" cerca de ti"),
+    element("p","map-description",
+      "Usaremos tu ubicación sólo si lo autorizas para consultar el índice local WAEWEB y, si no hay cobertura, OpenStreetMap. No se guarda en tu cuenta."));
+  const feedback=element("p","map-search-status","Se requiere tu permiso de ubicación.");
+  feedback.setAttribute("role","status");feedback.setAttribute("aria-live","polite");
+  const find=button("⌖ Buscar cerca de mí",()=>void locate(),"map-action map-locate");
+  intro.append(find,feedback);resultsContainer.append(intro);
+  stats.textContent="Búsqueda local · "+intent.label;
+  async function locate(){
+    if(signal.aborted||sequence!==state.sequence)return;
+    if(!navigator.geolocation){
+      feedback.textContent="Tu navegador no permite usar ubicación. Puedes buscar una ciudad en Mapas.";return;
+    }
+    find.disabled=true;feedback.textContent="Solicitando ubicación autorizada…";
+    navigator.geolocation.getCurrentPosition(async position=>{
+      if(signal.aborted||sequence!==state.sequence)return;
+      const {latitude,longitude}=position.coords;
+      if(!Number.isFinite(latitude)||!Number.isFinite(longitude)){
+        find.disabled=false;feedback.textContent="No recibimos coordenadas válidas.";return;
+      }
+      state.mapUserLocation={latitude,longitude};
+      feedback.textContent="Consultando comercios registrados…";
+      try{
+        const params=new URLSearchParams({lat:latitude.toFixed(6),lon:longitude.toFixed(6),
+          radius:"3500",category:intent.poiCategory});
+        const data=await getJSON("/api/poi?"+params,signal);
+        if(signal.aborted||sequence!==state.sequence)return;
+        renderMapPlaces({...data,query,nearby:true,suggestedCategory:intent.poiCategory});
+      }catch(error){
+        if(signal.aborted||sequence!==state.sequence)return;
+        find.disabled=false;feedback.textContent="El índice geográfico no respondió. "+
+          (error?.message||"Puedes volver a intentar.");
+        stats.textContent="Búsqueda local temporalmente no disponible";
+      }
+    },error=>{
+      if(signal.aborted||sequence!==state.sequence)return;
+      find.disabled=false;
+      feedback.textContent=error.code===1
+        ?"Permiso de ubicación denegado. Puedes habilitarlo en el navegador o buscar una ciudad en Mapas."
+        :"No se pudo obtener tu ubicación. Revisa GPS o vuelve a intentar.";
+    },{enableHighAccuracy:false,timeout:12000,maximumAge:60000});
+  }
+  void locate();
 }
 async function renderMap(query,signal,sequence) {
   // Coordinates supplied by the user can render without /api/maps. A deployment
@@ -2270,6 +2376,8 @@ async function performSearch(query, type = "all", push = true, collection = "web
   const signal = state.controller.signal;
   const sequence = ++state.sequence;
   state.query = q; state.type = type;
+  document.title=q+" · "+(type==="maps"?"Mapas":type==="all"?"Web":
+    type.charAt(0).toUpperCase()+type.slice(1))+" · WAE WEB";
   state.data=null;
   state.selectedSource = "";
   state.visibleCount = 10;
@@ -2282,6 +2390,7 @@ async function performSearch(query, type = "all", push = true, collection = "web
   heroInput.value = q; resultsInput.value = q; setTab(type);
   if (push) updateAddress(q, type, state.mediaCollection);
   if (type === "maps") { await renderMap(q,signal,sequence); return; }
+  if(type==="all"&&nearbyIntent(q)){await renderNearby(q,signal,sequence);return;}
   if (type === "index" && !readerEnabled) {
     stats.textContent="Índice privado desactivado en esta vista.";
     panel.replaceChildren();answer.replaceChildren();weatherSlot.replaceChildren();
@@ -2473,6 +2582,12 @@ async function loadReaderCapability() {
 }
 loadReaderCapability();
 document.addEventListener("wae:browser:read", event => requestRead(event.detail.url));
+
+// Install only the first-party application shell. API responses, searches,
+// account data and external media are deliberately excluded from offline cache.
+if("serviceWorker" in navigator&&location.protocol==="https:"){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}),{once:true});
+}
 byId("hero-form").addEventListener("submit", event => { event.preventDefault(); runOmnibox(heroInput.value); });
 byId("results-form").addEventListener("submit", event => { event.preventDefault(); runOmnibox(resultsInput.value, state.type==="translate"?"all":state.type); });
 byId("home-button").addEventListener("click", goHome);

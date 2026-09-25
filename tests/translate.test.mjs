@@ -63,6 +63,28 @@ test("provider failure and quota fail honestly",async()=>{
     await assert.rejects(translateText({text:"Hola",source:"es",target:"en"}),e=>e.code==="provider_unavailable");
   }finally{restore(old);globalThis.fetch=fetchOld;}
 });
+test("automatic mode falls back from self-hosted LibreTranslate to keyless MyMemory",async()=>{
+  const old=save(),fetchOld=globalThis.fetch;
+  try{
+    process.env.WAE_TRANSLATE_PROVIDER="auto";
+    process.env.WAE_TRANSLATE_URL="https://translate.example.test/";
+    resetTranslationCooldown();
+    const calls=[];
+    globalThis.fetch=async input=>{
+      const url=new URL(input);calls.push(url.hostname);
+      if(url.hostname==="translate.example.test")return new Response("unavailable",{status:503});
+      if(url.hostname==="api.mymemory.translated.net")
+        return new Response(JSON.stringify({responseStatus:200,responseData:{translatedText:"Hello"}}),{status:200});
+      throw Error("unexpected provider");
+    };
+    const capabilities=publicTranslateConfig();
+    assert.equal(capabilities.redundancy,true);
+    assert.equal(capabilities.providers.length,2);
+    const result=await translateText({text:"Hola",source:"es",target:"en"});
+    assert.equal(result.provider,"MyMemory");
+    assert.deepEqual(calls,["translate.example.test","api.mymemory.translated.net"]);
+  }finally{restore(old);globalThis.fetch=fetchOld;resetTranslationCooldown();}
+});
 test("translator public POST in preview cannot access vault or mutate private APIs",async()=>{
   const old=save(),fetchOld=globalThis.fetch;
   process.env.WAE_PREVIEW_MODE="true";

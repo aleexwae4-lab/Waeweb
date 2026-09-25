@@ -121,7 +121,10 @@ test("RC36 map pins, touch gestures, and search stay inside the existing maps pa
   assert.match(app,/performSearch\(q,"maps"\)/);
   assert.match(app,/createNativeMap\(\{onSelectPlace:index=>select\(index\)\}\)/);
   assert.match(app,/map\.setPlaces\(places,mapOverride\?-1:selected\)/);
-  assert.match(app,/\[\.\.\.addresses\.results,\.\.\.\(locality\?\.results\|\|\[\]\)\]/);
+  assert.match(app,/getJSON\("\/api\/maps\?q="/);
+  assert.match(app,/state\.mapUserLocation/);
+  assert.match(app,/getJSON\("\/api\/places\?q="/);
+  assert.match(app,/getJSON\("\/api\/poi\?/);
   assert.match(css,/\.wae-map-candidate/);
   assert.match(css,/\.map-search-form/);
 });

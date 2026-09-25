@@ -7,9 +7,8 @@ const languages = Object.freeze({
 });
 export const languageOptions = Object.entries(languages).map(([code,name])=>({code,name}));
 const QUOTA_DEFAULT_SECONDS=300, QUOTA_MAX_SECONDS=600;
-let quota={provider:null,until:0};
-const remainingQuota=provider=>quota.provider===provider
-  ?Math.max(0,Math.ceil((quota.until-Date.now())/1000)):0;
+const quotas=new Map();
+const remainingQuota=provider=>Math.max(0,Math.ceil(((quotas.get(provider)||0)-Date.now())/1000));
 function quotaSeconds(header){
   if(header==null||String(header).trim()==="")return QUOTA_DEFAULT_SECONDS;
   const parsed=Number(header);
@@ -21,13 +20,13 @@ function quotaSeconds(header){
 }
 function pauseProvider(provider,seconds=QUOTA_DEFAULT_SECONDS){
   const wait=Math.max(30,Math.min(QUOTA_MAX_SECONDS,seconds));
-  quota={provider,until:Date.now()+wait*1000};
+  quotas.set(provider,Date.now()+wait*1000);
   return new TranslateError("provider_quota",
     "El servicio externo alcanzó su cuota. Intenta de nuevo más tarde o usa traducción local.",429,wait);
 }
 // In-process breaker (one instance only), never persisted and never used to
 // claim that the upstream quota has recovered. Tests can reset it explicitly.
-export function resetTranslationCooldown(){quota={provider:null,until:0};}
+export function resetTranslationCooldown(){quotas.clear();}
 
 export class TranslateError extends Error {
   constructor(code,message,status=400,retryAfterSeconds=0){
@@ -35,10 +34,8 @@ export class TranslateError extends Error {
     this.retryAfterSeconds=retryAfterSeconds;
   }
 }
-export function translatorConfig() {
-  const requested=(process.env.WAE_TRANSLATE_PROVIDER||"mymemory").trim().toLowerCase();
-  if (requested==="off") return {provider:"off",available:false,autoDetect:false,maxBytes:0};
-  if (requested==="libretranslate") {
+function providerConfig(provider){
+  if(provider==="libretranslate"){
     const raw=process.env.WAE_TRANSLATE_URL?.trim();
     if (!raw) return {provider:"libretranslate",available:false,autoDetect:true,maxBytes:6000};
     let u;
@@ -49,17 +46,41 @@ export function translatorConfig() {
       !u.username && !u.password && !u.search && !u.hash;
     return {provider:"libretranslate",available:valid,autoDetect:true,maxBytes:6000};
   }
-  // Short, explicitly submitted text only. Public MyMemory has low quotas;
-  // no anonymous bulk service or false promises of unlimited translation.
-  if(requested==="mymemory") return {provider:"mymemory",available:true,autoDetect:false,maxBytes:450};
+  if(provider==="mymemory")return {provider:"mymemory",available:true,autoDetect:false,maxBytes:450};
   return {provider:"off",available:false,autoDetect:false,maxBytes:0};
 }
+export function translatorConfig() {
+  const requested=(process.env.WAE_TRANSLATE_PROVIDER||"auto").trim().toLowerCase();
+  if(requested==="off")return {...providerConfig("off"),mode:"off",chain:[]};
+  if(["libretranslate","mymemory"].includes(requested)){
+    const exact=providerConfig(requested);
+    return {...exact,mode:"explicit",chain:exact.available?[requested]:[]};
+  }
+  if(requested!=="auto")return {...providerConfig("off"),mode:"off",chain:[]};
+  // Prefer an operator-controlled LibreTranslate instance. MyMemory remains a
+  // separate, keyless fallback for short explicit-language requests.
+  const libre=providerConfig("libretranslate"),memory=providerConfig("mymemory");
+  const chain=[...(libre.available?["libretranslate"]:[]),"mymemory"];
+  const primary=providerConfig(chain[0]);
+  return {...primary,mode:"auto",chain,available:true,
+    autoDetect:libre.available,maxBytes:libre.available?6000:memory.maxBytes};
+}
 export function publicTranslateConfig() {
-  const {provider,available,autoDetect,maxBytes}=translatorConfig();
-  const retryAfterSeconds=available?remainingQuota(provider):0;
-  return {provider,available:available&&!retryAfterSeconds,
-    configured:available,quotaLimited:retryAfterSeconds>0,retryAfterSeconds,
-    autoDetect,maxBytes,languages:languageOptions,
+  const config=translatorConfig();
+  const providerStates=(config.chain||[]).map(name=>{
+    const item=providerConfig(name),retryAfterSeconds=remainingQuota(name);
+    return {provider:name,available:item.available&&!retryAfterSeconds,
+      configured:item.available,quotaLimited:retryAfterSeconds>0,
+      retryAfterSeconds,autoDetect:item.autoDetect,maxBytes:item.maxBytes};
+  });
+  const usable=providerStates.filter(item=>item.available);
+  const waits=providerStates.map(item=>item.retryAfterSeconds).filter(Boolean);
+  const retryAfterSeconds=usable.length||!waits.length?0:Math.min(...waits);
+  return {provider:config.provider,mode:config.mode,providers:providerStates,
+    redundancy:providerStates.length>1,available:usable.length>0,
+    configured:config.available,quotaLimited:!usable.length&&providerStates.some(item=>item.quotaLimited),retryAfterSeconds,
+    autoDetect:config.autoDetect,maxBytes:config.maxBytes,
+    languages:languageOptions,
     privacy:"El texto se envía al proveedor externo únicamente cuando pulsas Traducir. No introduzcas datos confidenciales."};
 }
 function validate(payload,config) {
@@ -101,11 +122,7 @@ export async function translateText(payload) {
   if(!config.available)throw new TranslateError("translator_unavailable",
     "El motor de traducción está desactivado o no está configurado.",503);
   const {text,source,target}=validate(payload,config);
-  const retryAfterSeconds=remainingQuota(config.provider);
-  if(retryAfterSeconds)throw new TranslateError("provider_quota",
-    "El proveedor alcanzó su cuota. Prueba el motor local o inténtalo más tarde.",429,
-    retryAfterSeconds);
-  if(config.provider==="mymemory"){
+  const runMyMemory=async()=>{
     const url=new URL("https://api.mymemory.translated.net/get");
     url.search=new URLSearchParams({q:text,langpair:source+"|"+target}).toString();
     const data=await jsonResponse(url,{provider:"mymemory",headers:{accept:"application/json"}});
@@ -116,21 +133,46 @@ export async function translateText(payload) {
       throw new TranslateError("provider_unavailable","El proveedor no devolvió una traducción válida.",502);
     return {translatedText:data.responseData.translatedText,source,target,
       detectedLanguage:null,provider:"MyMemory",sourceTextBytes:Buffer.byteLength(text,"utf8")};
+  };
+  const runLibre=async()=>{
+    const url=new URL(process.env.WAE_TRANSLATE_URL);
+    url.pathname=url.pathname.replace(/\/+$/,"")+"/translate";
+    const key=process.env.WAE_TRANSLATE_API_KEY?.trim();
+    const body={q:text,source,target,format:"text"};
+    if(key)body.api_key=key;
+    const data=await jsonResponse(url,{
+      provider:"libretranslate",method:"POST",
+      headers:{"content-type":"application/json",accept:"application/json"},
+      body:JSON.stringify(body)
+    });
+    if(typeof data.translatedText!=="string" || !data.translatedText.trim())
+      throw new TranslateError("provider_unavailable","El proveedor no devolvió una traducción válida.",502);
+    return {translatedText:data.translatedText,source,target,
+      detectedLanguage:typeof data.detectedLanguage?.language==="string"
+        ?data.detectedLanguage.language:null,
+      provider:"LibreTranslate",sourceTextBytes:Buffer.byteLength(text,"utf8")};
+  };
+  let lastError=null,compatible=0;
+  for(const provider of config.chain||[]){
+    const candidate=providerConfig(provider),bytes=Buffer.byteLength(text,"utf8");
+    if(!candidate.available||bytes>candidate.maxBytes||source==="auto"&&!candidate.autoDetect)continue;
+    compatible++;
+    const retryAfterSeconds=remainingQuota(provider);
+    if(retryAfterSeconds){
+      lastError=new TranslateError("provider_quota",
+        "El proveedor alcanzó su cuota. Prueba el motor local o inténtalo más tarde.",429,retryAfterSeconds);
+      continue;
+    }
+    try{return provider==="mymemory"?await runMyMemory():await runLibre();}
+    catch(error){
+      if(!(error instanceof TranslateError))throw error;
+      lastError=error;
+      if(!["provider_quota","provider_unavailable","invalid_provider_response"].includes(error.code))throw error;
+    }
   }
-  const url=new URL(process.env.WAE_TRANSLATE_URL);
-  url.pathname=url.pathname.replace(/\/+$/,"")+"/translate";
-  const key=process.env.WAE_TRANSLATE_API_KEY?.trim();
-  const body={q:text,source,target,format:"text"};
-  if(key)body.api_key=key;
-  const data=await jsonResponse(url,{
-    provider:"libretranslate",method:"POST",
-    headers:{"content-type":"application/json",accept:"application/json"},
-    body:JSON.stringify(body)
-  });
-  if(typeof data.translatedText!=="string" || !data.translatedText.trim())
-    throw new TranslateError("provider_unavailable","El proveedor no devolvió una traducción válida.",502);
-  return {translatedText:data.translatedText,source,target,
-    detectedLanguage:typeof data.detectedLanguage?.language==="string"
-      ?data.detectedLanguage.language:null,
-    provider:"LibreTranslate",sourceTextBytes:Buffer.byteLength(text,"utf8")};
+  if(lastError)throw lastError;
+  if(!compatible)throw new TranslateError("translator_unavailable",
+    source==="auto"?"La detección automática necesita LibreTranslate configurado.":
+      "Ningún proveedor disponible admite el tamaño de este texto.",503);
+  throw new TranslateError("provider_unavailable","La traducción no está disponible en este momento.",502);
 }

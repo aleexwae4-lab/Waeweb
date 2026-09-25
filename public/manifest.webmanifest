@@ -1,0 +1,19 @@
+{
+  "name": "WAE WEB",
+  "short_name": "WAE",
+  "description": "Búsqueda federada con fuentes rastreables.",
+  "lang": "es-MX",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#030407",
+  "theme_color": "#030407",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

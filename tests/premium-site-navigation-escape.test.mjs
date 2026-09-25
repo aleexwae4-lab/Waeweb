@@ -17,7 +17,7 @@ test("named navigation never traps popular websites in a blank embedded frame",(
     assert.equal(siteVisitMode(url,true),"integrated",url);
   }
 });
-test("only actual restricted hostnames trigger original-first routing, never deceptive suffixes",()=>{
+test("hosted mode opens every external hostname at its origin",()=>{
   for(const url of [
     "https://github.com.evil.example.org/",
     "https://mercadolibre.com.mx.bad.example.org/",
@@ -25,7 +25,7 @@ test("only actual restricted hostnames trigger original-first routing, never dec
     "https://github.io/",
     "https://developer.mozilla.org/"
   ]){
-    assert.equal(siteVisitMode(url,false),"integrated",url);
+    assert.equal(siteVisitMode(url,false),"original",url);
   }
 });
 test("real website title and primary action are direct HTTPS links on web, buttons in native",()=>{

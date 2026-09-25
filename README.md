@@ -2,7 +2,47 @@
 
 WAE WEB es el buscador federado de WAE OS Enterprise. Servidor web Node.js con cliente PostgreSQL opcional en ejecución y edición opcional de escritorio con Electron como dependencia de desarrollo. Interfaz obsidiana/aurora basada en el prototipo visual aportado por el fundador.
 
-**Desarrollo únicamente.** El despliegue existente de Vercel no se utiliza, modifica ni conecta en esta etapa. No hay scripts de despliegue ni hooks de Vercel. Rama de trabajo: feat/wae-web-search-core.
+**Canal público actual:** Render sirve `waeweb.onrender.com` desde `main` en modo
+aislado. Vercel no se utiliza. El modo aislado deja disponibles búsqueda,
+mapas, fuentes abiertas y traducción explícita, pero mantiene cuentas, pagos,
+bóvedas y conectores privados desactivados. El manifiesto comercial continúa
+en `HOLD`.
+
+## Estado actual — RC55: núcleo gratuito de búsqueda y mapas
+
+RC55 corrige los bloqueadores encontrados en la auditoría del 25 de septiembre
+de 2026 sin añadir APIs de pago:
+
+- Motor local determinista: normalización Unicode, intención, idioma,
+  sugerencias ortográficas acotadas, alias, cálculos y conversiones.
+- Ranking lexical BM25 por colección, autoridad/localidad prudentes,
+  diversidad por dominio, deduplicación y señales básicas contra spam.
+- Búsqueda manual de localidades, direcciones y comercios con Nominatim;
+  un índice OSM nativo importable resuelve POI primero y Overpass queda como
+  respaldo sólo cuando el usuario aporta una ubicación. Las consultas se
+  cachean y Nominatim se serializa a más de un segundo.
+- Traductor en modo automático: LibreTranslate controlado por el operador si
+  existe y MyMemory gratuito como respaldo limitado. Cuotas y fallos abren un
+  circuito; la interfaz ya no afirma que un proveedor está conectado antes de
+  una traducción real.
+- En la web alojada, las páginas externas se abren en su origen. El lector
+  seguro permanece como acción separada y no se intenta eludir `X-Frame-Options`
+  ni `frame-ancestors`. La edición Electron conserva Chromium aislado.
+- Panel técnico compacto: los proveedores opcionales no configurados dejan de
+  presentarse como fuentes exitosas en la experiencia principal.
+- Metadatos PWA/OpenSearch y shell offline de primera parte. Las búsquedas,
+  cuentas, API y medios externos nunca se guardan en la caché del service
+  worker.
+
+QA local de RC55: `npm run check` y **508/508 pruebas**. La publicación
+comercial, indexación SEO, cuentas, Marketplace, rutas a escala y un índice web
+general siguen bloqueados hasta completar controles operativos. SearXNG,
+LibreTranslate, Nominatim, Overpass y OSRM deben ser instancias propias o
+infraestructura compatible antes de escalar; no se usa una instancia pública
+arbitraria como dependencia de producción.
+
+Las fases que siguen se conservan como historial técnico. Cuando una fase
+antigua contradiga este estado, prevalece RC55 y su suite actual.
 
 ## Fase 17 — RC8: no más datos efímeros en servicios alojados
 
@@ -159,11 +199,18 @@ Todos los conectores están **apagados por defecto**; no hay secretos reales en 
 
 **Canal IPC:** solo el frame principal de la ventana local exacta puede solicitar navegación, selección, historial, geometría de la vista y salida explícita al navegador del sistema. Los comandos y URLs vuelven a validarse en el proceso principal. No se expone `ipcRenderer` ni acceso a archivos, consola del sistema, claves o bóvedas a sitios de terceros. El navegador del sistema solo se abre con URL HTTPS validada desde la interfaz local. La vista nativa ajusta su geometría al área real visible de la aplicación. Los contenidos se cierran expresamente al cerrar cada pestaña/ventana para limitar fugas de memoria.
 
-**Diferencia con v0.8 web:** dentro del navegador web normal WAEWEB sigue usando su `iframe` de compatibilidad y mostrando «Abrir fuera»; el motor Chromium verdadero se activa **solo** al arrancar la edición Electron local. En escritorio, los enlaces/clics y redirecciones HTTPS de la página remota pasan al historial del motor. No se prometen equivalencia total con Google Chrome, extensiones Chrome, DRM, todas las páginas ni compatibilidad de cada inicio de sesión. No existe una plataforma remota de Chromium para usuarios de Vercel/Render.
+**Contexto histórico de v0.8:** aquella versión web utilizaba un `iframe` de
+compatibilidad. RC55 lo retiró: Render abre cada sitio en su origen y ofrece el
+lector como acción independiente. El motor Chromium verdadero se activa
+**solo** al arrancar la edición Electron local. En escritorio, los enlaces,
+clics y redirecciones HTTPS de la página remota pasan al historial del motor.
+No se prometen equivalencia total con Google Chrome, extensiones, DRM, todas
+las páginas ni compatibilidad de cada inicio de sesión. No existe una plataforma
+remota de Chromium para usuarios de Render.
 
 **QA disponible:** las pruebas automatizadas cubren URLs, prohibición de protocolos/destinos locales, límites de viewport, origen/frame del IPC y controles de aislamiento; `node --check` también valida los archivos de escritorio. GitHub Actions no instala ni inicia Electron, así que una ejecución PASS **no es** una validación visual ni de navegación real del ejecutable. Quedan pendientes E2E nativos y paquetes instalables firmados.
 
-## Estado actual — Fase 8 (v0.8): WAEWEB Browser Core
+## Historial — Fase 8 (v0.8): WAEWEB Browser Core reemplazado en web por RC55
 
 **Navegación interna sin usar Vercel.** La barra «◎ Navegar» y los títulos de resultados abren un área integrada con direcciones HTTPS, hasta ocho pestañas por sesión, atrás/adelante, recarga, salida al buscador y apertura explícita del sitio original. La pestaña conserva su iframe mientras se alterna entre pestañas; el historial de URLs introducidas por WAEWEB tiene un límite de 30 entradas. La interfaz muestra siempre el aviso de que la navegación interna es condicional.
 
