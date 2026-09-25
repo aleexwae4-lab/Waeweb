@@ -536,8 +536,9 @@ function createWebSourceReader(item,url){
   const body=element("div","wae-web-reader-body");
   body.hidden=true;
   const actions=element("div","wae-web-reader-actions");
+  let recover=null;
   if(url.startsWith("https://")){
-    const recover=button("▤ Recuperar texto original",async()=>{
+    recover=button("▤ Recuperar texto original",async()=>{
       if(recovered){
         body.hidden=!body.hidden;
         recover.textContent=body.hidden?"▤ Mostrar texto":"▤ Ocultar texto";
@@ -596,6 +597,9 @@ function createWebSourceReader(item,url){
     slot.hidden=!open;
     control.textContent=open?"✕ Cerrar lectura":"▤ Leer aquí";
     control.setAttribute("aria-expanded",String(open));
+    // A single explicit click on the result requests its source-backed excerpt.
+    // Failed or blocked origins keep the search snippet and the manual retry.
+    if(open&&!recovered&&recover&&!recover.disabled)recover.click();
     return open;
   }
   return {slot,control,toggle};
