@@ -21,7 +21,12 @@ for attempt in range(1, 31):
     try:
         request = urllib.request.Request(
             f"{base}/search?{params}",
-            headers={"User-Agent": "WAE-Search-Core-Smoke/1.0", "Accept": "application/json"},
+            headers={
+                "User-Agent": "WAE-Search-Core-Smoke/1.0",
+                "Accept": "application/json",
+                "X-Forwarded-For": "127.0.0.1",
+                "X-Real-IP": "127.0.0.1",
+            },
         )
         with urllib.request.urlopen(request, timeout=8) as response:
             if response.status != 200:
