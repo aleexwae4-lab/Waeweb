@@ -1,0 +1,39 @@
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "WAE Search Core"
+  enable_metrics: false
+  donation_url: false
+  contact_url: false
+
+search:
+  safe_search: 1
+  autocomplete: ""
+  default_lang: "auto"
+  formats:
+    - html
+    - json
+
+server:
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"
+  secret_key: "overridden-by-SEARXNG_SECRET"
+  default_http_headers:
+    X-Content-Type-Options: nosniff
+    X-Download-Options: noopen
+    X-Robots-Tag: noindex, nofollow
+    Referrer-Policy: no-referrer
+
+ui:
+  query_in_title: false
+  center_alignment: false
+
+outgoing:
+  request_timeout: 3.5
+  max_request_timeout: 8.0
+  pool_connections: 64
+  enable_http2: true
+  useragent_suffix: "WAEWEB"
