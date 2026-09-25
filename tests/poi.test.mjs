@@ -15,6 +15,8 @@ test("POI catalog is allowlisted and query language cannot be injected",()=>{
  const query=compilePoiQuery({latitude:20.6767,longitude:-103.3475,radius:2500,category:"oxxo"});
  assert.match(query.ql,/nwr\(around:2500,20\.676700,-103\.347500\)/);
  assert.match(query.ql,/\[out:json\]\[timeout:12\]/);
+ assert.match(query.ql,/\["name"="OXXO"\]/);
+ assert.doesNotMatch(query.ql,/\["name"~/);
  assert.throws(()=>compilePoiQuery({latitude:20.6,longitude:-103.3,category:'oxxo"];out body;'}),PoiError);
  assert.throws(()=>compilePoiQuery({latitude:20.6,longitude:-103.3,radius:100000,category:"oxxo"}),PoiError);
  assert.throws(()=>compilePoiQuery({latitude:999,longitude:-103.3,category:"oxxo"}),PoiError);

@@ -3,7 +3,9 @@ import {searchNativePoi} from "./native-poi.mjs";
 // OpenStreetMap Overpass POI discovery. No paid API, no user-supplied query language.
 const cache=new Map(),pending=new Map(),TTL=10*60_000;
 const CATEGORIES=Object.freeze({
-  oxxo:{label:"OXXO",filters:['["name"~"^OXXO( |$)",i]','["brand"~"^OXXO$",i]']},
+  // Exact indexed tags avoid the expensive case-insensitive regex scan that
+  // regularly times out on shared Overpass instances.
+  oxxo:{label:"OXXO",filters:['["name"="OXXO"]','["name"="Oxxo"]','["brand"="OXXO"]']},
   bancos:{label:"Bancos",filters:['["amenity"="bank"]']},
   cajeros:{label:"Cajeros",filters:['["amenity"="atm"]']},
   cines:{label:"Cines",filters:['["amenity"="cinema"]']},
@@ -15,7 +17,7 @@ const CATEGORIES=Object.freeze({
   hospitales:{label:"Hospitales",filters:['["amenity"="hospital"]']},
   hoteles:{label:"Hoteles",filters:['["tourism"="hotel"]']},
   conveniencia:{label:"Tiendas de conveniencia",filters:['["shop"="convenience"]']},
-  telcel:{label:"Tiendas Telcel",filters:['["shop"="mobile_phone"]["name"~"Telcel",i]','["brand"~"^Telcel$",i]']}
+  telcel:{label:"Tiendas Telcel",filters:['["name"="Telcel"]','["name"="TELCEL"]','["brand"="Telcel"]']}
 });
 const ALIASES=Object.freeze({"banco":"bancos","cine":"cines","restaurante":"restaurantes",
  "gasolinera":"gasolineras","gasolina":"gasolineras","farmacia":"farmacias",
