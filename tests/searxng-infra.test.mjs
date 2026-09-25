@@ -25,4 +25,14 @@ test("self-hosted SearXNG bundle is pinned, JSON-enabled and secret-safe",async(
   assert.doesNotMatch(settings,/[a-f0-9]{48,}/i,"no production secret may be committed");
   assert.doesNotMatch(start,/https:\/\/waeweb-search-core/i,"runtime URL must be supplied by Render");
   assert.match(readme,/startup-only loopback smoke check/i);
+  assert.match(settings,/remove:\s*\n\s*- ahmia\s*\n\s*- torch/);
+  assert.match(smoke,/X-Forwarded-For/);
+});
+
+test("WAEWEB performs one non-blocking SearXNG link verification at startup",async()=>{
+  const server=await readFile(new URL("../server/index.mjs",import.meta.url),"utf8");
+  assert.match(server,/WAE_SEARCH_LINK_READY provider=searxng/);
+  assert.match(server,/WAE_SEARCH_LINK_DEGRADED provider=searxng/);
+  assert.match(server,/setTimeout\(\(\)=>void verifySearchCoreLink\(\),1000\)/);
+  assert.match(server,/smoke\.unref\?\.\(\)/);
 });
