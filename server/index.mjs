@@ -8,9 +8,9 @@ import {directorySites,earlyWikidataSiteEligible,wikidataOfficialSites} from "./
 import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
 import {previewWebHit,registerWebHits} from "./web-preview.mjs";
 import {wikipediaIntroduction,EncyclopediaError} from "./encyclopedia.mjs";
-import {searxngConfig} from "./web-providers.mjs";
-import { findPlaces, mapCoordinates, MapsError } from "./maps.mjs";
-import {searchPOI,searchLocalPlaces,poiCategories,PoiError} from "./poi.mjs";
+import {searxngConfig,searxngInfrastructureStatus} from "./web-providers.mjs";
+import { findPlaces, mapCoordinates, MapsError, mapsInfrastructureStatus } from "./maps.mjs";
+import {searchPOI,searchLocalPlaces,poiCategories,PoiError,poiInfrastructureStatus} from "./poi.mjs";
 import {nativePoiStatus} from "./native-poi.mjs";
 import {planDirections,routingCapabilities,DirectionsError} from "./directions.mjs";
 import {searchAddress,addressCapabilities,GeocodeError} from "./geocode.mjs";
@@ -226,6 +226,17 @@ export async function handler(req, res) {
       nearbyPoisRequireUserLocation:true,nativePoiIndex:nativePoiStatus()},
     directions: {...routingCapabilities(),addressSearch:addressCapabilities()},
     translator: publicTranslateConfig(),
+    openInfrastructure:{
+      generalWebIndex:searxngInfrastructureStatus(),
+      geocoding:mapsInfrastructureStatus(),
+      nearbyPlaces:poiInfrastructureStatus(),
+      routing:routingCapabilities(),
+      translation:{provider:"LibreTranslate",mode:process.env.WAE_TRANSLATE_URL?"operator_controlled":"fallback_only",
+        providers:publicTranslateConfig().providers.map(item=>({
+          provider:item.provider,configured:item.configured,available:item.available,
+          runtimeState:item.runtimeState,retryAfterSeconds:item.retryAfterSeconds
+        }))}
+    },
     googleSearchConfigured: Boolean(process.env.GOOGLE_SEARCH_API_KEY && process.env.GOOGLE_SEARCH_ENGINE_ID),
     braveSearchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY?.trim()),
     youtubeDataConfigured: Boolean(process.env.YOUTUBE_DATA_API_KEY?.trim()),
