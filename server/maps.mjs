@@ -1,6 +1,7 @@
 // WAEWEB P0 maps: free/open geographic search.
 // Nominatim resolves addresses and named places. Category/nearby searches use
 // the dedicated POI modules so this endpoint never duplicates Overpass calls.
+import {guardedProvider,providerCircuitSnapshot,ProviderCircuitOpenError} from "./provider-resilience.mjs";
 const cache=new Map();
 const inflight=new Map();
 let nextPublicSlot=0;
@@ -12,6 +13,14 @@ export class MapsError extends Error{
   constructor(message,status=400,code="map_query_invalid"){
     super(message);this.status=status;this.code=code;
   }
+}
+
+export function mapsInfrastructureStatus(){
+  const operator=Boolean(process.env.WAE_NOMINATIM_URL?.trim());
+  return {provider:"OpenStreetMap · Nominatim",
+    mode:operator?"operator_controlled":"public_shared",
+    cached:true,sharedPolicy:operator?null:"max_1_request_per_second",
+    ...providerCircuitSnapshot("nominatim",{configured:true})};
 }
 
 export function mapCoordinates(value){
@@ -113,11 +122,25 @@ async function nominatim(query,{transport=fetch,bias=null}={}){
       const slot=Math.max(Date.now(),nextPublicSlot);nextPublicSlot=slot+1100;
       if(slot>Date.now())await new Promise(resolve=>setTimeout(resolve,slot-Date.now()));
     }
-    response=await transport(endpoint,{headers:HEADERS,signal:AbortSignal.timeout(7000),redirect:"error"});
-  }catch{throw new MapsError("No se pudo consultar el índice geográfico de OpenStreetMap.",502,"map_source_unavailable");}
-  if(response.status===429)throw new MapsError(
-    "El índice geográfico está limitando solicitudes. Intenta nuevamente en unos segundos.",429,"map_rate_limited");
-  if(!response.ok)throw new MapsError("El índice geográfico no respondió correctamente.",502,"map_source_unavailable");
+    const run=async()=>{
+      const result=await transport(endpoint,{headers:HEADERS,signal:AbortSignal.timeout(7000),redirect:"error"});
+      if(result.status===429)throw new MapsError(
+        "El índice geográfico está limitando solicitudes. Intenta nuevamente en unos segundos.",429,"map_rate_limited");
+      if(!result.ok)throw new MapsError(
+        "El índice geográfico no respondió correctamente.",502,"map_source_unavailable");
+      return result;
+    };
+    response=transport===globalThis.fetch
+      ?await guardedProvider("nominatim",run,{threshold:2,cooldownMs:45_000,
+        retryable:error=>error instanceof ProviderCircuitOpenError||
+          ["map_source_unavailable","map_rate_limited","map_invalid_response"].includes(error?.code)||
+          /fetch|timeout|abort/i.test(String(error?.message||""))})
+      :await run();
+  }catch(error){
+    if(error instanceof ProviderCircuitOpenError)
+      throw new MapsError("El índice geográfico está temporalmente en recuperación. Intenta nuevamente en unos segundos.",503,"map_circuit_open");
+    throw new MapsError("No se pudo consultar el índice geográfico de OpenStreetMap.",502,"map_source_unavailable");
+  }
   const raw=await response.text();
   if(raw.length>900000)throw new MapsError("Respuesta geográfica demasiado grande.",502,"map_invalid_response");
   let data;

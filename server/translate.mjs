@@ -1,5 +1,6 @@
 // WAEWEB text-only translation gateway. No chat/vault text, persistence,
 // automatic requests or provider secrets are exposed to the frontend.
+import {guardedProvider,providerCircuitSnapshot,ProviderCircuitOpenError} from "./provider-resilience.mjs";
 const languages = Object.freeze({
   es:"Español",en:"Inglés",fr:"Francés",de:"Alemán",it:"Italiano",
   pt:"Portugués",ja:"Japonés",ko:"Coreano",zh:"Chino",ar:"Árabe",
@@ -69,9 +70,13 @@ export function publicTranslateConfig() {
   const config=translatorConfig();
   const providerStates=(config.chain||[]).map(name=>{
     const item=providerConfig(name),retryAfterSeconds=remainingQuota(name);
-    return {provider:name,available:item.available&&!retryAfterSeconds,
+    const runtime=name==="libretranslate"
+      ?providerCircuitSnapshot("libretranslate",{configured:item.available})
+      :{state:retryAfterSeconds?"quota_limited":"idle"};
+    return {provider:name,available:item.available&&!retryAfterSeconds&&runtime.state!=="circuit_open",
       configured:item.available,quotaLimited:retryAfterSeconds>0,
-      retryAfterSeconds,autoDetect:item.autoDetect,maxBytes:item.maxBytes};
+      retryAfterSeconds:Math.max(retryAfterSeconds,runtime.retryAfterSeconds||0),
+      runtimeState:runtime.state,autoDetect:item.autoDetect,maxBytes:item.maxBytes};
   });
   const usable=providerStates.filter(item=>item.available);
   const waits=providerStates.map(item=>item.retryAfterSeconds).filter(Boolean);
@@ -135,22 +140,36 @@ export async function translateText(payload) {
       detectedLanguage:null,provider:"MyMemory",sourceTextBytes:Buffer.byteLength(text,"utf8")};
   };
   const runLibre=async()=>{
-    const url=new URL(process.env.WAE_TRANSLATE_URL);
-    url.pathname=url.pathname.replace(/\/+$/,"")+"/translate";
-    const key=process.env.WAE_TRANSLATE_API_KEY?.trim();
-    const body={q:text,source,target,format:"text"};
-    if(key)body.api_key=key;
-    const data=await jsonResponse(url,{
-      provider:"libretranslate",method:"POST",
-      headers:{"content-type":"application/json",accept:"application/json"},
-      body:JSON.stringify(body)
-    });
-    if(typeof data.translatedText!=="string" || !data.translatedText.trim())
-      throw new TranslateError("provider_unavailable","El proveedor no devolvió una traducción válida.",502);
-    return {translatedText:data.translatedText,source,target,
-      detectedLanguage:typeof data.detectedLanguage?.language==="string"
-        ?data.detectedLanguage.language:null,
-      provider:"LibreTranslate",sourceTextBytes:Buffer.byteLength(text,"utf8")};
+    const execute=async()=>{
+      const url=new URL(process.env.WAE_TRANSLATE_URL);
+      url.pathname=url.pathname.replace(/\/+$/,"")+"/translate";
+      const key=process.env.WAE_TRANSLATE_API_KEY?.trim();
+      const body={q:text,source,target,format:"text"};
+      if(key)body.api_key=key;
+      const data=await jsonResponse(url,{
+        provider:"libretranslate",method:"POST",
+        headers:{"content-type":"application/json",accept:"application/json"},
+        body:JSON.stringify(body)
+      });
+      if(typeof data.translatedText!=="string" || !data.translatedText.trim())
+        throw new TranslateError("provider_unavailable","El proveedor no devolvió una traducción válida.",502);
+      return {translatedText:data.translatedText,source,target,
+        detectedLanguage:typeof data.detectedLanguage?.language==="string"
+          ?data.detectedLanguage.language:null,
+        provider:"LibreTranslate",sourceTextBytes:Buffer.byteLength(text,"utf8")};
+    };
+    try{
+      return await guardedProvider("libretranslate",execute,{
+        threshold:2,cooldownMs:60_000,
+        retryable:error=>["provider_quota","provider_unavailable","invalid_provider_response"].includes(error?.code)||
+          /fetch|timeout|abort/i.test(String(error?.message||""))
+      });
+    }catch(error){
+      if(error instanceof ProviderCircuitOpenError)
+        throw new TranslateError("provider_unavailable",
+          "LibreTranslate está temporalmente en recuperación; se intentará el respaldo disponible.",503,error.retryAfterSeconds);
+      throw error;
+    }
   };
   let lastError=null,compatible=0;
   for(const provider of config.chain||[]){

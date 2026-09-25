@@ -1,5 +1,6 @@
 import {searchAddress} from "./geocode.mjs";
 import {searchNativePoi} from "./native-poi.mjs";
+import {guardedProvider,providerCircuitSnapshot,ProviderCircuitOpenError} from "./provider-resilience.mjs";
 // OpenStreetMap Overpass POI discovery. No paid API, no user-supplied query language.
 const cache=new Map(),pending=new Map(),TTL=10*60_000;
 const CATEGORIES=Object.freeze({
@@ -26,6 +27,12 @@ const ALIASES=Object.freeze({"banco":"bancos","cine":"cines","restaurante":"rest
  "convenience":"conveniencia","tienda de conveniencia":"conveniencia"});
 const fold=x=>String(x??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
 export const poiCategories=()=>Object.entries(CATEGORIES).map(([id,v])=>({id,label:v.label}));
+export function poiInfrastructureStatus(){
+ const operator=Boolean(process.env.WAE_OVERPASS_URL?.trim());
+ return {provider:"OpenStreetMap · Overpass",mode:operator?"operator_controlled":"public_shared",
+   fallbackEnabled:process.env.WAE_NEARBY_EXTERNAL_FALLBACK!=="false",cached:true,
+   ...providerCircuitSnapshot("overpass",{configured:process.env.WAE_NEARBY_EXTERNAL_FALLBACK!=="false"})};
+}
 export class PoiError extends Error{constructor(message,status=400,code="poi_invalid"){super(message);this.status=status;this.code=code;}}
 const numeric=(v,min,max)=>v!==null&&v!==undefined&&String(v).trim()!==""&&Number.isFinite(Number(v))&&Number(v)>=min&&Number(v)<=max;
 const clean=x=>String(x??"").replace(/<[^>]*>/g," ").replace(/[\u0000-\u001F\u007F]/g," ").replace(/\s+/g," ").trim();
@@ -61,12 +68,26 @@ export async function searchPOI(input,{transport=fetch}={}){
  if(url.protocol!=="https:"||url.username||url.password||url.hash)
    throw new PoiError("El índice de comercios requiere una URL HTTPS válida.",503,"poi_configuration");
  let response;
- try{response=await transport(url,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded;charset=UTF-8",accept:"application/json",
-   "user-agent":"WAEWEB/1.0 (https://github.com/aleexwae4-lab/Waeweb)"},body:new URLSearchParams({data:spec.ql}).toString(),
-   redirect:"error",signal:AbortSignal.timeout(14000)});}
- catch{throw new PoiError("El índice de comercios no respondió.",502,"poi_source_unavailable");}
- if(response.status===429||response.status===503)throw new PoiError("El índice de comercios está temporalmente ocupado.",503,"poi_provider_busy");
- if(!response.ok)throw new PoiError("El índice de comercios no devolvió resultados.",502,"poi_source_unavailable");
+ const run=async()=>{
+   const result=await transport(url,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded;charset=UTF-8",accept:"application/json",
+     "user-agent":"WAEWEB/1.0 (https://github.com/aleexwae4-lab/Waeweb)"},body:new URLSearchParams({data:spec.ql}).toString(),
+     redirect:"error",signal:AbortSignal.timeout(14000)});
+   if(result.status===429||result.status===503)
+     throw new PoiError("El índice de comercios está temporalmente ocupado.",503,"poi_provider_busy");
+   if(!result.ok)throw new PoiError("El índice de comercios no devolvió resultados.",502,"poi_source_unavailable");
+   return result;
+ };
+ try{
+   response=shared?await guardedProvider("overpass",run,{threshold:2,cooldownMs:60_000,
+     retryable:error=>error instanceof ProviderCircuitOpenError||
+       ["poi_provider_busy","poi_source_unavailable","poi_invalid_response"].includes(error?.code)||
+       /fetch|timeout|abort/i.test(String(error?.message||""))}):await run();
+ }catch(error){
+   if(error instanceof ProviderCircuitOpenError)
+     throw new PoiError("El índice de comercios está temporalmente en recuperación.",503,"poi_circuit_open");
+   if(error instanceof PoiError)throw error;
+   throw new PoiError("El índice de comercios no respondió.",502,"poi_source_unavailable");
+ }
  let raw;try{raw=await response.text();if(raw.length>2000000)throw Error("too_large");raw=JSON.parse(raw);}
  catch{throw new PoiError("Respuesta inválida del índice de comercios.",502,"poi_invalid_response");}
  if(!raw||!Array.isArray(raw.elements))throw new PoiError("Respuesta incompleta del índice de comercios.",502,"poi_invalid_response");

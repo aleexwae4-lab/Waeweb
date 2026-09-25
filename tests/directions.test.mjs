@@ -5,7 +5,7 @@ import {routingCapabilities,planDirections,DirectionsError} from "../server/dire
 import {routeDiagram,durationLabel,distanceLabel} from "../public/directions-core.js";
 import api from "../api/directions.js";
 import capabilityApi from "../api/directions/capabilities.js";
-const keys=["WAE_ROUTING_PROVIDER","WAE_ROUTING_API_KEY","WAE_PREVIEW_MODE","VERCEL_ENV"];
+const keys=["WAE_ROUTING_PROVIDER","WAE_ROUTING_API_KEY","WAE_OSRM_URL","WAE_OSRM_DRIVING_URL","WAE_OSRM_WALKING_URL","WAE_OSRM_CYCLING_URL","WAE_ROUTING_ALLOW_LOCAL","WAE_PREVIEW_MODE","VERCEL_ENV"];
 const save=()=>Object.fromEntries(keys.map(k=>[k,process.env[k]]));
 function restore(s){for(const[k,v]of Object.entries(s))if(v===undefined)delete process.env[k];else process.env[k]=v;}
 const origin="20.676700,-103.347500";
@@ -80,6 +80,41 @@ test("ORS supports walking/cycling without falsely relabelling car routes",async
     await assert.rejects(planDirections({...payload,mode:"teleport"}),e=>e.code==="directions_invalid");
   }finally{globalThis.fetch=before;restore(old);}
 });
+test("self-hosted OSRM is keyless, mode-safe and uses returned road geometry",async()=>{
+  const old=save(),before=globalThis.fetch;
+  try{
+    process.env.WAE_ROUTING_PROVIDER="osrm";
+    process.env.WAE_OSRM_URL="https://osrm.example.test";
+    delete process.env.WAE_ROUTING_API_KEY;
+    const caps=routingCapabilities();
+    assert.equal(caps.enabled,true);assert.equal(caps.provider,"osrm");
+    assert.equal(caps.keyRequired,false);assert.deepEqual(caps.modes,["driving"]);
+    let calls=0;
+    globalThis.fetch=async url=>{
+      calls++;const u=new URL(url);
+      assert.equal(u.origin,"https://osrm.example.test");
+      assert.match(u.pathname,/^\/route\/v1\/driving\/-103\.347500,20\.676700;-103\.340000,20\.680000$/);
+      assert.equal(u.searchParams.get("steps"),"true");
+      assert.equal(u.searchParams.get("geometries"),"geojson");
+      return new Response(JSON.stringify({code:"Ok",routes:[{
+        distance:1523.4,duration:333,
+        geometry:{type:"LineString",coordinates:[[-103.3475,20.6767],[-103.3452,20.6778],[-103.34,20.68]]},
+        legs:[{steps:[
+          {distance:450,duration:112,name:"Calle A",maneuver:{type:"depart"}},
+          {distance:900,duration:180,name:"Calle B",maneuver:{type:"turn",modifier:"right"}},
+          {distance:173.4,duration:41,name:"",maneuver:{type:"arrive"}}
+        ]}]
+      }]}),{status:200});
+    };
+    const route=await planDirections(payload);
+    assert.equal(calls,1);assert.equal(route.source,"OSRM");
+    assert.equal(route.distanceMeters,1523.4);assert.equal(route.steps.length,3);
+    assert.match(route.steps[1].instruction,/derecha/);
+    assert.deepEqual(route.geometry,[[-103.3475,20.6767],[-103.3452,20.6778],[-103.34,20.68]]);
+    await assert.rejects(planDirections({...payload,mode:"walking"}),e=>e.code==="routing_mode_unavailable");
+  }finally{globalThis.fetch=before;restore(old);}
+});
+
 test("bad route geometry, no steps and quota fail without generated directions",async()=>{
   const old=save(),before=globalThis.fetch;try{
     process.env.WAE_ROUTING_PROVIDER="ors";
