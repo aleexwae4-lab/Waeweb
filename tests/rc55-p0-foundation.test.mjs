@@ -56,5 +56,15 @@ test("RC55 translator never claims an upstream is connected before a real transl
   const translator=await publicFile("translator.js");
   assert.match(translator,/Traductor WAEWEB · motor automático/);
   assert.match(translator,/Proveedor externo/);
+  assert.match(translator,/se comprobará al traducir/);
   assert.doesNotMatch(translator,/dispositivo o servicio conectado/);
+  assert.doesNotMatch(translator,/servicio .*conectado\.|listo para traducir\./);
+});
+
+test("RC55 keeps commercial account and Marketplace actions hidden until capabilities enable them",async()=>{
+  const [html,app]=await Promise.all([publicFile("index.html"),publicFile("app.js")]);
+  assert.match(html,/id="marketplace-button"[^>]*hidden/);
+  assert.match(html,/id="account-button"[^>]*hidden/);
+  assert.match(app,/accountButton\.hidden=info\.accountsEnabled!==true/);
+  assert.match(app,/marketplaceButton\.hidden=info\.marketplaceEnabled!==true/);
 });
