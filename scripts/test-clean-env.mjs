@@ -1,4 +1,6 @@
 import {spawnSync} from "node:child_process";
+import {readdirSync} from "node:fs";
+import {fileURLToPath} from "node:url";
 
 // Render injects production runtime variables into the build process. The test
 // suite must start from a neutral environment so tests do not accidentally use
@@ -16,7 +18,13 @@ for(const key of Object.keys(env)){
 }
 env.NODE_ENV="test";
 
-const result=spawnSync(process.execPath,["--test"],{
+const testsDir=new URL("../tests/",import.meta.url);
+const testFiles=readdirSync(testsDir)
+  .filter(name=>name.endsWith(".test.mjs"))
+  .sort()
+  .map(name=>fileURLToPath(new URL(name,testsDir)));
+
+const result=spawnSync(process.execPath,["--test",...testFiles],{
   env,
   stdio:"inherit"
 });

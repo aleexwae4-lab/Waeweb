@@ -75,6 +75,19 @@ test("Render production is never mislabeled preview while private APIs remain is
   }finally{await close(server);restore(old);}
 });
 
+test("release HOLD protects hosted deployments without turning local test servers into preview",async()=>{
+  const old=saved();
+  for(const key of ["VERCEL_ENV","VERCEL","WAE_PREVIEW_MODE","RENDER","RENDER_SERVICE_ID","RENDER_GIT_COMMIT"])delete process.env[key];
+  const {server,base}=await serverFor(handler);
+  try{
+    const health=await(await fetch(base+"/api/health")).json();
+    assert.equal(health.previewMode,false);
+    assert.equal(health.publicMode,"full");
+    assert.equal(health.releaseGate,"HOLD");
+    assert.equal((await fetch(base+"/api/does-not-exist")).status,404);
+  }finally{await close(server);restore(old);}
+});
+
 test("Vercel named API functions, assets and outputs are shipped in one repo",async()=>{
   const vercel=JSON.parse(await readFile(new URL("../vercel.json",import.meta.url),"utf8"));
   assert.equal(vercel.outputDirectory,"public");

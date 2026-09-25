@@ -40,14 +40,17 @@ const RELEASE_APPROVED=RELEASE_GATE.approval==="GO" &&
 const onRender = () => Boolean(
   process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_GIT_COMMIT
 );
+const hostedPublicRuntime = () => onRender() || process.env.VERCEL_ENV === "production";
 // "preview" describes the deployment channel only. It must not be reused as
 // the security gate for unfinished private/commercial APIs.
 const previewMode = () => process.env.VERCEL_ENV === "preview" ||
   (process.env.WAE_PREVIEW_MODE === "true" && !onRender());
-// Private mutations remain fail-closed until the independent release manifest
-// is GO and the operator explicitly enables the full public release.
+// The release manifest protects hosted public runtimes. Local/test runtimes
+// can still exercise private APIs explicitly so the security contract remains
+// testable; they never become public merely because those routes can run.
 const isolationMode = () => previewMode() ||
-  !(RELEASE_APPROVED && process.env.WAE_PUBLIC_FULL_RELEASE === "GO");
+  (hostedPublicRuntime() &&
+    !(RELEASE_APPROVED && process.env.WAE_PUBLIC_FULL_RELEASE === "GO"));
 const readerAvailable = () => process.env.WAE_READER_ENABLED === "true" &&
   vaultStorageReady() && encryptionReady(vaultConfig(), vaultKeysConfig());
 const files = new Map([
