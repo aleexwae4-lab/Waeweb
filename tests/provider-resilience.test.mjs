@@ -26,14 +26,14 @@ test("provider resilience opens a bounded circuit and reports sanitized passive 
 test("SearXNG uses the shared circuit without exposing the operator URL",async()=>{
   const old=process.env.WAE_SEARXNG_URL,fetchOld=globalThis.fetch;
   resetProviderResilience("searxng");
-  process.env.WAE_SEARXNG_URL="https://search.example.test";
+  process.env.WAE_SEARXNG_URL="https://search.example.org";
   let calls=0;
   globalThis.fetch=async()=>{calls++;return new Response("busy",{status:503});};
   try{
     const before=searxngInfrastructureStatus();
     assert.equal(before.configured,true);
     assert.equal(before.mode,"operator_controlled");
-    assert.equal(JSON.stringify(before).includes("search.example.test"),false);
+    assert.equal(JSON.stringify(before).includes("search.example.org"),false);
     await assert.rejects(searxngWeb("wae"));
     await assert.rejects(searxngWeb("wae"));
     assert.equal(searxngInfrastructureStatus().state,"circuit_open");
