@@ -1,6 +1,7 @@
 // Complementary, source-attributed discovery for WAE WEB. These catalogs are
 // not substitutes for a general Internet index.
 import {isIP} from "node:net";
+import {guardedProvider,providerCircuitSnapshot,ProviderCircuitOpenError} from "./provider-resilience.mjs";
 const MAX_BYTES=1100000;
 const HEADERS={accept:"application/json","user-agent":"WAE-Web/1.0 (+https://github.com/aleexwae4-lab/Waeweb)"};
 const text=value=>String(value??"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim().slice(0,850);
@@ -34,13 +35,35 @@ export function searxngConfig(){
     return u.origin+u.pathname.replace(/\/+$/,"");
   }catch{return null;}
 }
+export function searxngInfrastructureStatus(){
+  const configured=Boolean(searxngConfig());
+  return {provider:"SearXNG",configured,mode:configured?"operator_controlled":"not_configured",
+    ...providerCircuitSnapshot("searxng",{configured})};
+}
+async function searxngJson(url){
+  try{
+    return await guardedProvider("searxng",()=>loadJson(url),{
+      threshold:2,cooldownMs:60_000,
+      retryable:error=>error?.code==="provider_circuit_open"||
+        /(?:status_4(?:08|29)|status_5\d\d|too_large|invalid_response|fetch|timeout|abort|discovery)/i.test(String(error?.message||error?.code||""))
+    });
+  }catch(error){
+    if(error instanceof ProviderCircuitOpenError){
+      const wrapped=Error("searxng_circuit_open");
+      wrapped.code="searxng_circuit_open";
+      wrapped.retryAfterSeconds=error.retryAfterSeconds;
+      throw wrapped;
+    }
+    throw error;
+  }
+}
 export async function searxngWeb(query,page=1){
   const configured=searxngConfig();
   if(!configured)return null;
   const url=new URL(configured+"/search");
   url.search=new URLSearchParams({q:query,format:"json",
     categories:"general",language:"es",safesearch:"1",pageno:String(page)}).toString();
-  const data=await loadJson(url);
+  const data=await searxngJson(url);
   if(!Array.isArray(data.results))throw Error("searxng_invalid_response");
   const items=data.results.slice(0,30).flatMap(item=>{
     const link=safeUrl(item.url),title=decodeWebText(item.title).slice(0,240);
@@ -61,7 +84,7 @@ export async function searxngImages(query){
   const url=new URL(configured+"/search");
   url.search=new URLSearchParams({q:query,format:"json",
     categories:"images",language:"es",safesearch:"1",pageno:"1"}).toString();
-  const data=await loadJson(url);
+  const data=await searxngJson(url);
   if(!Array.isArray(data.results))throw Error("searxng_images_invalid_response");
   return data.results.slice(0,35).flatMap(item=>{
     const link=safeUrl(item.url);
