@@ -122,7 +122,14 @@ async function nominatim(query,{transport=fetch,bias=null}={}){
       const slot=Math.max(Date.now(),nextPublicSlot);nextPublicSlot=slot+1100;
       if(slot>Date.now())await new Promise(resolve=>setTimeout(resolve,slot-Date.now()));
     }
-    const run=()=>transport(endpoint,{headers:HEADERS,signal:AbortSignal.timeout(7000),redirect:"error"});
+    const run=async()=>{
+      const result=await transport(endpoint,{headers:HEADERS,signal:AbortSignal.timeout(7000),redirect:"error"});
+      if(result.status===429)throw new MapsError(
+        "El índice geográfico está limitando solicitudes. Intenta nuevamente en unos segundos.",429,"map_rate_limited");
+      if(!result.ok)throw new MapsError(
+        "El índice geográfico no respondió correctamente.",502,"map_source_unavailable");
+      return result;
+    };
     response=transport===globalThis.fetch
       ?await guardedProvider("nominatim",run,{threshold:2,cooldownMs:45_000,
         retryable:error=>error instanceof ProviderCircuitOpenError||
@@ -134,9 +141,6 @@ async function nominatim(query,{transport=fetch,bias=null}={}){
       throw new MapsError("El índice geográfico está temporalmente en recuperación. Intenta nuevamente en unos segundos.",503,"map_circuit_open");
     throw new MapsError("No se pudo consultar el índice geográfico de OpenStreetMap.",502,"map_source_unavailable");
   }
-  if(response.status===429)throw new MapsError(
-    "El índice geográfico está limitando solicitudes. Intenta nuevamente en unos segundos.",429,"map_rate_limited");
-  if(!response.ok)throw new MapsError("El índice geográfico no respondió correctamente.",502,"map_source_unavailable");
   const raw=await response.text();
   if(raw.length>900000)throw new MapsError("Respuesta geográfica demasiado grande.",502,"map_invalid_response");
   let data;
