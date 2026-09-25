@@ -8,7 +8,7 @@ import {directorySites,earlyWikidataSiteEligible,wikidataOfficialSites} from "./
 import {enrichIndexedPage,webIndexStats} from "./web-index.mjs";
 import {previewWebHit,registerWebHits} from "./web-preview.mjs";
 import {wikipediaIntroduction,EncyclopediaError} from "./encyclopedia.mjs";
-import {searxngConfig,searxngInfrastructureStatus} from "./web-providers.mjs";
+import {searxngConfig,searxngInfrastructureStatus,searxngWeb} from "./web-providers.mjs";
 import { findPlaces, mapCoordinates, MapsError, mapsInfrastructureStatus } from "./maps.mjs";
 import {searchPOI,searchLocalPlaces,poiCategories,PoiError,poiInfrastructureStatus} from "./poi.mjs";
 import {nativePoiStatus} from "./native-poi.mjs";
@@ -690,8 +690,24 @@ export async function handler(req, res) {
     res.end(req.method === "HEAD" ? undefined : bytes);
   } catch { write(res, 500, { error: "Recurso no disponible." }); }
 }
+async function verifySearchCoreLink(){
+  if(!searxngConfig())return;
+  try{
+    const hits=await searxngWeb("waeweb");
+    console.log("WAE_SEARCH_LINK_READY provider=searxng results="+
+      (Array.isArray(hits)?hits.length:0));
+  }catch(error){
+    const code=String(error?.code||error?.message||"provider_unavailable")
+      .toLowerCase().replace(/[^a-z0-9_-]/g,"_").slice(0,80);
+    console.warn("WAE_SEARCH_LINK_DEGRADED provider=searxng code="+code);
+  }
+}
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 3000);
   http.createServer((req, res) => { handler(req, res).catch(() => write(res, 500, { error: "Error interno." })); })
-    .listen(port, "0.0.0.0", () => console.log("WAE WEB listening on " + port));
+    .listen(port, "0.0.0.0", () => {
+      console.log("WAE WEB listening on " + port);
+      const smoke=setTimeout(()=>void verifySearchCoreLink(),1000);
+      smoke.unref?.();
+    });
 }
