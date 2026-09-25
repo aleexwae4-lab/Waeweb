@@ -139,6 +139,7 @@ async function nominatim(query,{transport=fetch,bias=null}={}){
   }catch(error){
     if(error instanceof ProviderCircuitOpenError)
       throw new MapsError("El índice geográfico está temporalmente en recuperación. Intenta nuevamente en unos segundos.",503,"map_circuit_open");
+    if(error instanceof MapsError)throw error;
     throw new MapsError("No se pudo consultar el índice geográfico de OpenStreetMap.",502,"map_source_unavailable");
   }
   const raw=await response.text();
