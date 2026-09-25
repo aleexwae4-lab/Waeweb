@@ -2569,6 +2569,10 @@ async function loadReaderCapability() {
     const info = await getJSON("/api/capabilities");
      readerEnabled = info.readerEnabled === true;
     businessSearchEnabled = info.publicBusinessProfiles === true;
+    const accountButton=byId("account-button");
+    const marketplaceButton=byId("marketplace-button");
+    if(accountButton)accountButton.hidden=info.accountsEnabled!==true;
+    if(marketplaceButton)marketplaceButton.hidden=info.marketplaceEnabled!==true;
     for(const [type,available] of [["index",readerEnabled],["businesses",businessSearchEnabled]]){
       const tab=document.querySelector('[data-type="'+type+'"]');
       if(tab){tab.hidden=!available;tab.disabled=!available;}
@@ -2578,6 +2582,10 @@ async function loadReaderCapability() {
   } catch {
     readerEnabled = false;
     readerPanel.hidden = true;
+    const accountButton=byId("account-button");
+    const marketplaceButton=byId("marketplace-button");
+    if(accountButton)accountButton.hidden=true;
+    if(marketplaceButton)marketplaceButton.hidden=true;
   }
 }
 loadReaderCapability();

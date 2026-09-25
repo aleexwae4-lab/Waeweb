@@ -37,10 +37,17 @@ const RELEASE_APPROVED=RELEASE_GATE.approval==="GO" &&
 // domain operates only the same public, isolated routes as a preview. This
 // prevents a Git promotion from exposing unfinished accounts, billing, vaults
 // and cross-system connectors through production environment credentials.
-const previewMode = () => process.env.WAE_PREVIEW_MODE === "true" ||
-  process.env.VERCEL_ENV === "preview" ||
-  (process.env.VERCEL_ENV === "production" &&
-    !(RELEASE_APPROVED && process.env.WAE_PUBLIC_FULL_RELEASE === "GO"));
+const onRender = () => Boolean(
+  process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_GIT_COMMIT
+);
+// "preview" describes the deployment channel only. It must not be reused as
+// the security gate for unfinished private/commercial APIs.
+const previewMode = () => process.env.VERCEL_ENV === "preview" ||
+  (process.env.WAE_PREVIEW_MODE === "true" && !onRender());
+// Private mutations remain fail-closed until the independent release manifest
+// is GO and the operator explicitly enables the full public release.
+const isolationMode = () => previewMode() ||
+  !(RELEASE_APPROVED && process.env.WAE_PUBLIC_FULL_RELEASE === "GO");
 const readerAvailable = () => process.env.WAE_READER_ENABLED === "true" &&
   vaultStorageReady() && encryptionReady(vaultConfig(), vaultKeysConfig());
 const files = new Map([
@@ -186,7 +193,7 @@ export async function handler(req, res) {
   // private data reads, mutations, signups, checkout or integration gateway.
   // VERCEL_ENV=preview is supplied by Vercel; WAE_PREVIEW_MODE=true permits
   // identical local tests. This check precedes ALL API handlers.
-  if (previewMode() && u.pathname.startsWith("/api/") &&
+  if (isolationMode() && u.pathname.startsWith("/api/") &&
       (!(["GET","HEAD"].includes(req.method) ||
            (req.method==="POST" && ["/api/translate","/api/directions"].includes(u.pathname))) ||
         !([ "/api/translate","/api/directions" ].includes(u.pathname) ||
@@ -195,16 +202,17 @@ export async function handler(req, res) {
            "/api/web-index/read","/api/web/preview",
            "/api/encyclopedia/summary",
            "/api/translate/capabilities","/api/directions/capabilities"].includes(u.pathname))))
-    return write(res,503,{error:"Vista previa: cuentas, pagos y APIs privadas desactivados.",
-      previewMode:true});
-  if (previewMode() && u.pathname==="/api/marketplace")
+    return write(res,503,{error:"Release protegido: cuentas, pagos y APIs privadas desactivados.",
+      previewMode:previewMode(),isolatedMode:true,releaseGate:RELEASE_APPROVED?"GO":"HOLD"});
+  if (isolationMode() && u.pathname==="/api/marketplace")
     return write(res,200,{items:[],total:0,hasMore:false,
-      previewMode:true,note:"Catálogo vacío de vista previa; no se utilizan datos reales."});
+      previewMode:previewMode(),isolatedMode:true,releaseGate:RELEASE_APPROVED?"GO":"HOLD",
+      note:"Marketplace oculto hasta completar persistencia, identidad y publicación comercial."});
   if (u.pathname === "/api/health" || u.pathname === "/api/capabilities") {
     if (!["GET", "HEAD"].includes(req.method)) return write(res, 405, { error: "Método no permitido." }, { allow: "GET, HEAD" });
   }
   if (u.pathname === "/api/health") return write(res, 200, { status: "ok", product: "WAE WEB", version: VERSION, previewMode:previewMode(),
-    publicMode:previewMode() ? "isolated" : "full", 
+    publicMode:isolationMode() ? "isolated" : "full", releaseGate:RELEASE_APPROVED?"GO":"HOLD",
     revision: (process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA)?.slice(0,12) || null });
   if (u.pathname === "/api/capabilities") return write(res, 200, {
     providers: ["Wikipedia", "Crossref", "OpenAlex", "Open Library", "Wikimedia Commons", "Wikidata", "Europe PMC", "Library of Congress", "DataCite", "Hacker News linked articles", "GDELT", "Google News RSS", "BBC Mundo RSS", "El País RSS", "Open-Meteo", "OpenStreetMap Nominatim", "OpenStreetMap Overpass"],
@@ -244,21 +252,23 @@ export async function handler(req, res) {
     streetMapLayer: "openstreetmap_user_initiated_visible_tiles",
     researchBrief: "extractive", queryOperators: ["site:", "after:", "before:", "source:", "-term", "\"phrase\""],
     localResearchLibrary: true,
-    readerEnabled: !previewMode() && readerAvailable(),
+    readerEnabled: !isolationMode() && readerAvailable(),
     vaultRequired: true,
-    indexPersistence: previewMode() || !readerAvailable() ? "disabled" :
+    indexPersistence: isolationMode() || !readerAvailable() ? "disabled" :
       process.env.WAE_VAULT_STORE === "postgres" ?
         "encrypted_postgres_per_vault" : "encrypted_local_disk_per_vault",
     encryption: "AES-256-GCM",
-    accountsEnabled: !previewMode() && accountsEnabled(),
-    promotionsEnabled: !previewMode() && Boolean(billingConfig()) && accountsEnabled(),
-    businessRegistration: !previewMode() && accountsEnabled() ? "owner_controlled_self_declared" : "disabled",
-    publicBusinessProfiles: !previewMode() && accountsEnabled(),
-    marketplaceEnabled: !previewMode() && accountsEnabled(),
-    marketplaceObjectMedia: !previewMode() && Boolean(mediaConfig()) && process.env.WAE_ACCOUNTS_STORE === "postgres" && accountsEnabled(),
-    connectApi: !previewMode() && Boolean(connectConfig()),
+    accountsEnabled: !isolationMode() && accountsEnabled(),
+    promotionsEnabled: !isolationMode() && Boolean(billingConfig()) && accountsEnabled(),
+    businessRegistration: !isolationMode() && accountsEnabled() ? "owner_controlled_self_declared" : "disabled",
+    publicBusinessProfiles: !isolationMode() && accountsEnabled(),
+    marketplaceEnabled: !isolationMode() && accountsEnabled(),
+    marketplaceObjectMedia: !isolationMode() && Boolean(mediaConfig()) && process.env.WAE_ACCOUNTS_STORE === "postgres" && accountsEnabled(),
+    connectApi: !isolationMode() && Boolean(connectConfig()),
     previewMode:previewMode(),
-    deploymentConnected: false
+    isolatedMode:isolationMode(),
+    releaseGate:RELEASE_APPROVED?"GO":"HOLD",
+    deploymentConnected: onRender()
   });
   if (u.pathname==="/api/directions/capabilities") {
     if(!["GET","HEAD"].includes(req.method))return write(res,405,{error:"Método no permitido."},{allow:"GET, HEAD"});

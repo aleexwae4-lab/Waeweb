@@ -151,11 +151,14 @@ export function createTranslator({getJSON,resultsContainer,stats,sourceFilter,an
         languageOptions(info.languages?.length?info.languages:fallbackLanguages,info.autoDetect===true);
         translate.disabled=false;
         if(visible)status.textContent=info.quotaLimited?
-          "El servicio externo alcanzó su cuota; prueba el motor local si está disponible. "+
+          "El proveedor externo alcanzó su cuota; prueba el motor local si está disponible. "+
           "El acceso se podrá reintentar después.":localAvailable()?
-          "Traducción local opcional · servicio "+(info.available?"conectado.":"sin configurar."):
-          info.available?labelProvider(info)+" listo para traducir.":
-            "Servicio no configurado. Puedes volver a comprobar la conexión.";
+          (info.available?
+            "Motor local disponible · proveedor externo configurado; se comprobará al traducir.":
+            "Motor local disponible · proveedor externo no configurado."):
+          info.available?
+            labelProvider(info)+" configurado; se comprobará al traducir.":
+            "Proveedor externo no configurado. Puedes volver a comprobar la configuración.";
       }catch{
         config=null;
         translate.disabled=false;

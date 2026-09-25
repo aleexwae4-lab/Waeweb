@@ -7,7 +7,7 @@ import health from "../api/health.js";
 import caps from "../api/capabilities.js";
 import maps from "../api/maps.js";
 
-const keys=["VERCEL_ENV","VERCEL","WAE_PREVIEW_MODE","WAE_PUBLIC_FULL_RELEASE","WAE_ACCOUNTS_ENABLED","WAE_READER_ENABLED","VERCEL_GIT_COMMIT_SHA"];
+const keys=["VERCEL_ENV","VERCEL","WAE_PREVIEW_MODE","WAE_PUBLIC_FULL_RELEASE","WAE_ACCOUNTS_ENABLED","WAE_READER_ENABLED","VERCEL_GIT_COMMIT_SHA","RENDER","RENDER_SERVICE_ID","RENDER_GIT_COMMIT"];
 const saved=()=>Object.fromEntries(keys.map(k=>[k,process.env[k]]));
 function restore(before){for(const [k,v]of Object.entries(before)){if(v===undefined)delete process.env[k];else process.env[k]=v;}}
 async function serverFor(fn){const server=http.createServer((req,res)=>Promise.resolve(fn(req,res)).catch(e=>{res.writeHead(500);res.end(e.message);}));await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));return {server,base:"http://127.0.0.1:"+server.address().port};}
@@ -24,9 +24,11 @@ test("Vercel production is isolated by default, even if account / reader env var
     assert.equal(health.status,200);
     assert.equal(health.headers.get("x-waeweb-api"),"1");
     assert.deepEqual(await health.json(),{status:"ok",product:"WAE WEB",
-      version:"1.0.0-rc.55",previewMode:true,publicMode:"isolated",revision:"0123456789ab"});
+      version:"1.0.0-rc.55",previewMode:false,publicMode:"isolated",releaseGate:"HOLD",revision:"0123456789ab"});
     const c=await(await fetch(base+"/api/capabilities")).json();
-    assert.equal(c.previewMode,true);
+    assert.equal(c.previewMode,false);
+    assert.equal(c.isolatedMode,true);
+    assert.equal(c.releaseGate,"HOLD");
     assert.equal(c.readerEnabled,false);
     assert.equal(c.accountsEnabled,false);
     assert.equal(c.promotionsEnabled,false);
@@ -47,10 +49,32 @@ test("even a production GO environment flag cannot bypass the independent HOLD m
   const {server,base}=await serverFor(handler);
   try{
     const health=await(await fetch(base+"/api/health")).json();
-    assert.equal(health.previewMode,true);
+    assert.equal(health.previewMode,false);
     assert.equal(health.publicMode,"isolated");
+    assert.equal(health.releaseGate,"HOLD");
   }finally{await close(server);restore(old);}
 });
+test("Render production is never mislabeled preview while private APIs remain isolated on HOLD",async()=>{
+  const old=saved();
+  process.env.RENDER="true";process.env.RENDER_SERVICE_ID="srv-test";
+  process.env.RENDER_GIT_COMMIT="abcdef0123456789";process.env.WAE_PREVIEW_MODE="true";
+  process.env.WAE_ACCOUNTS_ENABLED="true";delete process.env.VERCEL_ENV;
+  const {server,base}=await serverFor(handler);
+  try{
+    const health=await(await fetch(base+"/api/health")).json();
+    assert.equal(health.previewMode,false);
+    assert.equal(health.publicMode,"isolated");
+    assert.equal(health.releaseGate,"HOLD");
+    assert.equal(health.revision,"abcdef012345");
+    const capabilities=await(await fetch(base+"/api/capabilities")).json();
+    assert.equal(capabilities.previewMode,false);
+    assert.equal(capabilities.isolatedMode,true);
+    assert.equal(capabilities.deploymentConnected,true);
+    assert.equal(capabilities.accountsEnabled,false);
+    assert.equal((await fetch(base+"/api/account/register",{method:"POST"})).status,503);
+  }finally{await close(server);restore(old);}
+});
+
 test("Vercel named API functions, assets and outputs are shipped in one repo",async()=>{
   const vercel=JSON.parse(await readFile(new URL("../vercel.json",import.meta.url),"utf8"));
   assert.equal(vercel.outputDirectory,"public");
